@@ -55,8 +55,8 @@ function Profile() {
         setProfileLoading(true);
         setProfileError("");
 
-        const API_URL =
-          `http://${window.location.hostname}:5000`;
+       const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000";
 
         const token =
           localStorage.getItem("token");
@@ -241,8 +241,8 @@ function Profile() {
 
         if (!token) return;
 
-        const API_URL =
-          `http://${window.location.hostname}:5000`;
+       const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000";
 
         const response = await fetch(
           `${API_URL}/api/follow/status/${encodeURIComponent(
@@ -314,8 +314,8 @@ useEffect(() => {
 
       if (!token) return;
 
-      const API_URL =
-        `http://${window.location.hostname}:5000`;
+    const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000";
 
       const notesUrl = isOwnProfile
         ? `${API_URL}/api/notes`
@@ -638,8 +638,8 @@ const addNote = async () => {
       return;
     }
 
-    const API_URL =
-      `http://${window.location.hostname}:5000`;
+   const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000";
 
     const response = await fetch(
       `${API_URL}/api/notes`,
@@ -728,9 +728,8 @@ const addNote = async () => {
         return;
       }
 
-
-      const API_URL =
-        `http://${window.location.hostname}:5000`;
+const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 
       const updatedName =
@@ -1264,7 +1263,8 @@ const handleFollow = async () => {
       return;
     }
 
-    const API_URL = `http://${window.location.hostname}:5000`;
+   const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000";
 
     // ⚡ Change button immediately
     setFollowed(!oldFollowed);
@@ -1372,7 +1372,7 @@ const handleFollow = async () => {
         localStorage.getItem("token");
 
       const API_URL =
-        `http://${window.location.hostname}:5000`;
+  import.meta.env.VITE_API_URL || "http://localhost:5000";
 
       const response = await fetch(
         `${API_URL}/api/profile/${encodeURIComponent(

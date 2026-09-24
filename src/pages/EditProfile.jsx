@@ -21,7 +21,8 @@ function EditProfile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const API_URL = `http://${window.location.hostname}:5000`;
+  const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000";
 
   // =====================================================
   // LOAD CURRENT PROFILE

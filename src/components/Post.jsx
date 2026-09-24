@@ -131,8 +131,8 @@ function Post({ post }) {
           return;
         }
 
-        const API_URL =
-          `http://${window.location.hostname}:5000`;
+       const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000";
 
         const response = await fetch(
           `${API_URL}/api/posts/${post.id}/impression`,
@@ -340,8 +340,8 @@ function Post({ post }) {
         return;
       }
 
-      const API_URL =
-        `http://${window.location.hostname}:5000`;
+    const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000";
 
       /* ==========================================
          REMOVE IMPRESSION

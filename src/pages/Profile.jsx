@@ -6,6 +6,8 @@ import {
 
 import "./Profile.css";
 import BadgeAnimation from "../components/BadgeAnimation";
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 
 function Profile() {
@@ -578,28 +580,17 @@ if (badges >= 15) {
             firstMedia?.src;
 
 
-      if (image?.startsWith("/")) {
-
-        image =
-          `http://${window.location.hostname}:5000${image}`;
-
-      }
+    if (image?.startsWith("/")) {
+  image = `${API_BASE_URL}${image}`;
+}
 
 
-      if (
-        image?.startsWith(
-          "http://localhost:5000"
-        )
-      ) {
-
-        image =
-          image.replace(
-            "http://localhost:5000",
-            `http://${window.location.hostname}:5000`
-          );
-
-      }
-
+     if (image?.startsWith("http://localhost:5000")) {
+  image = image.replace(
+    "http://localhost:5000",
+    API_BASE_URL
+  );
+}
 
       return {
         id: post._id,

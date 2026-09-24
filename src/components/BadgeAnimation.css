@@ -1,0 +1,614 @@
+/* =========================================================
+   IMPRESSA BADGE
+   V1 — SPARK STYLE
+========================================================= */
+
+.impressa-badge {
+  position: relative;
+
+  display: inline-flex;
+
+  align-items: center;
+
+  width: max-content;
+
+  max-width: 100%;
+
+  height: 22px;
+
+  margin-left: 8px;
+
+  padding: 0 4px;
+
+  box-sizing: border-box;
+
+  color: #f6a623;
+
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+
+  font-size: 12px;
+
+  font-weight: 700;
+
+  line-height: 1;
+
+  white-space: nowrap;
+
+  vertical-align: middle;
+}
+
+
+/* =========================================================
+   BADGE NAME
+========================================================= */
+
+.badge-name {
+  position: relative;
+
+  z-index: 5;
+
+  display: block;
+
+  color: #f5a623;
+
+  text-shadow:
+    0 0 5px rgba(255, 150, 0, 0.25),
+
+    0 0 12px rgba(255, 106, 0, 0.12);
+}
+
+
+/* =========================================================
+   FIRE BASE
+========================================================= */
+
+.badge-fire {
+  position: absolute;
+
+  left: 0;
+
+  bottom: 0;
+
+  width: 100%;
+
+  height: 8px;
+
+  pointer-events: none;
+
+  overflow: visible;
+}
+
+
+/* Main glowing fire line */
+
+.fire-core {
+  position: absolute;
+
+  left: 0;
+
+  bottom: 1px;
+
+  width: 100%;
+
+  height: 2px;
+
+  border-radius: 100%;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      #e85d04 12%,
+      #ff8a00 35%,
+      #ffd166 52%,
+      #ff7300 70%,
+      #e85d04 88%,
+      transparent 100%
+    );
+
+  filter:
+    drop-shadow(
+      0 0 3px
+      rgba(255, 106, 0, 0.75)
+    );
+}
+
+
+/* =========================================================
+   FLAME PIECES
+========================================================= */
+
+.fire-flame {
+  position: absolute;
+
+  bottom: 0;
+
+  width: 22px;
+
+  height: 5px;
+
+  border-bottom:
+    2px solid #ff7300;
+
+  border-radius:
+    0 0 80% 80%;
+
+  transform-origin: bottom center;
+
+  opacity: 0;
+}
+
+
+/* =========================================================
+   STARTER
+========================================================= */
+
+.starter .fire-flame {
+  opacity: 0.35;
+}
+
+
+/* =========================================================
+   RISER
+========================================================= */
+
+.riser .fire-flame {
+  opacity: 0.65;
+}
+
+
+/* =========================================================
+   ELITE
+========================================================= */
+
+.elite .fire-flame {
+  opacity: 0.85;
+}
+
+
+/* =========================================================
+   ICON
+========================================================= */
+
+.icon .fire-flame {
+  opacity: 0.9;
+}
+
+
+/* =========================================================
+   LEGEND
+========================================================= */
+
+.legend .fire-flame {
+  opacity: 1;
+}
+
+
+/* Flame positions */
+
+.flame-one {
+  left: 18%;
+
+  transform:
+    rotate(-7deg)
+    scaleY(1.2);
+}
+
+.flame-two {
+  left: 48%;
+
+  transform:
+    rotate(5deg)
+    scaleY(1.5);
+}
+
+.flame-three {
+  right: 8%;
+
+  transform:
+    rotate(-6deg)
+    scaleY(1.15);
+}
+
+
+/* =========================================================
+   SPARKS
+========================================================= */
+
+.badge-sparks {
+  position: absolute;
+
+  inset: 0;
+
+  pointer-events: none;
+
+  z-index: 6;
+}
+
+
+.spark {
+  position: absolute;
+
+  color: #ff9d24;
+
+  font-size: 6px;
+
+  opacity: 0;
+}
+
+
+/* positions */
+
+.spark-one {
+  left: 18%;
+
+  bottom: 4px;
+}
+
+.spark-two {
+  left: 42%;
+
+  bottom: 7px;
+}
+
+.spark-three {
+  right: 22%;
+
+  bottom: 3px;
+}
+
+.spark-four {
+  right: 8%;
+
+  bottom: 6px;
+}
+
+
+/* =========================================================
+   OPEN PROFILE ANIMATION
+========================================================= */
+
+.badge-animate .badge-name {
+  animation:
+    badgeTextReveal
+    0.85s
+    cubic-bezier(.22, .8, .25, 1)
+    both;
+}
+
+
+.badge-animate .badge-fire {
+  animation:
+    fireReveal
+    1s
+    ease-out
+    both;
+}
+
+
+.badge-animate .spark-one {
+  animation:
+    sparkOne
+    0.9s
+    ease-out
+    both;
+}
+
+
+.badge-animate .spark-two {
+  animation:
+    sparkTwo
+    1s
+    ease-out
+    both;
+}
+
+
+.badge-animate .spark-three {
+  animation:
+    sparkThree
+    0.95s
+    ease-out
+    both;
+}
+
+
+.badge-animate .spark-four {
+  animation:
+    sparkFour
+    0.8s
+    ease-out
+    both;
+}
+
+
+/* =========================================================
+   TEXT REVEAL
+========================================================= */
+
+@keyframes badgeTextReveal {
+
+  0% {
+    opacity: 0;
+
+    transform:
+      translateX(-8px);
+
+    filter:
+      blur(4px);
+  }
+
+  45% {
+    opacity: 1;
+
+    filter:
+      blur(0);
+
+    text-shadow:
+      0 0 12px
+      rgba(255, 157, 36, 0.85);
+  }
+
+  100% {
+    opacity: 1;
+
+    transform:
+      translateX(0);
+
+    filter:
+      blur(0);
+
+    text-shadow:
+      0 0 5px
+      rgba(255, 150, 0, 0.25);
+  }
+}
+
+
+/* =========================================================
+   FIRE REVEAL
+========================================================= */
+
+@keyframes fireReveal {
+
+  0% {
+    opacity: 0;
+
+    transform:
+      scaleX(0);
+
+    transform-origin: left center;
+  }
+
+  35% {
+    opacity: 1;
+  }
+
+  75% {
+    transform:
+      scaleX(1.08);
+  }
+
+  100% {
+    opacity: 0.95;
+
+    transform:
+      scaleX(1);
+  }
+}
+
+
+/* =========================================================
+   SPARK ANIMATIONS
+========================================================= */
+
+@keyframes sparkOne {
+
+  0% {
+    opacity: 0;
+
+    transform:
+      translate(0, 0)
+      scale(.4);
+  }
+
+  40% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+
+    transform:
+      translate(-3px, -10px)
+      scale(1);
+  }
+}
+
+
+@keyframes sparkTwo {
+
+  0% {
+    opacity: 0;
+
+    transform:
+      translate(0, 0);
+  }
+
+  40% {
+    opacity: .9;
+  }
+
+  100% {
+    opacity: 0;
+
+    transform:
+      translate(2px, -8px);
+  }
+}
+
+
+@keyframes sparkThree {
+
+  0% {
+    opacity: 0;
+
+    transform:
+      translate(0, 0)
+      scale(.4);
+  }
+
+  40% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+
+    transform:
+      translate(4px, -11px)
+      scale(1);
+  }
+}
+
+
+@keyframes sparkFour {
+
+  0% {
+    opacity: 0;
+  }
+
+  35% {
+    opacity: .8;
+  }
+
+  100% {
+    opacity: 0;
+
+    transform:
+      translate(3px, -7px);
+  }
+}
+
+
+/* =========================================================
+   BADGE LEVEL DIFFERENCES
+========================================================= */
+
+/* STARTER */
+
+.starter .badge-name {
+  color: #e8a22b;
+}
+
+
+/* RISER */
+
+.riser .badge-name {
+  color: #f0a72d;
+}
+
+
+/* ELITE */
+
+.elite .badge-name {
+  color: #ffad24;
+
+  text-shadow:
+    0 0 6px
+    rgba(255, 166, 0, .3);
+}
+
+
+/* ICON */
+
+.icon .badge-name {
+  color: #f5b52e;
+
+  text-shadow:
+    0 0 7px
+    rgba(255, 180, 40, .32);
+}
+
+
+/* LEGEND */
+
+.legend .badge-name {
+  color: #ffc247;
+
+  text-shadow:
+    0 0 8px
+    rgba(255, 180, 40, .4);
+}
+
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media (max-width: 600px) {
+
+  .impressa-badge {
+    height: 20px;
+
+    margin-left: 6px;
+
+    padding: 0 2px;
+
+    font-size: 10px;
+
+    max-width: 145px;
+  }
+
+  .badge-name {
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+
+    white-space: nowrap;
+  }
+
+  .badge-fire {
+    height: 7px;
+  }
+
+  .fire-core {
+    height: 1.5px;
+  }
+
+  .spark {
+    font-size: 5px;
+  }
+}
+
+
+/* =========================================================
+   VERY SMALL PHONES
+========================================================= */
+
+@media (max-width: 380px) {
+
+  .impressa-badge {
+    margin-left: 5px;
+
+    font-size: 9px;
+
+    max-width: 125px;
+  }
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+
+  .badge-animate *,
+  .badge-animate {
+    animation: none !important;
+  }
+}

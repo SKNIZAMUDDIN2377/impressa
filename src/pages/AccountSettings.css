@@ -1,0 +1,1027 @@
+/* =========================================================
+   IMPRESSA ACCOUNT SETTINGS
+   Mobile-first
+========================================================= */
+
+.settings-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+
+  background:
+    radial-gradient(
+      circle at 100% 0%,
+      rgba(255, 106, 0, 0.09),
+      transparent 30%
+    ),
+    #ffffff;
+
+  color: #171717;
+
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+
+  padding: 0 16px 35px;
+
+  box-sizing: border-box;
+
+  position: relative;
+
+  overflow-x: hidden;
+}
+
+
+/* =========================================================
+   BACKGROUND ORBS
+========================================================= */
+
+.settings-orb {
+  position: fixed;
+
+  border-radius: 50%;
+
+  pointer-events: none;
+
+  filter: blur(25px);
+
+  z-index: 0;
+}
+
+.settings-orb-one {
+  width: 150px;
+  height: 150px;
+
+  top: -70px;
+  right: -70px;
+
+  background:
+    rgba(255, 106, 0, 0.07);
+
+  animation:
+    settingsOrbOne 8s ease-in-out infinite;
+}
+
+.settings-orb-two {
+  width: 130px;
+  height: 130px;
+
+  bottom: -60px;
+  left: -70px;
+
+  background:
+    rgba(255, 106, 0, 0.05);
+
+  animation:
+    settingsOrbTwo 9s ease-in-out infinite;
+}
+
+
+/* =========================================================
+   CONTAINER
+========================================================= */
+
+.settings-container {
+  width: 100%;
+  max-width: 650px;
+
+  margin: auto;
+
+  position: relative;
+
+  z-index: 2;
+}
+
+
+/* =========================================================
+   TOP BAR
+========================================================= */
+
+.settings-topbar {
+  min-height: 70px;
+
+  display: grid;
+
+  grid-template-columns: 42px 1fr 42px;
+
+  align-items: center;
+
+  border-bottom:
+    1px solid #eeeeee;
+}
+
+.settings-back {
+  width: 38px;
+  height: 38px;
+
+  border: none;
+
+  border-radius: 12px;
+
+  background: #f7f7f7;
+
+  color: #222;
+
+  font-size: 20px;
+
+  cursor: pointer;
+
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease;
+}
+
+.settings-back:active {
+  transform: scale(0.94);
+}
+
+.settings-back:hover {
+  background: #fff0e6;
+}
+
+.settings-small-title {
+  display: block;
+
+  color: #ff6a00;
+
+  font-size: 8px;
+
+  font-weight: 800;
+
+  letter-spacing: 2px;
+}
+
+.settings-topbar h1 {
+  margin: 3px 0 0;
+
+  font-size: 17px;
+
+  letter-spacing: -0.4px;
+}
+
+.settings-top-space {
+  width: 42px;
+}
+
+
+/* =========================================================
+   SECTION
+========================================================= */
+
+.settings-section {
+  margin-top: 18px;
+
+  padding: 17px;
+
+  background: #ffffff;
+
+  border:
+    1px solid #eeeeee;
+
+  border-radius: 18px;
+
+  box-shadow:
+    0 6px 24px rgba(0, 0, 0, 0.035);
+}
+
+
+/* =========================================================
+   SECTION TITLE
+========================================================= */
+
+.settings-section-title {
+  display: flex;
+
+  align-items: center;
+
+  gap: 11px;
+
+  margin-bottom: 15px;
+}
+
+.settings-section-icon {
+  width: 36px;
+  height: 36px;
+
+  flex: 0 0 36px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 11px;
+
+  background: #f6f6f6;
+
+  font-size: 16px;
+}
+
+.settings-section-icon.orange-icon {
+  background: #fff0e6;
+}
+
+.settings-section-title h2 {
+  margin: 0;
+
+  font-size: 14px;
+
+  letter-spacing: -0.2px;
+}
+
+.settings-section-title p {
+  margin: 3px 0 0;
+
+  color: #999;
+
+  font-size: 9px;
+}
+
+
+/* =========================================================
+   ACCOUNT ROWS
+========================================================= */
+
+.settings-list {
+  border-top:
+    1px solid #f1f1f1;
+}
+
+.settings-row {
+  padding: 13px 2px;
+
+  border-bottom:
+    1px solid #f1f1f1;
+}
+
+.settings-row:last-child {
+  border-bottom: 0;
+}
+
+.settings-label {
+  display: block;
+
+  color: #777;
+
+  font-size: 9px;
+
+  margin-bottom: 4px;
+}
+
+.settings-value {
+  color: #222;
+
+  font-size: 12px;
+
+  font-weight: 600;
+}
+
+
+/* =========================================================
+   PASSWORD FORM
+========================================================= */
+
+.password-form {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 13px;
+}
+
+
+/* =========================================================
+   FIELD
+========================================================= */
+
+.settings-field label {
+  display: block;
+
+  margin-bottom: 6px;
+
+  color: #444;
+
+  font-size: 9px;
+
+  font-weight: 700;
+}
+
+
+/* =========================================================
+   INPUT
+========================================================= */
+
+.settings-input {
+  width: 100%;
+
+  height: 47px;
+
+  box-sizing: border-box;
+
+  display: flex;
+  align-items: center;
+
+  padding: 0 11px;
+
+  border:
+    1px solid #e7e7e7;
+
+  border-radius: 12px;
+
+  background: #fafafa;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.settings-input:focus-within {
+  border-color:
+    rgba(255, 106, 0, 0.45);
+
+  background: #ffffff;
+
+  box-shadow:
+    0 0 0 4px
+    rgba(255, 106, 0, 0.055);
+}
+
+.settings-input input {
+  width: 100%;
+  min-width: 0;
+
+  height: 100%;
+
+  border: none;
+  outline: none;
+
+  background: transparent;
+
+  font: inherit;
+
+  font-size: 11px;
+
+  color: #222;
+}
+
+.settings-input input::placeholder {
+  color: #aaa;
+}
+
+.settings-input button {
+  width: 28px;
+  height: 28px;
+
+  flex: 0 0 28px;
+
+  border: none;
+
+  background: transparent;
+
+  color: #999;
+
+  cursor: pointer;
+}
+
+
+/* =========================================================
+   PASSWORD RULES
+========================================================= */
+
+.password-rules {
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, 1fr);
+
+  gap: 7px;
+
+  padding:
+    10px 11px;
+
+  border-radius: 11px;
+
+  background: #fafafa;
+
+  border:
+    1px solid #f0f0f0;
+}
+
+.password-rules span {
+  color: #aaa;
+
+  font-size: 8px;
+}
+
+.password-rules span.valid {
+  color: #159447;
+
+  font-weight: 700;
+}
+
+
+/* =========================================================
+   PASSWORD ERROR
+========================================================= */
+
+.settings-input-error {
+  border-color: #e15c50;
+}
+
+.password-match-error {
+  display: block;
+
+  margin-top: 5px;
+
+  color: #d9534f;
+
+  font-size: 8px;
+}
+
+
+/* =========================================================
+   CHANGE PASSWORD
+========================================================= */
+
+.change-password-button {
+  height: 48px;
+
+  border: none;
+
+  border-radius: 13px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #ff6500,
+      #ff7b20
+    );
+
+  color: white;
+
+  font-family: inherit;
+
+  font-size: 11px;
+
+  font-weight: 800;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 10px;
+
+  cursor: pointer;
+
+  box-shadow:
+    0 9px 22px
+    rgba(255, 106, 0, 0.16);
+
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.change-password-button:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.change-password-button:disabled {
+  opacity: 0.42;
+
+  cursor: not-allowed;
+
+  box-shadow: none;
+}
+
+
+/* =========================================================
+   LOADER
+========================================================= */
+
+.settings-loader {
+  display: flex;
+
+  gap: 5px;
+}
+
+.settings-loader span {
+  width: 5px;
+  height: 5px;
+
+  border-radius: 50%;
+
+  background: #fff;
+
+  animation:
+    settingsLoading 0.8s infinite;
+}
+
+.settings-loader span:nth-child(2) {
+  animation-delay: 0.12s;
+}
+
+.settings-loader span:nth-child(3) {
+  animation-delay: 0.24s;
+}
+
+
+/* =========================================================
+   FUTURE SETTINGS
+========================================================= */
+
+.future-setting {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 15px;
+
+  padding-top: 14px;
+
+  border-top:
+    1px solid #f1f1f1;
+}
+
+.future-setting strong {
+  display: block;
+
+  font-size: 11px;
+}
+
+.future-setting span {
+  display: block;
+
+  margin-top: 4px;
+
+  color: #999;
+
+  font-size: 8px;
+
+  line-height: 1.4;
+}
+
+
+/* =========================================================
+   TOGGLE
+========================================================= */
+
+.fake-toggle {
+  width: 39px;
+  height: 23px;
+
+  flex: 0 0 39px;
+
+  padding: 3px;
+
+  box-sizing: border-box;
+
+  border-radius: 20px;
+
+  background: #ddd;
+}
+
+.fake-toggle span {
+  width: 17px;
+  height: 17px;
+
+  display: block;
+
+  border-radius: 50%;
+
+  background: white;
+
+  transition:
+    transform 0.25s ease;
+}
+
+.fake-toggle.active {
+  background: #ff6a00;
+}
+
+.fake-toggle.active span {
+  transform:
+    translateX(16px);
+}
+
+
+/* =========================================================
+   DANGER
+========================================================= */
+
+.danger-section {
+  margin-top: 18px;
+
+  padding: 17px;
+
+  border:
+    1px solid #ffe0dc;
+
+  border-radius: 18px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #fffafa,
+      #ffffff
+    );
+}
+
+.danger-title {
+  margin-bottom: 11px;
+
+  color: #d9534f;
+
+  font-size: 10px;
+
+  font-weight: 800;
+
+  text-transform: uppercase;
+
+  letter-spacing: 1px;
+}
+
+
+/* =========================================================
+   LOGOUT
+========================================================= */
+
+.logout-button {
+  width: 100%;
+
+  min-height: 58px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 11px;
+
+  padding: 10px;
+
+  border: none;
+
+  border-radius: 12px;
+
+  background: #fff;
+
+  text-align: left;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+
+.logout-button:hover {
+  background: #fff1ef;
+}
+
+.logout-button:active {
+  transform: scale(0.99);
+}
+
+.logout-button > span {
+  width: 32px;
+  height: 32px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 9px;
+
+  background: #fff0ee;
+
+  color: #d9534f;
+
+  font-size: 16px;
+}
+
+.logout-button div {
+  flex: 1;
+}
+
+.logout-button strong {
+  display: block;
+
+  color: #333;
+
+  font-size: 11px;
+}
+
+.logout-button small {
+  display: block;
+
+  margin-top: 3px;
+
+  color: #999;
+
+  font-size: 8px;
+}
+
+.logout-button b {
+  color: #d9534f;
+
+  font-size: 15px;
+}
+
+
+/* =========================================================
+   DELETE
+========================================================= */
+
+.delete-account-button {
+  width: 100%;
+
+  margin-top: 9px;
+
+  padding: 10px;
+
+  border: none;
+
+  background: transparent;
+
+  color: #d9534f;
+
+  font-size: 9px;
+
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+
+/* =========================================================
+   FOOTER
+========================================================= */
+
+.settings-footer {
+  margin: 22px 0;
+
+  text-align: center;
+
+  color: #c0c0c0;
+
+  font-size: 8px;
+}
+
+
+/* =========================================================
+   ANIMATION
+========================================================= */
+
+@keyframes settingsOrbOne {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+
+  50% {
+    transform: translate(-12px, 15px);
+  }
+}
+
+@keyframes settingsOrbTwo {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+
+  50% {
+    transform: translate(12px, -12px);
+  }
+}
+
+@keyframes settingsLoading {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+
+/* =========================================================
+   DESKTOP
+========================================================= */
+
+@media (min-width: 800px) {
+
+  .settings-page {
+    padding:
+      0 30px 50px;
+  }
+
+  .settings-container {
+    max-width: 650px;
+  }
+
+  .settings-topbar {
+    min-height: 80px;
+  }
+}
+
+
+/* =========================================================
+   SHORT PHONES
+========================================================= */
+
+@media (max-height: 650px) {
+
+  .settings-page {
+    overflow-y: auto;
+  }
+
+  .settings-section {
+    margin-top: 13px;
+
+    padding: 14px;
+  }
+
+  .settings-topbar {
+    min-height: 60px;
+  }
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+
+    transition: none !important;
+  }
+}
+
+/* =========================================
+   V1 PRIVACY
+========================================= */
+
+.privacy-setting-heading {
+  display: flex;
+
+  align-items: center;
+
+  gap: 6px;
+}
+
+.v1-badge {
+  padding:
+    3px 5px;
+
+  border-radius: 5px;
+
+  background: #fff0e6;
+
+  color: #ff6a00;
+
+  font-size: 6px;
+
+  font-weight: 900;
+
+  letter-spacing: 0.5px;
+}
+
+.fake-toggle {
+  cursor: pointer;
+
+  border: none;
+}
+
+.fake-toggle:active {
+  transform: scale(0.94);
+}
+
+/* ==========================================
+   DELETE ACCOUNT CONFIRMATION
+========================================== */
+
+.delete-confirm-box {
+  margin-top: 18px;
+  padding: 20px;
+  border: 1px solid rgba(255, 70, 70, 0.25);
+  border-radius: 16px;
+  background: rgba(255, 245, 245, 0.95);
+}
+
+.delete-confirm-box h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #d93030;
+}
+
+.delete-confirm-box > p {
+  margin: 0 0 18px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #666;
+}
+
+/* Password field inside delete box */
+
+.delete-confirm-box .settings-field {
+  margin-bottom: 18px;
+}
+
+.delete-confirm-box .settings-field label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.delete-confirm-box .settings-input {
+  width: 100%;
+}
+
+/* ==========================================
+   DELETE CONFIRMATION BUTTONS
+========================================== */
+
+.delete-confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.delete-confirm-actions button {
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+/* Cancel */
+
+.delete-confirm-actions button:first-child {
+  background: #eeeeee;
+  color: #333;
+}
+
+/* Permanently Delete */
+
+.delete-confirm-actions button:last-child {
+  background: #d93030;
+  color: #ffffff;
+}
+
+.delete-confirm-actions button:hover {
+  opacity: 0.85;
+}
+
+/* Disabled state */
+
+.delete-confirm-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+
+/* ==========================================
+   MOBILE
+========================================== */
+
+@media (max-width: 600px) {
+  .delete-confirm-box {
+    padding: 16px;
+    border-radius: 14px;
+  }
+
+  .delete-confirm-box h3 {
+    font-size: 17px;
+  }
+
+  .delete-confirm-box > p {
+    font-size: 12px;
+  }
+
+  .delete-confirm-actions {
+    flex-direction: column;
+  }
+
+  .delete-confirm-actions button {
+    width: 100%;
+  }
+}

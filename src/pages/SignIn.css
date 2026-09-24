@@ -1,0 +1,1148 @@
+/* =========================================================
+   IMPRESSA — SIGN IN
+   Mobile-first app design
+========================================================= */
+
+.signin-page {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+
+  box-sizing: border-box;
+
+  position: relative;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  overflow: hidden;
+
+  padding: 24px 18px;
+
+  background:
+    radial-gradient(
+      circle at 90% 0%,
+      rgba(255, 106, 0, 0.10),
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 0% 100%,
+      rgba(255, 106, 0, 0.07),
+      transparent 30%
+    ),
+    #ffffff;
+
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Arial,
+    sans-serif;
+
+  color: #171717;
+}
+
+
+/* =========================================================
+   BACKGROUND DETAILS
+========================================================= */
+
+.signin-page::before {
+  content: "";
+
+  position: absolute;
+
+  width: 420px;
+  height: 420px;
+
+  top: -270px;
+  right: -220px;
+
+  border-radius: 50%;
+
+  border: 1px solid rgba(255, 106, 0, 0.09);
+
+  pointer-events: none;
+}
+
+.signin-page::after {
+  content: "";
+
+  position: absolute;
+
+  width: 300px;
+  height: 300px;
+
+  left: -210px;
+  bottom: -180px;
+
+  border-radius: 50%;
+
+  border: 1px solid rgba(255, 106, 0, 0.07);
+
+  pointer-events: none;
+}
+
+
+/* =========================================================
+   GLOW
+========================================================= */
+
+.signin-glow {
+  position: absolute;
+
+  border-radius: 50%;
+
+  pointer-events: none;
+
+  filter: blur(18px);
+
+  z-index: 0;
+}
+
+.signin-glow-one {
+  width: 180px;
+  height: 180px;
+
+  top: -70px;
+  right: 5%;
+
+  background:
+    radial-gradient(
+      circle,
+      rgba(255, 106, 0, 0.10),
+      transparent 70%
+    );
+
+  animation:
+    signinGlowOne 8s ease-in-out infinite;
+}
+
+.signin-glow-two {
+  width: 160px;
+  height: 160px;
+
+  left: 0;
+  bottom: -60px;
+
+  background:
+    radial-gradient(
+      circle,
+      rgba(255, 106, 0, 0.07),
+      transparent 70%
+    );
+
+  animation:
+    signinGlowTwo 9s ease-in-out infinite;
+}
+
+
+/* =========================================================
+   MAIN CONTAINER
+
+   IMPORTANT:
+   No giant card.
+   This behaves like a real mobile app screen.
+========================================================= */
+
+.signin-container {
+  width: 100%;
+  max-width: 430px;
+
+  min-height: calc(100vh - 48px);
+  min-height: calc(100dvh - 48px);
+
+  position: relative;
+
+  z-index: 2;
+
+  display: flex;
+  flex-direction: column;
+
+  box-sizing: border-box;
+
+  animation:
+    signinAppear 0.65s
+    cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+
+/* =========================================================
+   BRAND
+========================================================= */
+
+.signin-brand {
+  width: 100%;
+
+  display: flex;
+  flex-direction: column;
+
+  align-items: flex-start;
+
+  padding:
+    20px
+    8px
+    10px;
+
+  box-sizing: border-box;
+}
+
+
+/* =========================================================
+   LOGO
+========================================================= */
+
+.signin-logo {
+  color: #ff6a00;
+
+  font-size: 38px;
+
+  line-height: 1;
+
+  font-weight: 800;
+
+  letter-spacing: -2.7px;
+
+  animation:
+    logoAppear 0.7s ease;
+}
+
+
+/* =========================================================
+   TAGLINE
+========================================================= */
+
+.signin-tagline {
+  margin: 9px 0 0;
+
+  color: #858585;
+
+  font-size: 10px;
+
+  font-weight: 500;
+
+  letter-spacing: 0.8px;
+
+  animation:
+    textAppear 0.8s ease;
+}
+
+
+/* =========================================================
+   BRAND LINE
+========================================================= */
+
+.signin-brand-line {
+  width: 26px;
+  height: 3px;
+
+  margin-top: 13px;
+
+  border-radius: 10px;
+
+  background: #ff6a00;
+
+  animation:
+    lineAppear 0.8s ease;
+}
+
+
+/* =========================================================
+   LOGIN CARD
+
+   On mobile this is NOT visually a card.
+   It simply holds the form.
+========================================================= */
+
+.signin-card {
+  width: 100%;
+
+  flex: 1;
+
+  box-sizing: border-box;
+
+  display: flex;
+  flex-direction: column;
+
+  justify-content: center;
+
+  padding:
+    24px
+    8px
+    20px;
+
+  background: transparent;
+
+  border: 0;
+
+  border-radius: 0;
+
+  box-shadow: none;
+
+  animation:
+    formAppear 0.7s ease;
+}
+
+
+/* =========================================================
+   HEADING
+========================================================= */
+
+.signin-heading {
+  margin-bottom: 29px;
+}
+
+.signin-eyebrow {
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  color: #ff6a00;
+
+  font-size: 9px;
+
+  font-weight: 800;
+
+  letter-spacing: 2px;
+}
+
+.signin-eyebrow::before {
+  content: "";
+
+  width: 6px;
+  height: 6px;
+
+  border-radius: 50%;
+
+  background: #ff6a00;
+}
+
+.signin-heading h1 {
+  margin:
+    9px 0
+    7px;
+
+  color: #171717;
+
+  font-size: 28px;
+
+  line-height: 1.12;
+
+  font-weight: 800;
+
+  letter-spacing: -1.1px;
+}
+
+.signin-heading p {
+  margin: 0;
+
+  color: #999999;
+
+  font-size: 11px;
+
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   FORM
+========================================================= */
+
+.signin-form {
+  width: 100%;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 19px;
+}
+
+
+/* =========================================================
+   FIELD
+========================================================= */
+
+.signin-field {
+  width: 100%;
+}
+
+.signin-field label {
+  display: block;
+
+  margin-bottom: 8px;
+
+  color: #373737;
+
+  font-size: 11px;
+
+  font-weight: 700;
+}
+
+
+/* =========================================================
+   PASSWORD HEADER
+========================================================= */
+
+.signin-password-header {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 8px;
+}
+
+.signin-password-header label {
+  margin-bottom: 0;
+}
+
+.signin-forgot {
+  padding: 0;
+
+  border: 0;
+
+  outline: 0;
+
+  background: transparent;
+
+  color: #ff6a00;
+
+  font-family: inherit;
+
+  font-size: 9px;
+
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+
+/* =========================================================
+   INPUT BOX
+========================================================= */
+
+.signin-input-box {
+  width: 100%;
+
+  height: 52px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+
+  box-sizing: border-box;
+
+  padding:
+    0 12px;
+
+  border:
+    1px solid #e6e6e6;
+
+  border-radius: 14px;
+
+  background: #fafafa;
+
+  transition:
+    border-color 0.25s ease,
+    background 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.signin-input-box:focus-within {
+  border-color:
+    rgba(255, 106, 0, 0.45);
+
+  background: #ffffff;
+
+  box-shadow:
+    0 0 0 4px
+    rgba(255, 106, 0, 0.06);
+}
+
+
+/* =========================================================
+   INPUT ICON
+========================================================= */
+
+.signin-input-icon {
+  width: 27px;
+  height: 27px;
+
+  flex: 0 0 27px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 8px;
+
+  background: #fff0e6;
+
+  color: #ff6a00;
+
+  font-size: 12px;
+
+  font-weight: 800;
+}
+
+
+/* =========================================================
+   INPUT
+========================================================= */
+
+.signin-input-box input {
+  width: 100%;
+  height: 100%;
+
+  min-width: 0;
+
+  padding: 0;
+
+  border: 0;
+
+  outline: 0;
+
+  background: transparent;
+
+  color: #222222;
+
+  font-family: inherit;
+
+  font-size: 13px;
+}
+
+.signin-input-box input::placeholder {
+  color: #a7a7a7;
+}
+
+
+/* =========================================================
+   SHOW PASSWORD
+========================================================= */
+
+.signin-show-password {
+  width: 29px;
+  height: 29px;
+
+  flex: 0 0 29px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0;
+
+  border: 0;
+
+  border-radius: 8px;
+
+  background: transparent;
+
+  color: #999999;
+
+  font-size: 14px;
+
+  cursor: pointer;
+}
+
+
+/* =========================================================
+   SIGN IN BUTTON
+========================================================= */
+
+.signin-button {
+  width: 100%;
+
+  height: 52px;
+
+  margin-top: 3px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 13px;
+
+  border: 0;
+
+  border-radius: 14px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #ff6500,
+      #ff7b20
+    );
+
+  color: #ffffff;
+
+  font-family: inherit;
+
+  font-size: 13px;
+
+  font-weight: 800;
+
+  cursor: pointer;
+
+  box-shadow:
+    0 9px 22px
+    rgba(255, 106, 0, 0.18);
+
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.signin-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+
+  box-shadow:
+    0 12px 26px
+    rgba(255, 106, 0, 0.22);
+}
+
+.signin-button:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.signin-button:disabled {
+  opacity: 0.45;
+
+  cursor: not-allowed;
+
+  box-shadow: none;
+}
+
+
+/* =========================================================
+   ARROW
+========================================================= */
+
+.signin-arrow {
+  font-size: 17px;
+
+  transition:
+    transform 0.2s ease;
+}
+
+.signin-button:hover:not(:disabled)
+.signin-arrow {
+  transform: translateX(4px);
+}
+
+
+/* =========================================================
+   LOADER
+========================================================= */
+
+.signin-loader {
+  display: flex;
+
+  align-items: center;
+
+  gap: 5px;
+}
+
+.signin-loader span {
+  width: 5px;
+  height: 5px;
+
+  border-radius: 50%;
+
+  background: #ffffff;
+
+  animation:
+    signinLoading 0.8s ease-in-out
+    infinite;
+}
+
+.signin-loader span:nth-child(2) {
+  animation-delay: 0.12s;
+}
+
+.signin-loader span:nth-child(3) {
+  animation-delay: 0.24s;
+}
+
+
+/* =========================================================
+   CREATE ACCOUNT
+========================================================= */
+
+.signin-create {
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 5px;
+
+  margin-top: 25px;
+
+  color: #999999;
+
+  font-size: 10px;
+}
+
+.signin-create a {
+  color: #ff6a00;
+
+  font-weight: 800;
+
+  text-decoration: none;
+}
+
+
+/* =========================================================
+   FOOTER
+========================================================= */
+
+.signin-footer {
+  margin:
+
+    0
+    0
+    8px;
+
+  text-align: center;
+
+  color: #c2c2c2;
+
+  font-size: 8px;
+
+  letter-spacing: 0.3px;
+}
+
+
+/* =========================================================
+   ANIMATIONS
+========================================================= */
+
+@keyframes signinAppear {
+
+  from {
+    opacity: 0;
+
+    transform:
+      translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      translateY(0);
+  }
+
+}
+
+@keyframes logoAppear {
+
+  from {
+    opacity: 0;
+
+    transform:
+      translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      translateY(0);
+  }
+
+}
+
+@keyframes textAppear {
+
+  from {
+    opacity: 0;
+
+    transform:
+      translateY(5px);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      translateY(0);
+  }
+
+}
+
+@keyframes lineAppear {
+
+  from {
+    width: 0;
+
+    opacity: 0;
+  }
+
+  to {
+    width: 26px;
+
+    opacity: 1;
+  }
+
+}
+
+@keyframes formAppear {
+
+  from {
+    opacity: 0;
+
+    transform:
+      translateY(15px);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      translateY(0);
+  }
+
+}
+
+@keyframes signinLoading {
+
+  0%,
+  60%,
+  100% {
+    transform:
+      translateY(0);
+
+    opacity: 0.45;
+  }
+
+  30% {
+    transform:
+      translateY(-4px);
+
+    opacity: 1;
+  }
+
+}
+
+@keyframes signinGlowOne {
+
+  0%,
+  100% {
+    transform:
+      translate(0, 0);
+  }
+
+  50% {
+    transform:
+      translate(-15px, 15px);
+  }
+
+}
+
+@keyframes signinGlowTwo {
+
+  0%,
+  100% {
+    transform:
+      translate(0, 0);
+  }
+
+  50% {
+    transform:
+      translate(15px, -12px);
+  }
+
+}
+
+
+/* =========================================================
+   MOBILE — PRIMARY DESIGN
+========================================================= */
+
+@media (max-width: 600px) {
+
+  .signin-page {
+    padding:
+      14px
+      18px;
+
+    align-items: stretch;
+  }
+
+
+  .signin-container {
+    width: 100%;
+    max-width: none;
+
+    min-height: 100%;
+
+    justify-content: flex-start;
+  }
+
+
+  .signin-brand {
+    padding:
+      24px
+      2px
+      10px;
+  }
+
+
+  .signin-logo {
+    font-size: 36px;
+
+    letter-spacing: -2.5px;
+  }
+
+
+  .signin-tagline {
+    font-size: 9px;
+
+    letter-spacing: 0.7px;
+  }
+
+
+  .signin-card {
+    padding:
+      28px
+      2px
+      15px;
+
+    justify-content: flex-start;
+  }
+
+
+  .signin-heading {
+    margin-bottom: 27px;
+  }
+
+
+  .signin-heading h1 {
+    font-size: 26px;
+
+    letter-spacing: -1px;
+  }
+
+
+  .signin-heading p {
+    font-size: 10px;
+  }
+
+
+  .signin-form {
+    gap: 17px;
+  }
+
+
+  .signin-input-box {
+    height: 50px;
+  }
+
+
+  .signin-button {
+    height: 50px;
+  }
+
+
+  .signin-create {
+    margin-top: 22px;
+  }
+
+}
+
+
+/* =========================================================
+   SMALL PHONES
+========================================================= */
+
+@media (max-width: 380px) {
+
+  .signin-page {
+    padding:
+      10px
+      16px;
+  }
+
+
+  .signin-brand {
+    padding-top: 18px;
+  }
+
+
+  .signin-logo {
+    font-size: 33px;
+  }
+
+
+  .signin-tagline {
+    margin-top: 7px;
+
+    font-size: 8px;
+  }
+
+
+  .signin-brand-line {
+    margin-top: 10px;
+  }
+
+
+  .signin-card {
+    padding-top: 22px;
+  }
+
+
+  .signin-heading {
+    margin-bottom: 23px;
+  }
+
+
+  .signin-heading h1 {
+    font-size: 23px;
+  }
+
+
+  .signin-form {
+    gap: 15px;
+  }
+
+
+  .signin-field label {
+    font-size: 10px;
+  }
+
+
+  .signin-input-box {
+    height: 47px;
+
+    border-radius: 12px;
+  }
+
+
+  .signin-button {
+    height: 48px;
+
+    border-radius: 12px;
+  }
+
+
+  .signin-create {
+    margin-top: 18px;
+  }
+
+}
+
+
+/* =========================================================
+   VERY SMALL PHONES
+========================================================= */
+
+@media (max-height: 650px) {
+
+  .signin-page {
+    overflow-y: auto;
+
+    align-items: flex-start;
+  }
+
+
+  .signin-container {
+    min-height: auto;
+  }
+
+
+  .signin-brand {
+    padding-top: 12px;
+  }
+
+
+  .signin-card {
+    padding-top: 18px;
+  }
+
+
+  .signin-heading {
+    margin-bottom: 20px;
+  }
+
+
+  .signin-form {
+    gap: 13px;
+  }
+
+
+  .signin-create {
+    margin-top: 17px;
+  }
+
+}
+
+
+/* =========================================================
+   DESKTOP
+========================================================= */
+
+@media (min-width: 900px) {
+
+  .signin-page {
+    padding: 40px;
+  }
+
+
+  .signin-container {
+    max-width: 440px;
+
+    min-height: 720px;
+  }
+
+
+  .signin-brand {
+    padding:
+      35px
+      8px
+      15px;
+  }
+
+
+  .signin-card {
+    padding:
+      25px
+      8px
+      20px;
+  }
+
+
+  .signin-logo {
+    font-size: 45px;
+  }
+
+
+  .signin-heading h1 {
+    font-size: 30px;
+  }
+
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+
+    transition: none !important;
+  }
+
+}

@@ -1,0 +1,374 @@
+/* =========================================================
+   IMPRESSA POST
+   SAME FEED POSITION — CLEAN FLAT DESIGN
+========================================================= */
+
+.post {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.post-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: 0 4px 10px;
+}
+
+.post-user {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.post-profile-image {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: block;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.post-user-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.post-user-info strong {
+  max-width: 180px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #222222;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.post-user-info span {
+  color: #999999;
+  font-size: 10px;
+}
+
+.post-image-wrapper {
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #eeeeee;
+  line-height: 0;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.post-image {
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.portrait-post .post-image {
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+}
+
+.carousel-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.28);
+  color: #ffffff;
+  font-size: 27px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 2;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.carousel-prev { left: 9px; }
+.carousel-next { right: 9px; }
+
+.carousel-dots {
+  position: absolute;
+  left: 50%;
+  bottom: 9px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 5px;
+  z-index: 2;
+}
+
+.carousel-dot {
+  width: 6px;
+  height: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+}
+
+.carousel-dot.active {
+  background: #ffffff;
+  transform: scale(1.15);
+}
+
+.double-impression {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 3;
+  color: #ffffff;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 68px;
+  font-weight: 700;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0.55);
+  text-shadow: 0 3px 16px rgba(0, 0, 0, 0.2);
+}
+
+.double-impression.show {
+  animation: doubleImpression 650ms ease-out both;
+}
+
+@keyframes doubleImpression {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.55);
+  }
+  18% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.16);
+  }
+  45% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.25);
+  }
+}
+
+.post-caption {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 10px 4px 7px;
+}
+
+.post-caption strong {
+  color: #222222;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.post-caption span {
+  color: #555555;
+  font-size: 12px;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+/* =========================================================
+   COMMENTS — OPENS UNDER ACTIONS, NEVER OVERLAYS FEED
+========================================================= */
+
+.comment-box {
+  width: 100%;
+  padding: 10px 4px 4px;
+  border-bottom: 1px solid #eeeeee;
+  overflow: visible;
+}
+
+.comment-list {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 210px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 3px;
+}
+
+.comment-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.comment-avatar {
+  width: 27px;
+  height: 27px;
+  flex: 0 0 27px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff0e5;
+  color: #ef7426;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.comment-content {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.comment-content strong {
+  color: #333333;
+  font-size: 10px;
+}
+
+.comment-content span {
+  color: #666666;
+  font-size: 11px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.comment-form {
+  width: 100%;
+  display: flex;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.comment-form input {
+  min-width: 0;
+  flex: 1;
+  height: 38px;
+  border: 1px solid #e8e8e8;
+  border-radius: 19px;
+  outline: none;
+  padding: 0 13px;
+  background: #ffffff;
+  color: #333333;
+  font: inherit;
+  font-size: 11px;
+}
+
+.comment-form input:focus {
+  border-color: rgba(239, 116, 38, 0.5);
+}
+
+.comment-form button {
+  flex: 0 0 auto;
+  height: 38px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 19px;
+  background: #ef7426;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (max-width: 700px) {
+  .post-header {
+    padding: 0 5px 9px;
+  }
+
+  .post-user {
+    gap: 8px;
+  }
+
+  .post-profile-image {
+    width: 35px;
+    height: 35px;
+  }
+
+  .post-user-info strong { font-size: 12px; }
+  .post-user-info span { font-size: 9px; }
+
+  .post-image-wrapper { border-radius: 11px; }
+
+  .carousel-arrow {
+    width: 32px;
+    height: 32px;
+  }
+
+  .post-caption {
+    padding: 9px 5px 6px;
+  }
+
+  .post-caption strong,
+  .post-caption span {
+    font-size: 11px;
+  }
+
+  .comment-box {
+    padding-left: 5px;
+    padding-right: 5px;
+  }
+}
+
+@media (max-width: 380px) {
+  .post-header {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  .post-profile-image {
+    width: 33px;
+    height: 33px;
+  }
+
+  .post-image-wrapper { border-radius: 10px; }
+
+  .post-caption {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  .comment-box {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  .comment-form {
+    gap: 5px;
+  }
+
+  .comment-form button {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .double-impression.show {
+    animation: none;
+    opacity: 1;
+  }
+}

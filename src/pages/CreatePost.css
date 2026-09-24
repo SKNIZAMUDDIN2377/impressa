@@ -1,0 +1,3115 @@
+/* =========================================================
+   IMPRESSA — CREATE POST
+   MOBILE-FIRST V2
+========================================================= */
+
+* {
+  box-sizing: border-box;
+}
+
+.create-post-page {
+  width: 100%;
+  min-height: 100vh;
+
+  padding:
+    18px
+    16px
+    calc(105px + env(safe-area-inset-bottom));
+
+  background:
+    linear-gradient(
+      180deg,
+      #fff9f4 0%,
+      #ffffff 35%
+    );
+
+  color: #181818;
+
+  overflow-x: hidden;
+}
+
+.create-post-container {
+  width: 100%;
+  max-width: 720px;
+
+  margin: 0 auto;
+}
+
+
+/* =========================================================
+   HEADER
+========================================================= */
+
+.create-post-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 12px;
+
+  margin-bottom: 18px;
+}
+
+.create-post-small-title {
+  margin: 0 0 4px;
+
+  color: #ff6a00;
+
+  font-size: 9px;
+  font-weight: 800;
+
+  letter-spacing: 2.2px;
+}
+
+.create-post-header h1 {
+  margin: 0;
+
+  color: #171717;
+
+  font-size: 26px;
+  font-weight: 800;
+
+  letter-spacing: -0.8px;
+}
+
+.media-count {
+  flex-shrink: 0;
+
+  padding: 7px 11px;
+
+  border: 1px solid #ededed;
+  border-radius: 999px;
+
+  background: rgba(255,255,255,.9);
+
+  color: #777;
+
+  font-size: 10px;
+  font-weight: 700;
+
+  box-shadow:
+    0 4px 15px rgba(0,0,0,.04);
+}
+
+
+/* =========================================================
+   EMPTY UPLOAD
+========================================================= */
+
+.empty-upload {
+  position: relative;
+
+  width: 100%;
+  min-height: 290px;
+
+  padding: 28px 18px;
+
+  display: flex;
+  flex-direction: column;
+
+  align-items: center;
+  justify-content: center;
+
+  text-align: center;
+
+  border: 1px dashed #e2e2e2;
+  border-radius: 24px;
+
+  background:
+    rgba(255,255,255,.94);
+
+  overflow: hidden;
+
+  animation:
+    boxAppear .5s ease both;
+}
+
+.empty-upload::before {
+  content: "";
+
+  position: absolute;
+
+  width: 180px;
+  height: 180px;
+
+  top: -100px;
+  right: -70px;
+
+  border-radius: 50%;
+
+  background:
+    rgba(255,106,0,.055);
+
+  pointer-events: none;
+}
+
+.empty-upload::after {
+  content: "";
+
+  position: absolute;
+
+  width: 140px;
+  height: 140px;
+
+  bottom: -90px;
+  left: -60px;
+
+  border-radius: 50%;
+
+  background:
+    rgba(255,106,0,.035);
+
+  pointer-events: none;
+}
+
+
+/* =========================================================
+   UPLOAD ORBIT
+========================================================= */
+
+.upload-orbit {
+  position: relative;
+
+  width: 62px;
+  height: 62px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  margin-bottom: 17px;
+}
+
+.upload-orbit::before {
+  content: "";
+
+  position: absolute;
+
+  inset: -7px;
+
+  border:
+    1px solid
+    rgba(255,106,0,.24);
+
+  border-top-color:
+    #ff6a00;
+
+  border-radius: 50%;
+
+  animation:
+    orbitSpin 5s linear infinite;
+}
+
+.upload-orbit::after {
+  content: "";
+
+  position: absolute;
+
+  inset: -2px;
+
+  border-radius: 50%;
+
+  background:
+    rgba(255,106,0,.08);
+
+  animation:
+    softPulse 2.4s ease-in-out infinite;
+}
+
+
+/* =========================================================
+   IMPRESSA i UPLOAD ICON
+   SAME SIZE AS ORIGINAL ORANGE BOX
+========================================================= */
+
+.upload-icon {
+  position: relative;
+  z-index: 2;
+
+  width: 54px;
+  height: 54px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background:
+    radial-gradient(
+      circle at 35% 30%,
+      #ff8a32 0%,
+      #39302a 55%,
+      #e65c00 100%
+    );
+
+  box-shadow:
+    0 10px 25px
+    rgba(255, 106, 0, .22),
+
+    0 0 0 6px
+    rgba(255, 106, 0, .06);
+
+  animation:
+    iCircleFloat
+    2.8s
+    ease-in-out
+    infinite;
+}
+
+
+/* subtle glowing ring */
+
+.upload-icon::before {
+  content: "";
+
+  position: absolute;
+
+  inset: -7px;
+
+  border-radius: 50%;
+
+  border:
+    1px solid
+    rgba(255, 106, 0, .22);
+
+  animation:
+    iCirclePulse
+    2.8s
+    ease-out
+    infinite;
+}
+
+
+/* tiny orbiting light */
+
+.upload-icon::after {
+  content: "";
+
+  position: absolute;
+
+  width: 7px;
+  height: 7px;
+
+  top: -4px;
+  right: 7px;
+
+  border-radius: 50%;
+
+  background: #c46521;
+
+  box-shadow:
+    0 0 0 3px
+    rgba(255, 106, 0, .12),
+
+    0 0 12px
+    rgba(255, 106, 0, .5);
+
+  animation:
+    iOrbitDot
+    2.8s
+    linear
+    infinite;
+}
+
+
+/* =========================================================
+   IMPRESSA i
+========================================================= */
+
+.upload-icon span {
+  position: relative;
+
+  color: #ffffff;
+
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+
+  font-size: 38px;
+
+  font-weight: 800;
+
+  line-height: 1;
+
+  transform:
+    translateY(-1px);
+
+  text-shadow:
+    0 3px 10px
+    rgba(0, 0, 0, .12);
+
+  animation:
+    iLetterPulse
+    2.8s
+    ease-in-out
+    infinite;
+}
+
+
+/* =========================================================
+   i ANIMATIONS
+========================================================= */
+
+@keyframes iCircleFloat {
+
+  0%,
+  100% {
+    transform:
+      translateY(0)
+      scale(1);
+  }
+
+  50% {
+    transform:
+      translateY(-2px)
+      scale(1.035);
+  }
+}
+
+
+@keyframes iCirclePulse {
+
+  0% {
+    transform: scale(.85);
+    opacity: .8;
+  }
+
+  70% {
+    transform: scale(1.18);
+    opacity: 0;
+  }
+
+  100% {
+    transform: scale(1.18);
+    opacity: 0;
+  }
+}
+
+
+@keyframes iOrbitDot {
+
+  0% {
+    transform:
+      rotate(0deg)
+      translateX(20px)
+      rotate(0deg);
+  }
+
+  100% {
+    transform:
+      rotate(360deg)
+      translateX(20px)
+      rotate(-360deg);
+  }
+}
+
+
+@keyframes iLetterPulse {
+
+  0%,
+  100% {
+    transform:
+      translateY(-1px)
+      scale(1);
+  }
+
+  50% {
+    transform:
+      translateY(-2px)
+      scale(1.06);
+  }
+}
+
+
+/* =========================================================
+   EMPTY CONTENT
+========================================================= */
+
+.empty-upload h2 {
+  margin: 0 0 7px;
+
+  color: #202020;
+
+  font-size: 20px;
+  font-weight: 800;
+
+  letter-spacing: -.3px;
+}
+
+.empty-upload p {
+  margin: 0;
+
+  color: #8b8b8b;
+
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+
+/* =========================================================
+   CHOOSE MEDIA
+========================================================= */
+
+.choose-media-btn {
+  min-height: 44px;
+
+  margin-top: 18px;
+
+  padding:
+    0
+    22px;
+
+  border: 0;
+  border-radius: 13px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #f16b0a,
+      #ff812b
+    );
+
+  color: #fff;
+
+  font-size: 12px;
+  font-weight: 750;
+
+  box-shadow:
+    0 9px 22px
+    rgba(255,106,0,.18);
+
+  cursor: pointer;
+
+  transition:
+    transform .18s ease;
+}
+
+.choose-media-btn:active {
+  transform:
+    scale(.95);
+}
+
+
+/* =========================================================
+   MEDIA TYPE TAGS
+========================================================= */
+
+.upload-info {
+  display: flex;
+
+  gap: 6px;
+
+  margin-top: 14px;
+}
+
+.upload-info span {
+  padding:
+    5px
+    8px;
+
+  border-radius: 7px;
+
+  background: #f7f7f7;
+
+  color: #999;
+
+  font-size: 7px;
+  font-weight: 800;
+
+  letter-spacing: 1px;
+}
+
+
+/* =========================================================
+   CAROUSEL
+========================================================= */
+
+.carousel-section {
+  width: 100%;
+
+  animation:
+    mediaAppear .4s ease both;
+}
+
+.carousel {
+  position: relative;
+
+  width: 100%;
+
+  height:
+    min(
+      70vh,
+      500px
+    );
+
+  min-height: 330px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  overflow: hidden;
+
+  border-radius: 20px;
+
+  background: #0d0d0d;
+
+  box-shadow:
+    0 18px 45px
+    rgba(0,0,0,.12);
+}
+
+.carousel-media {
+  width: 100%;
+  height: 100%;
+
+  display: block;
+
+  object-fit: contain;
+
+  animation:
+    mediaSwitch .28s ease;
+
+  transition:
+    filter .3s ease,
+    transform .35s ease;
+}
+
+.cropped-media {
+  object-fit: cover;
+}
+
+
+/* =========================================================
+   COUNTER
+========================================================= */
+
+.carousel-counter {
+  position: absolute;
+
+  top: 11px;
+  right: 11px;
+
+  padding:
+    6px
+    9px;
+
+  border-radius: 999px;
+
+  background:
+    rgba(0,0,0,.58);
+
+  color: #fff;
+
+  font-size: 9px;
+  font-weight: 750;
+
+  backdrop-filter:
+    blur(10px);
+}
+
+
+/* =========================================================
+   CAROUSEL ARROWS
+========================================================= */
+
+.carousel-arrow {
+  position: absolute;
+
+  top: 50%;
+
+  width: 35px;
+  height: 35px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  transform:
+    translateY(-50%);
+
+  border: 0;
+  border-radius: 50%;
+
+  background:
+    rgba(255,255,255,.9);
+
+  color: #222;
+
+  font-size: 23px;
+
+  box-shadow:
+    0 5px 18px
+    rgba(0,0,0,.18);
+
+  z-index: 3;
+
+  cursor: pointer;
+}
+
+.carousel-arrow:active {
+  transform:
+    translateY(-50%)
+    scale(.87);
+}
+
+.carousel-arrow.previous {
+  left: 9px;
+}
+
+.carousel-arrow.next {
+  right: 9px;
+}
+
+
+/* =========================================================
+   EDIT BUTTON
+========================================================= */
+
+.edit-main-button {
+  position: absolute;
+
+  left: 10px;
+  bottom: 10px;
+
+  min-height: 36px;
+
+  padding:
+    0
+    13px;
+
+  border:
+    1px solid
+    rgba(255,255,255,.18);
+
+  border-radius: 999px;
+
+  background:
+    rgba(0,0,0,.58);
+
+  color: #fff;
+
+  font-size: 10px;
+  font-weight: 750;
+
+  backdrop-filter:
+    blur(12px);
+
+  cursor: pointer;
+
+  transition:
+    transform .18s ease;
+}
+
+.edit-main-button:active {
+  transform:
+    scale(.93);
+}
+
+
+/* =========================================================
+   CAROUSEL DOTS
+========================================================= */
+
+.carousel-dots {
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 5px;
+
+  margin-top: 10px;
+}
+
+.carousel-dot {
+  width: 6px;
+  height: 6px;
+
+  padding: 0;
+
+  border: 0;
+  border-radius: 999px;
+
+  background: #d8d8d8;
+
+  cursor: pointer;
+
+  transition:
+    width .25s ease,
+    background .25s ease;
+}
+
+.carousel-dot.active {
+  width: 18px;
+
+  background:
+    #ff6a00;
+}
+
+
+/* =========================================================
+   ADD MORE MEDIA
+========================================================= */
+
+.add-more-media {
+  width: 100%;
+
+  min-height: 44px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 6px;
+
+  margin-top: 13px;
+
+  border:
+    1px solid
+    #ededed;
+
+  border-radius: 13px;
+
+  background: #fff;
+
+  color: #ff6a00;
+
+  font-size: 11px;
+  font-weight: 750;
+
+  cursor: pointer;
+
+  transition:
+    transform .18s ease,
+    background .18s ease;
+}
+
+.add-more-media:active {
+  transform:
+    scale(.98);
+
+  background:
+    #fff8f3;
+}
+
+.add-more-media span {
+  font-size: 18px;
+}
+
+
+/* =========================================================
+   MEDIA MANAGER
+========================================================= */
+
+.media-manager {
+  margin-top: 22px;
+}
+
+.section-heading {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 10px;
+}
+
+.section-heading h3 {
+  margin: 0 0 3px;
+
+  color: #222;
+
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.section-heading p {
+  margin: 0;
+
+  color: #999;
+
+  font-size: 10px;
+}
+
+.section-heading > span {
+  width: 26px;
+  height: 26px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background:
+    #fff1e7;
+
+  color:
+    #ff6a00;
+
+  font-size: 10px;
+  font-weight: 800;
+}
+
+
+/* =========================================================
+   MEDIA LIST
+========================================================= */
+
+.media-list {
+  display: flex;
+
+  gap: 8px;
+
+  overflow-x: auto;
+
+  padding:
+    2px
+    2px
+    8px;
+
+  scrollbar-width: none;
+
+  -webkit-overflow-scrolling:
+    touch;
+}
+
+.media-list::-webkit-scrollbar {
+  display: none;
+}
+
+.media-item {
+  flex:
+    0 0 84px;
+
+  padding: 4px;
+
+  border:
+    1px solid
+    #ededed;
+
+  border-radius: 12px;
+
+  background: #fff;
+
+  cursor: pointer;
+
+  transition:
+    transform .18s ease,
+    border .18s ease;
+}
+
+.media-item.selected {
+  padding: 3px;
+
+  border:
+    2px solid
+    #ff6a00;
+
+  box-shadow:
+    0 5px 15px
+    rgba(255,106,0,.1);
+}
+
+.media-item:active {
+  transform:
+    scale(.96);
+}
+
+
+/* =========================================================
+   THUMBNAIL
+========================================================= */
+
+.thumbnail-wrapper {
+  position: relative;
+
+  width: 100%;
+  height: 70px;
+
+  overflow: hidden;
+
+  border-radius: 8px;
+
+  background: #111;
+}
+
+.thumbnail-wrapper img,
+.thumbnail-wrapper video {
+  width: 100%;
+  height: 100%;
+
+  display: block;
+
+  object-fit: cover;
+}
+
+.media-number {
+  position: absolute;
+
+  top: 4px;
+  left: 4px;
+
+  min-width: 17px;
+  height: 17px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background:
+    rgba(0,0,0,.65);
+
+  color: #fff;
+
+  font-size: 7px;
+  font-weight: 800;
+}
+
+.video-badge {
+  position: absolute;
+
+  right: 4px;
+  bottom: 4px;
+
+  width: 20px;
+  height: 20px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background:
+    rgba(0,0,0,.72);
+
+  color: #fff;
+
+  font-size: 7px;
+}
+
+
+/* =========================================================
+   MEDIA ACTIONS
+========================================================= */
+
+.media-actions {
+  display: flex;
+
+  gap: 3px;
+
+  padding-top: 4px;
+}
+
+.media-actions button {
+  width: 22px;
+  height: 22px;
+
+  padding: 0;
+
+  border: 0;
+  border-radius: 6px;
+
+  background: #f6f6f6;
+
+  color: #555;
+
+  font-size: 9px;
+
+  cursor: pointer;
+}
+
+.media-actions button:disabled {
+  opacity: .25;
+}
+
+.media-actions .delete-media {
+  background:
+    #fff1ef;
+
+  color:
+    #e44a35;
+}
+
+
+/* =========================================================
+   CAPTION
+========================================================= */
+
+.caption-section {
+  margin-top: 23px;
+}
+
+.caption-heading {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 8px;
+}
+
+.caption-heading h3 {
+  margin: 0;
+
+  color: #222;
+
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.caption-heading span {
+  color: #aaa;
+
+  font-size: 9px;
+}
+
+.caption-section textarea {
+  width: 100%;
+
+  min-height: 105px;
+
+  padding: 13px;
+
+  resize: none;
+
+  outline: none;
+
+  border:
+    1px solid
+    #e9e9e9;
+
+  border-radius: 15px;
+
+  background: #fff;
+
+  color: #222;
+
+  font-family: inherit;
+
+  font-size: 13px;
+
+  line-height: 1.55;
+
+  transition:
+    border .2s ease,
+    box-shadow .2s ease;
+}
+
+.caption-section textarea::placeholder {
+  color: #b0b0b0;
+}
+
+.caption-section textarea:focus {
+  border-color:
+    #ff9a5c;
+
+  box-shadow:
+    0 0 0 3px
+    rgba(255,106,0,.07);
+}
+
+
+/* =========================================================
+   MUSIC SECTION
+========================================================= */
+
+.music-section {
+  margin-top: 17px;
+
+  padding: 14px;
+
+  border:
+    1px solid
+    #eeeeee;
+
+  border-radius: 17px;
+
+  background:
+    rgba(255,255,255,.96);
+
+  box-shadow:
+    0 6px 22px
+    rgba(0,0,0,.025);
+
+  animation:
+    musicAppear .4s ease;
+}
+
+.music-heading {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 10px;
+
+  margin-bottom: 11px;
+}
+
+.music-title-row {
+  display: flex;
+
+  align-items: center;
+
+  gap: 7px;
+}
+
+.music-symbol {
+  width: 27px;
+  height: 27px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 9px;
+
+  background:
+    #fff1e7;
+
+  color:
+    #ff6a00;
+
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.music-heading h3 {
+  margin: 0;
+
+  color: #222;
+
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.music-heading p {
+  margin: 4px 0 0;
+
+  color: #999;
+
+  font-size: 9px;
+}
+
+.change-music-btn {
+  flex-shrink: 0;
+
+  padding:
+    7px
+    10px;
+
+  border:
+    1px solid
+    #eeeeee;
+
+  border-radius: 999px;
+
+  background: #fff;
+
+  color:
+    #ff6a00;
+
+  font-size: 9px;
+  font-weight: 750;
+
+  cursor: pointer;
+}
+
+
+/* =========================================================
+   ADD MUSIC
+========================================================= */
+
+.add-music-card {
+  width: 100%;
+
+  min-height: 62px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  padding:
+    9px
+    10px;
+
+  border:
+    1px solid
+    #eeeeee;
+
+  border-radius: 13px;
+
+  background: #fff;
+
+  text-align: left;
+
+  cursor: pointer;
+
+  transition:
+    transform .18s ease,
+    background .18s ease;
+}
+
+.add-music-card:active {
+  transform:
+    scale(.985);
+
+  background:
+    #fffaf6;
+}
+
+.music-add-icon {
+  width: 40px;
+  height: 40px;
+
+  flex:
+    0 0 40px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 11px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #ff7b1a,
+      #ff6a00
+    );
+
+  color: #fff;
+
+  font-size: 19px;
+
+  box-shadow:
+    0 6px 15px
+    rgba(255,106,0,.16);
+}
+
+.add-music-card div:nth-child(2) {
+  min-width: 0;
+  flex: 1;
+}
+
+.add-music-card strong {
+  display: block;
+
+  color: #333;
+
+  font-size: 11px;
+}
+
+.add-music-card span:not(.music-arrow) {
+  display: block;
+
+  margin-top: 3px;
+
+  color: #999;
+
+  font-size: 8px;
+}
+
+.music-arrow {
+  color: #aaa;
+
+  font-size: 22px;
+}
+
+
+/* =========================================================
+   SELECTED MUSIC
+========================================================= */
+
+.selected-music-card {
+  min-height: 63px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 9px;
+
+  padding: 8px;
+
+  border:
+    1px solid
+    #ffd9bf;
+
+  border-radius: 13px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #fffaf6,
+      #fff
+    );
+
+  animation:
+    musicSelected .3s ease;
+}
+
+.music-cover {
+  width: 42px;
+  height: 42px;
+
+  flex:
+    0 0 42px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 11px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #ff6a00,
+      #ff9b5c
+    );
+
+  color: #fff;
+
+  font-size: 20px;
+}
+
+.selected-music-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.selected-music-info strong {
+  display: block;
+
+  overflow: hidden;
+
+  color: #222;
+
+  font-size: 11px;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selected-music-info span {
+  display: block;
+
+  margin-top: 3px;
+
+  color: #999;
+
+  font-size: 8px;
+}
+
+.music-play-btn,
+.remove-music-btn {
+  width: 31px;
+  height: 31px;
+
+  flex:
+    0 0 31px;
+
+  border: 0;
+
+  border-radius: 50%;
+
+  cursor: pointer;
+}
+
+.music-play-btn {
+  background:
+    #fff0e5;
+
+  color:
+    #ff6a00;
+
+  font-size: 10px;
+}
+
+.remove-music-btn {
+  background:
+    #f5f5f5;
+
+  color:
+    #777;
+
+  font-size: 17px;
+}
+
+
+/* =========================================================
+   MOOD
+========================================================= */
+
+.mood-section {
+  margin-top: 14px;
+
+  padding: 14px;
+
+  border:
+    1px solid
+    #eeeeee;
+
+  border-radius: 17px;
+
+  background:
+    rgba(255,255,255,.96);
+
+  box-shadow:
+    0 6px 22px
+    rgba(0,0,0,.025);
+
+  animation:
+    moodAppear .4s ease;
+}
+
+.mood-heading {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 10px;
+
+  margin-bottom: 12px;
+}
+
+.mood-title-row {
+  display: flex;
+
+  align-items: center;
+
+  gap: 7px;
+}
+
+.mood-symbol {
+  width: 27px;
+  height: 27px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 9px;
+
+  background:
+    #fff1e7;
+
+  color:
+    #ff6a00;
+
+  font-size: 14px;
+}
+
+.mood-heading h3 {
+  margin: 0;
+
+  color: #222;
+
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.mood-heading p {
+  margin: 4px 0 0;
+
+  color: #999;
+
+  font-size: 9px;
+}
+
+.clear-mood-btn {
+  padding:
+    7px
+    10px;
+
+  border:
+    1px solid
+    #eeeeee;
+
+  border-radius: 999px;
+
+  background: #fff;
+
+  color: #999;
+
+  font-size: 9px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+
+/* =========================================================
+   MOOD LIST
+========================================================= */
+
+.mood-list {
+  display: flex;
+
+  flex-wrap: wrap;
+
+  gap: 7px;
+}
+
+.mood-item {
+  position: relative;
+
+  min-height: 40px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 6px;
+
+  padding:
+    0
+    10px;
+
+  border:
+    1px solid
+    #eeeeee;
+
+  border-radius: 12px;
+
+  background: #fff;
+
+  color: #555;
+
+  font-size: 10px;
+  font-weight: 650;
+
+  cursor: pointer;
+
+  transition:
+    transform .18s ease,
+    border .18s ease,
+    background .18s ease;
+}
+
+.mood-item:active {
+  transform:
+    scale(.95);
+}
+
+.mood-item.active {
+  border-color:
+    #ff9a5c;
+
+  background:
+    #fff5ed;
+
+  color:
+    #ff6a00;
+
+  box-shadow:
+    0 5px 15px
+    rgba(255,106,0,.08);
+}
+
+.mood-emoji {
+  font-size: 15px;
+
+  transition:
+    transform .22s ease;
+}
+
+.mood-item.active .mood-emoji {
+  transform:
+    scale(1.12);
+}
+
+.mood-name {
+  white-space: nowrap;
+}
+
+.mood-check {
+  width: 15px;
+  height: 15px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background:
+    #ff6a00;
+
+  color:
+    #fff;
+
+  font-size: 8px;
+  font-weight: 800;
+
+  animation:
+    moodCheck .22s ease;
+}
+
+
+/* =========================================================
+   POST ACTIONS
+========================================================= */
+
+.create-post-actions {
+  display: flex;
+
+  gap: 8px;
+
+  margin-top: 17px;
+
+  padding-bottom:
+    5px;
+}
+
+.clear-btn,
+.post-btn {
+  min-height: 45px;
+
+  border-radius: 13px;
+
+  font-size: 11px;
+  font-weight: 750;
+
+  cursor: pointer;
+
+  transition:
+    transform .18s ease,
+    opacity .18s ease;
+}
+
+.clear-btn {
+  flex:
+    0 0 76px;
+
+  border:
+    1px solid
+    #e7e7e7;
+
+  background: #fff;
+
+  color: #777;
+}
+
+.post-btn {
+  flex: 1;
+
+  border: 0;
+
+  background:
+    linear-gradient(
+      135deg,
+      #ff6a00,
+      #ff812b
+    );
+
+  color: #fff;
+
+  box-shadow:
+    0 9px 22px
+    rgba(255,106,0,.18);
+}
+
+.clear-btn:active,
+.post-btn:active {
+  transform:
+    scale(.96);
+}
+
+.clear-btn:disabled,
+.post-btn:disabled {
+  opacity: .4;
+
+  cursor:
+    not-allowed;
+
+  box-shadow:
+    none;
+}
+
+
+/* =========================================================
+   MUSIC LIBRARY
+   MOBILE BOTTOM SHEET
+========================================================= */
+
+.music-overlay {
+  position: fixed;
+
+  inset: 0;
+
+  z-index: 3500;
+
+  display: flex;
+
+  align-items: flex-end;
+  justify-content: center;
+
+  padding: 0;
+
+  background:
+    rgba(12,12,12,.62);
+
+  backdrop-filter:
+    blur(9px);
+
+  animation:
+    musicOverlay .22s ease;
+}
+
+.music-panel {
+  width: 100%;
+
+  max-width: 680px;
+
+  height:
+    min(
+      88vh,
+      720px
+    );
+
+  max-height:
+    calc(
+      100vh -
+      env(safe-area-inset-top)
+    );
+
+  overflow-y: auto;
+
+  padding:
+    15px
+    15px
+    calc(
+      22px +
+      env(safe-area-inset-bottom)
+    );
+
+  border-radius:
+    24px
+    24px
+    0
+    0;
+
+  background:
+    #fff;
+
+  box-shadow:
+    0 -15px 55px
+    rgba(0,0,0,.25);
+
+  animation:
+    sheetUp .32s cubic-bezier(.2,.8,.2,1);
+
+  overscroll-behavior:
+    contain;
+
+  -webkit-overflow-scrolling:
+    touch;
+}
+
+
+/* =========================================================
+   SHEET HANDLE
+========================================================= */
+
+.music-panel::before {
+  content: "";
+
+  display: block;
+
+  width: 38px;
+  height: 4px;
+
+  margin:
+    0
+    auto
+    14px;
+
+  border-radius: 999px;
+
+  background:
+    #dedede;
+}
+
+
+/* =========================================================
+   MUSIC HEADER
+========================================================= */
+
+.music-panel-header {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 14px;
+}
+
+.music-panel-header span {
+  color:
+    #ff6a00;
+
+  font-size: 8px;
+  font-weight: 800;
+
+  letter-spacing: 2px;
+}
+
+.music-panel-header h2 {
+  margin: 4px 0 0;
+
+  color:
+    #202020;
+
+  font-size: 21px;
+
+  letter-spacing: -.5px;
+}
+
+.close-music {
+  width: 37px;
+  height: 37px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  border: 0;
+  border-radius: 50%;
+
+  background:
+    #f5f5f5;
+
+  color:
+    #333;
+
+  font-size: 21px;
+
+  cursor: pointer;
+}
+
+
+/* =========================================================
+   MUSIC SEARCH
+========================================================= */
+
+.music-search {
+  height: 44px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  padding:
+    0
+    12px;
+
+  border:
+    1px solid
+    #eeeeee;
+
+  border-radius: 13px;
+
+  background:
+    #fafafa;
+}
+
+.music-search span {
+  color:
+    #999;
+
+  font-size: 20px;
+}
+
+.music-search input {
+  width: 100%;
+
+  min-width: 0;
+
+  border: 0;
+  outline: 0;
+
+  background:
+    transparent;
+
+  color:
+    #222;
+
+  font-family:
+    inherit;
+
+  font-size: 12px;
+}
+
+.music-search input::placeholder {
+  color:
+    #aaa;
+}
+
+
+/* =========================================================
+   MUSIC LIST
+========================================================= */
+
+.music-library-list {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 6px;
+
+  margin-top: 13px;
+}
+
+.music-track {
+  min-height: 61px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  padding: 8px;
+
+  border:
+    1px solid
+    transparent;
+
+  border-radius: 13px;
+
+  background:
+    #fff;
+
+  transition:
+    background .2s ease,
+    border .2s ease;
+}
+
+.music-track.selected {
+  border-color:
+    #ffd2b4;
+
+  background:
+    #fff8f3;
+}
+
+.track-cover {
+  width: 42px;
+  height: 42px;
+
+  flex:
+    0 0 42px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 11px;
+
+  background:
+    #f1f1f1;
+
+  color:
+    #ff6a00;
+
+  font-size: 19px;
+}
+
+.track-details {
+  min-width: 0;
+
+  flex: 1;
+}
+
+.track-details strong {
+  display: block;
+
+  overflow: hidden;
+
+  color:
+    #222;
+
+  font-size: 11px;
+
+  text-overflow:
+    ellipsis;
+
+  white-space:
+    nowrap;
+}
+
+.track-details span {
+  display: block;
+
+  margin-top: 3px;
+
+  color:
+    #999;
+
+  font-size: 8px;
+}
+
+.track-duration {
+  color:
+    #aaa;
+
+  font-size: 8px;
+}
+
+.track-play {
+  width: 31px;
+  height: 31px;
+
+  flex:
+    0 0 31px;
+
+  border: 0;
+  border-radius: 50%;
+
+  background:
+    #fff0e5;
+
+  color:
+    #ff6a00;
+
+  font-size: 9px;
+
+  cursor: pointer;
+}
+
+.select-track {
+  min-width: 46px;
+
+  height: 31px;
+
+  padding:
+    0
+    8px;
+
+  border: 0;
+  border-radius: 9px;
+
+  background:
+    #ff6a00;
+
+  color:
+    #fff;
+
+  font-size: 9px;
+  font-weight: 750;
+
+  cursor: pointer;
+}
+
+.music-track.selected .select-track {
+  background:
+    #222;
+}
+
+.music-library-note {
+  margin:
+    15px
+    2px
+    0;
+
+  color:
+    #aaa;
+
+  font-size: 8px;
+
+  line-height: 1.6;
+
+  text-align:
+    center;
+}
+
+.no-music {
+  padding:
+    45px
+    10px;
+
+  text-align:
+    center;
+
+  color:
+    #aaa;
+}
+
+.no-music span {
+  display: block;
+
+  margin-bottom: 6px;
+
+  color:
+    #ff6a00;
+
+  font-size: 28px;
+}
+
+.no-music p {
+  margin: 0;
+
+  font-size: 10px;
+}
+
+
+/* =========================================================
+   EDITOR
+   MOBILE BOTTOM WORKSPACE
+========================================================= */
+
+.editor-overlay {
+  position: fixed;
+
+  inset: 0;
+
+  z-index: 3000;
+
+  display: flex;
+
+  align-items: flex-end;
+  justify-content: center;
+
+  padding: 0;
+
+  background:
+    rgba(10,10,10,.7);
+
+  backdrop-filter:
+    blur(9px);
+
+  animation:
+    editorBackground .22s ease;
+}
+
+.editor-panel {
+  width: 100%;
+
+  max-width: 680px;
+
+  height:
+    min(
+      94vh,
+      780px
+    );
+
+  max-height:
+    calc(
+      100vh -
+      env(safe-area-inset-top)
+    );
+
+  overflow-y: auto;
+
+  padding:
+    15px
+    15px
+    calc(
+      20px +
+      env(safe-area-inset-bottom)
+    );
+
+  border-radius:
+    24px
+    24px
+    0
+    0;
+
+  background:
+    #fff;
+
+  box-shadow:
+    0 -15px 60px
+    rgba(0,0,0,.28);
+
+  animation:
+    sheetUp .32s cubic-bezier(.2,.8,.2,1);
+
+  overscroll-behavior:
+    contain;
+
+  -webkit-overflow-scrolling:
+    touch;
+}
+
+.editor-panel::before {
+  content: "";
+
+  display: block;
+
+  width: 38px;
+  height: 4px;
+
+  margin:
+    0
+    auto
+    14px;
+
+  border-radius: 999px;
+
+  background:
+    #dedede;
+}
+
+
+/* =========================================================
+   EDITOR HEADER
+========================================================= */
+
+.editor-header {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 13px;
+}
+
+.editor-header span {
+  color:
+    #ff6a00;
+
+  font-size: 8px;
+
+  font-weight: 800;
+
+  letter-spacing: 2px;
+}
+
+.editor-header h2 {
+  margin: 4px 0 0;
+
+  color:
+    #202020;
+
+  font-size: 21px;
+}
+
+.close-editor {
+  width: 37px;
+  height: 37px;
+
+  border: 0;
+
+  border-radius: 50%;
+
+  background:
+    #f5f5f5;
+
+  color:
+    #333;
+
+  font-size: 21px;
+
+  cursor: pointer;
+}
+
+
+/* =========================================================
+   EDITOR PREVIEW
+========================================================= */
+
+.editor-preview {
+  width: 100%;
+
+  height:
+    min(
+      48vh,
+      390px
+    );
+
+  min-height: 250px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  overflow: hidden;
+
+  border-radius: 17px;
+
+  background:
+    #101010;
+}
+
+.editor-preview img,
+.editor-preview video {
+  width: 100%;
+  height: 100%;
+
+  object-fit: contain;
+
+  transition:
+    filter .3s ease,
+    transform .35s ease;
+}
+
+.editor-preview .editor-crop-preview {
+  object-fit:
+    cover;
+}
+
+
+/* =========================================================
+   EDIT TOOLS
+========================================================= */
+
+.editor-tools {
+  display: grid;
+
+  grid-template-columns:
+    1fr 1fr;
+
+  gap: 8px;
+
+  margin-top: 11px;
+}
+
+.tool {
+  min-height: 43px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 6px;
+
+  border:
+    1px solid
+    #eeeeee;
+
+  border-radius: 12px;
+
+  background:
+    #fff;
+
+  color:
+    #555;
+
+  font-size: 11px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition:
+    transform .18s ease,
+    background .18s ease,
+    border .18s ease;
+}
+
+.tool:active {
+  transform:
+    scale(.96);
+}
+
+.tool span {
+  font-size: 16px;
+}
+
+.tool.active {
+  border-color:
+    #ff6a00;
+
+  background:
+    #fff4ec;
+
+  color:
+    #ff6a00;
+}
+
+
+/* =========================================================
+   FILTERS
+========================================================= */
+
+.filter-section {
+  margin-top: 17px;
+}
+
+.filter-title {
+  display: flex;
+
+  align-items: baseline;
+
+  gap: 7px;
+
+  margin-bottom: 9px;
+}
+
+.filter-title h3 {
+  margin: 0;
+
+  color:
+    #222;
+
+  font-size: 14px;
+}
+
+.filter-title span {
+  color:
+    #999;
+
+  font-size: 9px;
+}
+
+.filter-list {
+  display: flex;
+
+  gap: 8px;
+
+  overflow-x: auto;
+
+  padding:
+    2px
+    2px
+    7px;
+
+  scrollbar-width:
+    none;
+
+  -webkit-overflow-scrolling:
+    touch;
+}
+
+.filter-list::-webkit-scrollbar {
+  display: none;
+}
+
+.filter-item {
+  flex:
+    0 0 63px;
+
+  padding: 0;
+
+  border: 0;
+
+  background:
+    transparent;
+
+  cursor: pointer;
+}
+
+.filter-preview {
+  width: 63px;
+  height: 63px;
+
+  overflow: hidden;
+
+  border:
+    2px solid
+    transparent;
+
+  border-radius: 11px;
+
+  background:
+    #111;
+}
+
+.filter-item.active .filter-preview {
+  border-color:
+    #ff6a00;
+
+  box-shadow:
+    0 4px 12px
+    rgba(255,106,0,.13);
+}
+
+.filter-preview img {
+  width: 100%;
+  height: 100%;
+
+  display: block;
+
+  object-fit: cover;
+}
+
+.filter-item span {
+  display: block;
+
+  margin-top: 4px;
+
+  color:
+    #777;
+
+  font-size: 8px;
+
+  font-weight: 600;
+}
+
+
+/* =========================================================
+   DONE
+========================================================= */
+
+.done-editing {
+  width: 100%;
+
+  min-height: 45px;
+
+  margin-top: 16px;
+
+  border: 0;
+
+  border-radius: 13px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #ff6a00,
+      #ff812b
+    );
+
+  color:
+    #fff;
+
+  font-size: 12px;
+  font-weight: 750;
+
+  box-shadow:
+    0 9px 20px
+    rgba(255,106,0,.16);
+
+  cursor: pointer;
+
+  transition:
+    transform .18s ease;
+}
+
+.done-editing:active {
+  transform:
+    scale(.98);
+}
+
+
+/* =========================================================
+   ANIMATIONS
+========================================================= */
+
+@keyframes boxAppear {
+
+  from {
+    opacity: 0;
+
+    transform:
+      translateY(10px)
+      scale(.985);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      translateY(0)
+      scale(1);
+  }
+
+}
+
+@keyframes mediaAppear {
+
+  from {
+    opacity: 0;
+
+    transform:
+      translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      translateY(0);
+  }
+
+}
+
+@keyframes mediaSwitch {
+
+  from {
+    opacity: .4;
+
+    transform:
+      scale(.985);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      scale(1);
+  }
+
+}
+
+@keyframes orbitSpin {
+
+  to {
+    transform:
+      rotate(360deg);
+  }
+
+}
+
+@keyframes softPulse {
+
+  0%,
+  100% {
+    transform:
+      scale(.9);
+
+    opacity: .45;
+  }
+
+  50% {
+    transform:
+      scale(1.12);
+
+    opacity: 1;
+  }
+
+}
+
+@keyframes plusFloat {
+
+  0%,
+  100% {
+    transform:
+      translateY(0);
+  }
+
+  50% {
+    transform:
+      translateY(-2px);
+  }
+
+}
+
+@keyframes musicAppear {
+
+  from {
+    opacity: 0;
+
+    transform:
+      translateY(7px);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      translateY(0);
+  }
+
+}
+
+@keyframes musicSelected {
+
+  from {
+    opacity: 0;
+
+    transform:
+      scale(.98);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      scale(1);
+  }
+
+}
+
+@keyframes moodAppear {
+
+  from {
+    opacity: 0;
+
+    transform:
+      translateY(7px);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      translateY(0);
+  }
+
+}
+
+@keyframes moodCheck {
+
+  from {
+    opacity: 0;
+
+    transform:
+      scale(.5);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      scale(1);
+  }
+
+}
+
+@keyframes musicOverlay {
+
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+
+}
+
+@keyframes editorBackground {
+
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+
+}
+
+@keyframes sheetUp {
+
+  from {
+    opacity: 0;
+
+    transform:
+      translateY(40px);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      translateY(0);
+  }
+
+}
+
+
+/* =========================================================
+   DESKTOP
+========================================================= */
+
+@media (min-width: 701px) {
+
+  .create-post-page {
+    padding:
+      30px
+      20px
+      100px;
+  }
+
+  .create-post-header h1 {
+    font-size: 31px;
+  }
+
+  .carousel {
+    height:
+      min(
+        590px,
+        68vh
+      );
+
+    min-height:
+      350px;
+
+    border-radius:
+      22px;
+  }
+
+  .editor-overlay,
+  .music-overlay {
+    align-items:
+      center;
+
+    padding:
+      20px;
+  }
+
+  .editor-panel,
+  .music-panel {
+    border-radius:
+      24px;
+
+    height:
+      auto;
+
+    max-height:
+      92vh;
+
+    padding:
+      20px;
+  }
+
+}
+
+
+/* =========================================================
+   SMALL PHONES
+========================================================= */
+
+@media (max-width: 380px) {
+
+  .create-post-page {
+    padding:
+      15px
+      10px
+      calc(
+        100px +
+        env(safe-area-inset-bottom)
+      );
+  }
+
+  .create-post-header {
+    margin-bottom:
+      15px;
+  }
+
+  .create-post-header h1 {
+    font-size:
+      23px;
+  }
+
+  .create-post-small-title {
+    font-size:
+      8px;
+
+    letter-spacing:
+      1.8px;
+  }
+
+  .media-count {
+    padding:
+      6px
+      8px;
+
+    font-size:
+      9px;
+  }
+
+  .empty-upload {
+    min-height:
+      275px;
+
+    padding:
+      23px
+      13px;
+
+    border-radius:
+      21px;
+  }
+
+  .carousel {
+    height:
+      57vh;
+
+    min-height:
+      270px;
+
+    max-height:
+      430px;
+
+    border-radius:
+      16px;
+  }
+
+  .carousel-arrow {
+    width:
+      33px;
+
+    height:
+      33px;
+
+    font-size:
+      21px;
+  }
+
+  .carousel-arrow.previous {
+    left:
+      7px;
+  }
+
+  .carousel-arrow.next {
+    right:
+      7px;
+  }
+
+  .media-item {
+    flex-basis:
+      80px;
+  }
+
+  .thumbnail-wrapper {
+    height:
+      66px;
+  }
+
+  .caption-section textarea {
+    min-height:
+      100px;
+
+    font-size:
+      12px;
+  }
+
+  .music-section,
+  .mood-section {
+    padding:
+      12px;
+
+    border-radius:
+      15px;
+  }
+
+  .mood-item {
+    flex:
+      1 1
+      calc(50% - 7px);
+
+    justify-content:
+      center;
+  }
+
+  .create-post-actions {
+    gap:
+      7px;
+  }
+
+  .clear-btn {
+    flex-basis:
+      70px;
+  }
+
+  .post-btn,
+  .clear-btn {
+    min-height:
+      44px;
+  }
+
+}
+
+
+/* =========================================================
+   EXTRA SMALL PHONES
+========================================================= */
+
+@media (max-width: 340px) {
+
+  .create-post-page {
+    padding-left:
+      8px;
+
+    padding-right:
+      8px;
+  }
+
+  .create-post-header h1 {
+    font-size:
+      21px;
+  }
+
+  .carousel {
+    min-height:
+      250px;
+
+    max-height:
+      390px;
+  }
+
+  .editor-preview {
+    height:
+      260px;
+  }
+
+  .filter-item {
+    flex-basis:
+      59px;
+  }
+
+  .filter-preview {
+    width:
+      59px;
+
+    height:
+      59px;
+  }
+
+  .music-panel,
+  .editor-panel {
+    padding-left:
+      12px;
+
+    padding-right:
+      12px;
+  }
+
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration:
+      .01ms !important;
+
+    animation-iteration-count:
+      1 !important;
+
+    scroll-behavior:
+      auto !important;
+
+    transition-duration:
+      .01ms !important;
+  }
+
+}

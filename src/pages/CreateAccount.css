@@ -1,0 +1,909 @@
+/* =========================================================
+   IMPRESSA — CREATE ACCOUNT
+   Mobile-first app design
+========================================================= */
+
+.create-account-page {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+
+  box-sizing: border-box;
+
+  position: relative;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  overflow: hidden;
+
+  padding: 14px 18px;
+
+  background:
+    radial-gradient(
+      circle at 90% 0%,
+      rgba(255, 106, 0, 0.09),
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 0% 100%,
+      rgba(255, 106, 0, 0.06),
+      transparent 30%
+    ),
+    #ffffff;
+
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Arial,
+    sans-serif;
+
+  color: #171717;
+}
+
+
+/* =========================================================
+   BACKGROUND
+========================================================= */
+
+.create-account-page::before {
+  content: "";
+
+  position: absolute;
+
+  width: 420px;
+  height: 420px;
+
+  top: -270px;
+  right: -220px;
+
+  border-radius: 50%;
+
+  border: 1px solid rgba(255, 106, 0, 0.08);
+
+  pointer-events: none;
+}
+
+.create-account-page::after {
+  content: "";
+
+  position: absolute;
+
+  width: 300px;
+  height: 300px;
+
+  left: -210px;
+  bottom: -180px;
+
+  border-radius: 50%;
+
+  border: 1px solid rgba(255, 106, 0, 0.06);
+
+  pointer-events: none;
+}
+
+
+/* =========================================================
+   GLOW
+========================================================= */
+
+.create-account-glow {
+  position: absolute;
+
+  border-radius: 50%;
+
+  pointer-events: none;
+
+  filter: blur(18px);
+
+  z-index: 0;
+}
+
+.create-account-glow-one {
+  width: 180px;
+  height: 180px;
+
+  top: -70px;
+  right: 5%;
+
+  background:
+    radial-gradient(
+      circle,
+      rgba(255, 106, 0, 0.09),
+      transparent 70%
+    );
+
+  animation:
+    createGlowOne 8s ease-in-out infinite;
+}
+
+.create-account-glow-two {
+  width: 160px;
+  height: 160px;
+
+  left: 0;
+  bottom: -60px;
+
+  background:
+    radial-gradient(
+      circle,
+      rgba(255, 106, 0, 0.07),
+      transparent 70%
+    );
+
+  animation:
+    createGlowTwo 9s ease-in-out infinite;
+}
+
+
+/* =========================================================
+   CONTAINER
+========================================================= */
+
+.create-account-container {
+  width: 100%;
+  max-width: 430px;
+
+  min-height: calc(100vh - 28px);
+  min-height: calc(100dvh - 28px);
+
+  position: relative;
+
+  z-index: 2;
+
+  display: flex;
+  flex-direction: column;
+
+  box-sizing: border-box;
+
+  animation:
+    createAppear 0.65s
+    cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+
+/* =========================================================
+   BRAND
+========================================================= */
+
+.create-account-brand {
+  width: 100%;
+
+  display: flex;
+  flex-direction: column;
+
+  align-items: flex-start;
+
+  padding:
+    19px
+    2px
+    5px;
+
+  box-sizing: border-box;
+}
+
+.create-account-logo {
+  color: #ff6a00;
+
+  font-size: 34px;
+
+  line-height: 1;
+
+  font-weight: 800;
+
+  letter-spacing: -2.5px;
+}
+
+.create-account-tagline {
+  margin: 8px 0 0;
+
+  color: #858585;
+
+  font-size: 9px;
+
+  font-weight: 500;
+
+  letter-spacing: 0.7px;
+}
+
+.create-account-line {
+  width: 25px;
+  height: 3px;
+
+  margin-top: 11px;
+
+  border-radius: 10px;
+
+  background: #ff6a00;
+}
+
+
+/* =========================================================
+   FORM AREA
+========================================================= */
+
+.create-account-card {
+  width: 100%;
+
+  flex: 1;
+
+  box-sizing: border-box;
+
+  display: flex;
+  flex-direction: column;
+
+  justify-content: center;
+
+  padding:
+    20px
+    2px
+    15px;
+
+  background: transparent;
+}
+
+
+/* =========================================================
+   HEADING
+========================================================= */
+
+.create-account-heading {
+  margin-bottom: 22px;
+}
+
+.create-account-eyebrow {
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  color: #ff6a00;
+
+  font-size: 9px;
+
+  font-weight: 800;
+
+  letter-spacing: 2px;
+}
+
+.create-account-eyebrow::before {
+  content: "";
+
+  width: 6px;
+  height: 6px;
+
+  border-radius: 50%;
+
+  background: #ff6a00;
+}
+
+.create-account-heading h1 {
+  margin:
+    8px 0
+    6px;
+
+  color: #171717;
+
+  font-size: 25px;
+
+  line-height: 1.12;
+
+  font-weight: 800;
+
+  letter-spacing: -1px;
+}
+
+.create-account-heading p {
+  margin: 0;
+
+  color: #999999;
+
+  font-size: 10px;
+
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   FORM
+========================================================= */
+
+.create-account-form {
+  width: 100%;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 13px;
+}
+
+
+/* =========================================================
+   FIELD
+========================================================= */
+
+.create-account-field {
+  width: 100%;
+}
+
+.create-account-field label {
+  display: block;
+
+  margin-bottom: 6px;
+
+  color: #373737;
+
+  font-size: 10px;
+
+  font-weight: 700;
+}
+
+
+/* =========================================================
+   INPUT
+========================================================= */
+
+.create-account-input {
+  width: 100%;
+
+  height: 46px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 9px;
+
+  box-sizing: border-box;
+
+  padding:
+    0
+    11px;
+
+  border:
+    1px solid #e6e6e6;
+
+  border-radius: 12px;
+
+  background: #fafafa;
+
+  transition:
+    border-color 0.25s ease,
+    background 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.create-account-input:focus-within {
+  border-color:
+    rgba(255, 106, 0, 0.45);
+
+  background: #ffffff;
+
+  box-shadow:
+    0 0 0 4px
+    rgba(255, 106, 0, 0.055);
+}
+
+
+/* =========================================================
+   INPUT ICON
+========================================================= */
+
+.create-account-icon {
+  width: 25px;
+  height: 25px;
+
+  flex: 0 0 25px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 7px;
+
+  background: #fff0e6;
+
+  color: #ff6a00;
+
+  font-size: 11px;
+
+  font-weight: 800;
+}
+
+.phone-icon {
+  font-size: 14px;
+}
+
+
+/* =========================================================
+   INPUT
+========================================================= */
+
+.create-account-input input {
+  width: 100%;
+  height: 100%;
+
+  min-width: 0;
+
+  padding: 0;
+
+  border: 0;
+  outline: 0;
+
+  background: transparent;
+
+  color: #222222;
+
+  font-family: inherit;
+
+  font-size: 12px;
+}
+
+.create-account-input input::placeholder {
+  color: #a7a7a7;
+}
+
+
+/* =========================================================
+   SHOW PASSWORD
+========================================================= */
+
+.create-account-show {
+  width: 28px;
+  height: 28px;
+
+  flex: 0 0 28px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0;
+
+  border: 0;
+
+  border-radius: 7px;
+
+  background: transparent;
+
+  color: #999999;
+
+  font-size: 13px;
+
+  cursor: pointer;
+}
+
+
+/* =========================================================
+   PASSWORD ERROR
+========================================================= */
+
+.create-account-input.password-error {
+  border-color: #e26b5d;
+}
+
+.password-error-text {
+  display: block;
+
+  margin-top: 5px;
+
+  color: #d85b4d;
+
+  font-size: 8px;
+
+  font-weight: 600;
+}
+
+
+/* =========================================================
+   CREATE BUTTON
+========================================================= */
+
+.create-account-button {
+  width: 100%;
+
+  height: 48px;
+
+  margin-top: 5px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 12px;
+
+  border: 0;
+
+  border-radius: 13px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #ff6500,
+      #ff7b20
+    );
+
+  color: #ffffff;
+
+  font-family: inherit;
+
+  font-size: 12px;
+
+  font-weight: 800;
+
+  cursor: pointer;
+
+  box-shadow:
+    0 9px 22px
+    rgba(255, 106, 0, 0.18);
+
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.create-account-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+
+  box-shadow:
+    0 12px 26px
+    rgba(255, 106, 0, 0.22);
+}
+
+.create-account-button:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.create-account-button:disabled {
+  opacity: 0.45;
+
+  cursor: not-allowed;
+
+  box-shadow: none;
+}
+
+
+/* =========================================================
+   ARROW
+========================================================= */
+
+.create-account-arrow {
+  font-size: 16px;
+
+  transition:
+    transform 0.2s ease;
+}
+
+.create-account-button:hover:not(:disabled)
+.create-account-arrow {
+  transform: translateX(4px);
+}
+
+
+/* =========================================================
+   LOADER
+========================================================= */
+
+.create-account-loader {
+  display: flex;
+
+  align-items: center;
+
+  gap: 5px;
+}
+
+.create-account-loader span {
+  width: 5px;
+  height: 5px;
+
+  border-radius: 50%;
+
+  background: #ffffff;
+
+  animation:
+    createLoading 0.8s ease-in-out
+    infinite;
+}
+
+.create-account-loader span:nth-child(2) {
+  animation-delay: 0.12s;
+}
+
+.create-account-loader span:nth-child(3) {
+  animation-delay: 0.24s;
+}
+
+
+/* =========================================================
+   SIGN IN LINK
+========================================================= */
+
+.already-account {
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 5px;
+
+  margin-top: 18px;
+
+  color: #999999;
+
+  font-size: 9px;
+}
+
+.already-account a {
+  color: #ff6a00;
+
+  font-weight: 800;
+
+  text-decoration: none;
+}
+
+
+/* =========================================================
+   FOOTER
+========================================================= */
+
+.create-account-footer {
+  margin:
+    0
+    0
+    5px;
+
+  text-align: center;
+
+  color: #c2c2c2;
+
+  font-size: 8px;
+
+  letter-spacing: 0.3px;
+}
+
+
+/* =========================================================
+   ANIMATIONS
+========================================================= */
+
+@keyframes createAppear {
+  from {
+    opacity: 0;
+
+    transform:
+      translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      translateY(0);
+  }
+}
+
+@keyframes createLoading {
+  0%,
+  60%,
+  100% {
+    transform:
+      translateY(0);
+
+    opacity: 0.45;
+  }
+
+  30% {
+    transform:
+      translateY(-4px);
+
+    opacity: 1;
+  }
+}
+
+@keyframes createGlowOne {
+  0%,
+  100% {
+    transform:
+      translate(0, 0);
+  }
+
+  50% {
+    transform:
+      translate(-15px, 15px);
+  }
+}
+
+@keyframes createGlowTwo {
+  0%,
+  100% {
+    transform:
+      translate(0, 0);
+  }
+
+  50% {
+    transform:
+      translate(15px, -12px);
+  }
+}
+
+
+/* =========================================================
+   LARGER MOBILE
+========================================================= */
+
+@media (min-width: 381px) and (max-width: 600px) {
+
+  .create-account-brand {
+    padding-top: 24px;
+  }
+
+  .create-account-logo {
+    font-size: 37px;
+  }
+
+  .create-account-card {
+    padding-top: 24px;
+  }
+
+  .create-account-heading h1 {
+    font-size: 27px;
+  }
+
+  .create-account-form {
+    gap: 15px;
+  }
+
+  .create-account-input {
+    height: 49px;
+  }
+
+  .create-account-button {
+    height: 50px;
+  }
+}
+
+
+/* =========================================================
+   SMALL PHONES
+========================================================= */
+
+@media (max-width: 360px) {
+
+  .create-account-page {
+    padding:
+      9px
+      16px;
+  }
+
+  .create-account-brand {
+    padding-top: 15px;
+  }
+
+  .create-account-logo {
+    font-size: 32px;
+  }
+
+  .create-account-tagline {
+    font-size: 8px;
+  }
+
+  .create-account-card {
+    padding-top: 17px;
+  }
+
+  .create-account-heading {
+    margin-bottom: 18px;
+  }
+
+  .create-account-heading h1 {
+    font-size: 22px;
+  }
+
+  .create-account-form {
+    gap: 11px;
+  }
+
+  .create-account-input {
+    height: 44px;
+  }
+
+  .create-account-button {
+    height: 46px;
+  }
+}
+
+
+/* =========================================================
+   SHORT PHONES
+========================================================= */
+
+@media (max-height: 650px) {
+
+  .create-account-page {
+    overflow-y: auto;
+
+    align-items: flex-start;
+  }
+
+  .create-account-container {
+    min-height: auto;
+  }
+
+  .create-account-brand {
+    padding-top: 10px;
+  }
+
+  .create-account-card {
+    padding-top: 14px;
+  }
+
+  .create-account-form {
+    gap: 10px;
+  }
+
+  .create-account-heading {
+    margin-bottom: 16px;
+  }
+
+  .already-account {
+    margin-top: 15px;
+  }
+}
+
+
+/* =========================================================
+   DESKTOP
+========================================================= */
+
+@media (min-width: 900px) {
+
+  .create-account-page {
+    padding: 40px;
+  }
+
+  .create-account-container {
+    max-width: 440px;
+
+    min-height: 720px;
+  }
+
+  .create-account-brand {
+    padding-top: 30px;
+  }
+
+  .create-account-logo {
+    font-size: 44px;
+  }
+
+  .create-account-heading h1 {
+    font-size: 29px;
+  }
+
+  .create-account-input {
+    height: 50px;
+  }
+
+  .create-account-button {
+    height: 51px;
+  }
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+
+    transition: none !important;
+  }
+}

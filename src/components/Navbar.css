@@ -1,0 +1,707 @@
+/* =====================================================
+   IMPRESSA
+   NAVBAR V1
+   MOBILE FIRST
+===================================================== */
+
+
+/* =====================================================
+   TOP BRAND BAR
+===================================================== */
+
+.impressa-topbar {
+  width: 100%;
+
+  height: 60px;
+
+  display: flex;
+
+  align-items: center;
+
+  padding:
+    0
+    18px;
+
+  box-sizing: border-box;
+
+  background: #ffffff;
+
+  border-bottom:
+    1px solid #eeeeee;
+
+  position: sticky;
+
+  top: 0;
+
+  z-index: 1000;
+}
+
+
+/* =====================================================
+   LOGO
+===================================================== */
+
+.navbar-logo {
+  display: flex;
+
+  align-items: center;
+}
+
+
+.navbar-logo span {
+  color: #ff6a00;
+
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+
+  font-size: 24px;
+
+  font-weight: 700;
+
+  letter-spacing: -1.2px;
+
+  line-height: 1;
+}
+
+
+/* =====================================================
+   BOTTOM NAVIGATION
+===================================================== */
+
+.impressa-bottom-nav {
+  position: fixed;
+
+  left: 50%;
+
+  bottom:
+    calc(
+      9px +
+      env(safe-area-inset-bottom)
+    );
+
+  transform:
+    translateX(-50%);
+
+  width:
+    calc(100% - 20px);
+
+  max-width: 650px;
+
+  height: 62px;
+
+  box-sizing: border-box;
+
+  padding:
+    0
+    6px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  background:
+    rgba(255,255,255,.96);
+
+  border:
+    1px solid #eeeeee;
+
+  border-radius: 20px;
+
+  box-shadow:
+    0 12px 35px
+    rgba(0,0,0,.12);
+
+  backdrop-filter:
+    blur(14px);
+
+  -webkit-backdrop-filter:
+    blur(14px);
+
+  z-index: 2000;
+}
+
+
+/* =====================================================
+   NAVIGATION LAYOUT
+
+   3 LEFT/RIGHT ITEMS AROUND
+   CENTER CREATE BUTTON
+===================================================== */
+
+.navbar-links {
+  width: 100%;
+
+  height: 100%;
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(6, 1fr);
+
+  align-items: center;
+
+  justify-items: center;
+
+  box-sizing: border-box;
+}
+
+
+/* =====================================================
+   NORMAL NAV LINKS
+===================================================== */
+
+.navbar-links a {
+  position: relative;
+
+  width: 44px;
+  height: 44px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 14px;
+
+  color: #777777;
+
+  text-decoration: none;
+
+  -webkit-tap-highlight-color:
+    transparent;
+
+  transition:
+    color .2s ease,
+    background .2s ease,
+    transform .2s ease;
+}
+
+
+/* =====================================================
+   ICONS
+===================================================== */
+
+.nav-icon {
+  width: 22px;
+  height: 22px;
+
+  display: block;
+
+  fill: none;
+
+  stroke: currentColor;
+
+  stroke-width: 1.8;
+
+  stroke-linecap: round;
+
+  stroke-linejoin: round;
+
+  transition:
+    transform .22s ease,
+    stroke-width .22s ease;
+}
+
+
+/* =====================================================
+   PULSE ICON
+===================================================== */
+
+.pulse-nav-icon {
+  width: 23px;
+  height: 23px;
+
+  stroke-width: 1.75;
+}
+
+
+/* =====================================================
+   IMPRESSION ICON
+===================================================== */
+
+.impression-nav-icon {
+  width: 23px;
+  height: 23px;
+
+  stroke-width: 1.7;
+}
+
+
+/* =====================================================
+   NORMAL ACTIVE STATE
+
+   Small orange indicator instead of
+   a huge orange square.
+===================================================== */
+
+.navbar-links a:not(.post-link).active {
+  color: #ff6a00;
+
+  background:
+    #fff4ed;
+}
+
+
+.navbar-links a:not(.post-link).active::after {
+  content: "";
+
+  position: absolute;
+
+  bottom: 3px;
+
+  width: 4px;
+  height: 4px;
+
+  border-radius: 50%;
+
+  background: #ff6a00;
+
+  animation:
+    navDot .25s ease both;
+}
+
+
+@keyframes navDot {
+
+  from {
+    opacity: 0;
+
+    transform:
+      scale(.3);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      scale(1);
+  }
+
+}
+
+
+/* =====================================================
+   DESKTOP HOVER
+===================================================== */
+
+@media (hover: hover) and (pointer: fine) {
+
+  .navbar-links a:not(.post-link):hover {
+    color: #ff6a00;
+
+    background: #fff4ed;
+
+    transform:
+      translateY(-2px);
+  }
+
+
+  .navbar-links a:not(.post-link):hover
+  .nav-icon {
+    transform:
+      scale(1.07);
+  }
+
+}
+
+
+/* =====================================================
+   CENTER i+
+===================================================== */
+
+.navbar-links .post-link {
+  width: 48px;
+  height: 48px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background:
+    linear-gradient(
+      145deg,
+      #ff7b1a,
+      #ff6a00
+    );
+
+  color: #ffffff;
+
+  box-shadow:
+    0 7px 18px
+    rgba(255,106,0,.28);
+
+  transform:
+    translateY(-7px);
+
+  position: relative;
+
+  overflow: visible;
+
+  z-index: 5;
+
+  transition:
+    transform .2s ease,
+    box-shadow .2s ease;
+}
+
+
+/* =====================================================
+   i+ OUTER RING
+===================================================== */
+
+.navbar-links .post-link::before {
+  content: "";
+
+  position: absolute;
+
+  inset: -4px;
+
+  border:
+    1px solid
+    rgba(255,106,0,.18);
+
+  border-radius: 50%;
+
+  opacity: .9;
+
+  transition:
+    transform .25s ease,
+    opacity .25s ease;
+}
+
+
+/* =====================================================
+   i+ ICON
+===================================================== */
+
+.create-post-icon {
+  width: 100%;
+  height: 100%;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  position: relative;
+
+  color: #ffffff;
+
+  user-select: none;
+
+  line-height: 1;
+}
+
+
+/* =====================================================
+   i
+===================================================== */
+
+.i-letter {
+  position: relative;
+
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+
+  font-size: 23px;
+
+  font-weight: 800;
+
+  line-height: 1;
+
+  transform:
+    translateX(-3px);
+}
+
+
+/* =====================================================
+   +
+===================================================== */
+
+.plus-letter {
+  position: relative;
+
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+
+  font-size: 18px;
+
+  font-weight: 500;
+
+  line-height: 1;
+
+  transform:
+    translate(
+      2px,
+      -5px
+    );
+}
+
+
+/* =====================================================
+   i+ ACTIVE
+===================================================== */
+
+.navbar-links .post-link.active {
+  background:
+    linear-gradient(
+      145deg,
+      #ff7b1a,
+      #ff6a00
+    );
+
+  color: #ffffff;
+
+  box-shadow:
+    0 8px 22px
+    rgba(255,106,0,.35);
+
+  transform:
+    translateY(-8px);
+}
+
+
+/* =====================================================
+   i+ INTERACTION
+===================================================== */
+
+@media (hover: hover) and (pointer: fine) {
+
+  .navbar-links .post-link:hover {
+    color: #ffffff;
+
+    background:
+      linear-gradient(
+        145deg,
+        #ff7b1a,
+        #ff6a00
+      );
+
+    transform:
+      translateY(-9px)
+      scale(1.04);
+
+    box-shadow:
+      0 11px 25px
+      rgba(255,106,0,.35);
+  }
+
+
+  .navbar-links .post-link:hover::before {
+    transform:
+      scale(1.12);
+
+    opacity: .35;
+  }
+
+}
+
+
+/* =====================================================
+   TOUCH PRESS
+===================================================== */
+
+.navbar-links a:active {
+  transform:
+    scale(.92);
+}
+
+
+.navbar-links .post-link:active {
+  transform:
+    translateY(-7px)
+    scale(.94);
+}
+
+
+/* =====================================================
+   MOBILE
+===================================================== */
+
+@media (max-width: 600px) {
+
+  .impressa-topbar {
+    height: 60px;
+
+    padding:
+      0
+      18px;
+  }
+
+
+  .navbar-logo span {
+    font-size: 24px;
+  }
+
+
+  .impressa-bottom-nav {
+    width:
+      calc(100% - 20px);
+
+    height: 62px;
+
+    border-radius: 20px;
+
+    bottom:
+      calc(
+        9px +
+        env(safe-area-inset-bottom)
+      );
+  }
+
+
+  .navbar-links {
+    padding:
+      0
+      2px;
+  }
+
+
+  .navbar-links a {
+    width: 42px;
+    height: 42px;
+
+    border-radius: 13px;
+  }
+
+
+  .nav-icon {
+    width: 21px;
+    height: 21px;
+  }
+
+
+  .pulse-nav-icon,
+  .impression-nav-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+
+  .navbar-links .post-link {
+    width: 47px;
+    height: 47px;
+
+    transform:
+      translateY(-7px);
+  }
+
+
+  .navbar-links .post-link.active {
+    transform:
+      translateY(-8px);
+  }
+
+
+  .i-letter {
+    font-size: 22px;
+  }
+
+
+  .plus-letter {
+    font-size: 18px;
+
+    transform:
+      translate(
+        2px,
+        -5px
+      );
+  }
+
+}
+
+
+/* =====================================================
+   VERY SMALL PHONES
+===================================================== */
+
+@media (max-width: 380px) {
+
+  .impressa-bottom-nav {
+    width:
+      calc(100% - 12px);
+
+    height: 60px;
+
+    bottom:
+      calc(
+        6px +
+        env(safe-area-inset-bottom)
+      );
+
+    border-radius: 18px;
+  }
+
+
+  .navbar-links a {
+    width: 38px;
+    height: 38px;
+
+    border-radius: 12px;
+  }
+
+
+  .nav-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+
+  .pulse-nav-icon,
+  .impression-nav-icon {
+    width: 21px;
+    height: 21px;
+  }
+
+
+  .navbar-links .post-link {
+    width: 44px;
+    height: 44px;
+
+    transform:
+      translateY(-6px);
+  }
+
+
+  .navbar-links .post-link.active {
+    transform:
+      translateY(-7px);
+  }
+
+
+  .i-letter {
+    font-size: 20px;
+  }
+
+
+  .plus-letter {
+    font-size: 17px;
+  }
+
+}
+
+
+/* =====================================================
+   REDUCED MOTION
+===================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+
+  .navbar-links a,
+  .nav-icon,
+  .post-link,
+  .post-link::before {
+    transition: none !important;
+  }
+
+}

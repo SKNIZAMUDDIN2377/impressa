@@ -6,6 +6,10 @@ const Post = require("../models/Post");
 const Comment = require("../models/Comment");
 const Impression = require("../models/Impression");
 const Pulse = require("../models/Pulse");
+const Note = require("../models/Note");
+const Notification = require("../models/Notification");
+const Block = require("../models/Block");
+const { deleteCloudinaryMedia } = require("../utils/cloudinaryCleanup");
 
 // ==========================================
 // REGISTER / CREATE ACCOUNT
@@ -34,8 +38,6 @@ const registerUser = async (req, res) => {
         message: "Username already exists",
       });
     }
-
-   
 
     // 4. Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
@@ -439,54 +441,50 @@ const deleteAccount = async (req, res) => {
 
     const userId = user._id;
 
-    // ==========================================
-    // 4. FIND USER'S POSTS
-    // ==========================================
-
-    const userPosts = await Post.find({
-      author: userId,
-    }).select("_id");
-
+    // Find the user's posts
+       const userPosts = await Post.find({ author: userId }).select("_id media");
     const userPostIds = userPosts.map((post) => post._id);
 
-    // ==========================================
-    // 5. DELETE COMMENTS
-    // ==========================================
-    //
-    // Delete:
-    // - Comments written by this user
-    // - Comments made by anyone on this user's posts
-    //
+    // Posts owned by OTHER people that this user commented on.
+    // Their stored commentsCount must be recalculated afterwards.
+    const commentedPostIds = await Comment.distinct("post", {
+      user: userId,
+      post: { $nin: userPostIds },
+    });
 
+    // Comments written by this user + all comments on this user's posts
+    // (the old code filtered on `author`, but the field is `user`)
     await Comment.deleteMany({
-      $or: [
-        { author: userId },
-        { post: { $in: userPostIds } },
-      ],
+      $or: [{ user: userId }, { post: { $in: userPostIds } }],
     });
 
-    // ==========================================
-    // 6. DELETE IMPRESSIONS GIVEN BY USER
-    // ==========================================
+    for (const postId of commentedPostIds) {
+      const count = await Comment.countDocuments({ post: postId });
+      await Post.updateOne({ _id: postId }, { commentsCount: count });
+    }
 
+    // Impressions given by this user + impressions on this user's posts
     await Impression.deleteMany({
-      user: userId,
+      $or: [{ user: userId }, { post: { $in: userPostIds } }],
     });
 
-    // ==========================================
-    // 7. DELETE USER'S POSTS
-    // ==========================================
+        await Post.deleteMany({ author: userId });
 
-    await Post.deleteMany({
-      author: userId,
+    // Remove the user's photos/videos from Cloudinary (best-effort)
+    await deleteCloudinaryMedia(
+      userPosts.flatMap((post) => post.media || [])
+    );
+
+    await Pulse.deleteMany({ user: userId });
+
+    await Note.deleteMany({ user: userId });
+
+    await Notification.deleteMany({
+      $or: [{ recipient: userId }, { sender: userId }],
     });
 
-    // ==========================================
-    // 8. DELETE USER'S PULSES
-    // ==========================================
-
-    await Pulse.deleteMany({
-      user: userId,
+    await Block.deleteMany({
+      $or: [{ blocker: userId }, { blocked: userId }],
     });
 
     // ==========================================

@@ -1,5 +1,9 @@
 const User = require("../models/User");
 const Post = require("../models/Post");
+const {
+  getBlockedUserIds,
+  isBlockedBetween,
+} = require("../utils/blockUtils");
 
 // ==========================================
 // V1 STAR / BADGE SYSTEM
@@ -188,6 +192,12 @@ const getUserProfile = async (
         message: "User not found",
       });
     }
+        if (await isBlockedBetween(req.user.userId, user._id)) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -228,10 +238,30 @@ const searchUsers = async (
         "\\$&"
       );
 
+    // ==========================================
+    // GET CURRENT USER'S FOLLOWING LIST
+    // ==========================================
+    // Fetched once here so isFollowing can be computed per result
+    // below without a separate follow-status request per user.
+
+    const currentUser =
+      await User.findById(req.user.userId)
+        .select("following")
+        .lean();
+
+    const followingSet = new Set(
+      (currentUser?.following || []).map((id) =>
+        id.toString()
+      )
+    );
+
+        const hiddenIds = await getBlockedUserIds(req.user.userId);
+
     const users =
       await User.find({
-        _id: {
+               _id: {
           $ne: req.user.userId,
+          $nin: hiddenIds,
         },
 
         $or: [
@@ -314,6 +344,18 @@ const searchUsers = async (
 
             isOfficial:
               user.isOfficial || false,
+
+            // ======================================
+            // FOLLOW STATUS
+            // ======================================
+            // Computed above from the current user's following
+            // list, instead of the frontend checking N users one
+            // by one against /api/follow/status/:username.
+
+            isFollowing:
+              followingSet.has(
+                user._id.toString()
+              ),
           };
         });
 
@@ -420,8 +462,20 @@ const getUserFollowers = async (
       });
     }
 
-    const followers =
-      user.followers.map(
+          if (await isBlockedBetween(req.user.userId, user._id)) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const hidden = new Set(
+      (await getBlockedUserIds(req.user.userId)).map(String)
+    );
+
+       const followers = user.followers
+      .filter((f) => f && !hidden.has(String(f._id)))
+      .map(
         (follower) => ({
           id: follower._id,
           name: follower.name,
@@ -482,8 +536,9 @@ const getUserFollowing = async (
       });
     }
 
-    const following =
-      user.following.map(
+           const following = user.following
+      .filter((f) => f && !hidden.has(String(f._id)))
+      .map(
         (followedUser) => ({
           id: followedUser._id,
           name:

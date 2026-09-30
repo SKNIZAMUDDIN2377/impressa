@@ -3,7 +3,7 @@ import "./Action.css";
 function CommentIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M5 5.5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H11l-5 3v-3.8a2 2 0 0 1-3-1.2v-8a2 2 0 0 1 2-2Z" />
+      <path d="M20.5 11.5a8 8 0 0 1-11.6 7.1L4 20l1.5-4.6A8 8 0 1 1 20.5 11.5Z" />
     </svg>
   );
 }
@@ -11,8 +11,8 @@ function CommentIcon() {
 function ShareIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M20.5 3.5L10.8 13.2" />
-      <path d="M20.5 3.5L14.3 20.5L10.8 13.2L3.5 9.7L20.5 3.5Z" />
+      <path d="M21 3 10.5 13.5" />
+      <path d="M21 3l-6.5 18-4-7.5L3 9.5 21 3Z" />
     </svg>
   );
 }
@@ -20,9 +20,7 @@ function ShareIcon() {
 function ImpressionIcon({ active }) {
   return (
     <span
-      className={`impression-i ${
-        active ? "is-active" : ""
-      }`}
+      className={`impression-i ${active ? "is-active" : ""}`}
       aria-hidden="true"
     >
       i
@@ -40,6 +38,21 @@ function Action({
 }) {
   return (
     <div className="post-actions">
+      {/* IMPRESSION */}
+
+      <button
+        type="button"
+        className={`impression-button ${impressed ? "impressed" : ""}`}
+        aria-label={
+          impressed ? "Remove impression" : "Give impression"
+        }
+        aria-pressed={impressed}
+        onClick={onImpression}
+      >
+        <ImpressionIcon active={impressed} />
+
+        <span>{impressions}</span>
+      </button>
 
       {/* COMMENTS */}
 
@@ -50,46 +63,20 @@ function Action({
         onClick={onComment}
       >
         <CommentIcon />
+
         <span>{comments}</span>
       </button>
-
-
-      {/* IMPRESSIONS */}
-
-      <button
-        type="button"
-        className={`impression-button ${
-          impressed ? "impressed" : ""
-        }`}
-        aria-label={
-          impressed
-            ? "Already impressed"
-            : `Impressions ${impressions}`
-        }
-        aria-pressed={impressed}
-        onClick={onImpression}
-      >
-        <ImpressionIcon
-          active={impressed}
-        />
-
-        <span>
-          {impressions}
-        </span>
-      </button>
-
 
       {/* SHARE */}
 
       <button
         type="button"
-        className="action-button"
+        className="action-button action-share"
         aria-label="Share post"
         onClick={onShare}
       >
         <ShareIcon />
       </button>
-
     </div>
   );
 }

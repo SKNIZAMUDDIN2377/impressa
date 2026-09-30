@@ -46,15 +46,7 @@ function SignIn() {
         return;
       }
 
-      // ==========================================
-      // SAVE JWT TOKEN
-      // ==========================================
-
       localStorage.setItem("token", data.token);
-
-      // ==========================================
-      // SAVE USER INFORMATION
-      // ==========================================
 
       if (data.user) {
         const loggedInUser = {
@@ -67,10 +59,6 @@ function SignIn() {
           "user",
           JSON.stringify(loggedInUser)
         );
-
-        // ==========================================
-        // SAVE / UPDATE ACCOUNT FOR ACCOUNT CENTER
-        // ==========================================
 
         const storedAccounts = JSON.parse(
           localStorage.getItem(
@@ -115,17 +103,12 @@ function SignIn() {
           JSON.stringify(storedAccounts)
         );
 
-        // ==========================================
-        // SET ACTIVE ACCOUNT
-        // ==========================================
-
         localStorage.setItem(
           "impressa_active_account",
           JSON.stringify(loggedInAccount)
         );
       }
 
-      // Login successful
       navigate("/");
     } catch (error) {
       console.error("Login error:", error);
@@ -141,30 +124,19 @@ function SignIn() {
   return (
     <main className="signin-page">
 
-      {/* BACKGROUND */}
-
-      <div className="signin-glow signin-glow-one" />
-      <div className="signin-glow signin-glow-two" />
-
       <div className="signin-container">
-
-        {/* BRAND */}
 
         <section className="signin-brand">
 
           <div className="signin-logo">
-            impressa
+            impressa<span>.</span>
           </div>
 
           <p className="signin-tagline">
             Rise through impressions
           </p>
 
-          <div className="signin-brand-line" />
-
         </section>
-
-        {/* LOGIN CARD */}
 
         <section className="signin-card">
 
@@ -188,8 +160,6 @@ function SignIn() {
             className="signin-form"
             onSubmit={handleSubmit}
           >
-
-            {/* USERNAME */}
 
             <div className="signin-field">
 
@@ -217,8 +187,6 @@ function SignIn() {
               </div>
 
             </div>
-
-            {/* PASSWORD */}
 
             <div className="signin-field">
 
@@ -284,8 +252,6 @@ function SignIn() {
 
             </div>
 
-            {/* SIGN IN BUTTON */}
-
             <button
               type="submit"
               className="signin-button"
@@ -316,8 +282,6 @@ function SignIn() {
 
           </form>
 
-          {/* CREATE ACCOUNT */}
-
           <div className="signin-create">
 
             <span>
@@ -331,8 +295,6 @@ function SignIn() {
           </div>
 
         </section>
-
-        {/* FOOTER */}
 
         <p className="signin-footer">
           © {new Date().getFullYear()} Impressa

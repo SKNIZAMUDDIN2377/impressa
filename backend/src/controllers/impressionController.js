@@ -2,6 +2,7 @@ const Impression = require("../models/Impression");
 const Post = require("../models/Post");
 const User = require("../models/User");
 const Notification = require("../models/Notification");
+const { isBlockedBetween } = require("../utils/blockUtils");
 
 // ==========================================
 // GIVE IMPRESSION
@@ -15,6 +16,12 @@ const giveImpression = async (req, res) => {
     const post = await Post.findById(postId);
 
     if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: "Post not found",
+      });
+    }
+        if (await isBlockedBetween(userId, post.author)) {
       return res.status(404).json({
         success: false,
         message: "Post not found",

@@ -6,8 +6,69 @@ import {
 
 import "./Profile.css";
 import BadgeAnimation from "../components/BadgeAnimation";
+import ConfirmDialog from "../components/ConfirmDialog";
+import ReportModal from "../components/ReportModal";
+import { blockUser } from "../utils/safetyApi";
+import { getStoredTheme, setTheme } from "../utils/theme";
+
 const API_BASE_URL =
   import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+// ==========================================
+// DEFAULT PROFILE PICTURE
+// Neutral silhouette (never a real person's photo)
+// ==========================================
+
+const DEFAULT_PROFILE_PIC =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300">
+      <rect width="300" height="300" fill="#E9E9E9"/>
+      <circle cx="150" cy="115" r="55" fill="#C2C2C2"/>
+      <path d="M150 188c-68 0-122 42-122 95v17h244v-17c0-53-54-95-122-95z" fill="#C2C2C2"/>
+    </svg>`
+  );
+
+// ==========================================
+// CROP SETTINGS
+// ==========================================
+
+const CROP_OUTPUT_SIZE = 512;
+const CROP_MAX_ZOOM = 3;
+
+// ==========================================
+// PROFILE CACHE
+// ==========================================
+
+const getCachedProfile = (username) => {
+  try {
+    if (!username) return null;
+
+    return JSON.parse(
+      localStorage.getItem(
+        `impressa_profile_${username.toLowerCase()}`
+      ) || "null"
+    );
+  } catch (error) {
+    console.error("Profile cache read error:", error);
+    return null;
+  }
+};
+
+const getCachedPosts = (username) => {
+  try {
+    if (!username) return [];
+
+    return JSON.parse(
+      localStorage.getItem(
+        `impressa_profile_posts_${username.toLowerCase()}`
+      ) || "[]"
+    );
+  } catch (error) {
+    console.error("Profile posts cache read error:", error);
+    return [];
+  }
+};
 
 
 function Profile() {
@@ -38,28 +99,40 @@ function Profile() {
     routeUsername || loggedInUsername;
 
   const [profileData, setProfileData] =
-    useState(null);
+    useState(() => getCachedProfile(viewedUsername));
 
   const [profilePosts, setProfilePosts] =
-    useState([]);
+    useState(() => getCachedPosts(viewedUsername));
 
   const [profileLoading, setProfileLoading] =
-    useState(true);
+    useState(() => !getCachedProfile(viewedUsername));
 
   const [profileError, setProfileError] =
     useState("");
 
+  const profileRequestIdRef = useRef(0);
+
+  useEffect(() => {
+    const cachedProfile = getCachedProfile(viewedUsername);
+    const cachedPosts = getCachedPosts(viewedUsername);
+
+    setProfileData(cachedProfile);
+    setProfilePosts(cachedPosts);
+    setProfileLoading(!cachedProfile);
+    setProfileError("");
+  }, [viewedUsername]);
+
   useEffect(() => {
     const fetchProfile = async () => {
+      const requestId = ++profileRequestIdRef.current;
+
       try {
-        setProfileLoading(true);
         setProfileError("");
 
-       const API_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000";
+        const API_URL =
+          import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-        const token =
-          localStorage.getItem("token");
+        const token = localStorage.getItem("token");
 
         const profileUrl = isOwnProfile
           ? `${API_URL}/api/profile/me`
@@ -67,41 +140,62 @@ function Profile() {
               viewedUsername
             )}`;
 
-        const profileResponse =
-          await fetch(profileUrl, {
-            method: "GET",
-            headers: token
-              ? {
-                  Authorization: `Bearer ${token}`,
-                }
-              : {},
-          });
+        const profileResponse = await fetch(profileUrl, {
+          method: "GET",
+          headers: token
+            ? { Authorization: `Bearer ${token}` }
+            : {},
+        });
 
-        const profileResult =
-          await profileResponse.json();
+        const profileResult = await profileResponse.json();
 
         if (!profileResponse.ok) {
-          throw new Error(
-            profileResult.message ||
-              "Failed to load profile"
+          const loadError = new Error(
+            profileResult.message || "Failed to load profile"
           );
+
+          loadError.status = profileResponse.status;
+
+          throw loadError;
+        }
+
+        if (requestId !== profileRequestIdRef.current) {
+          return;
         }
 
         setProfileData(profileResult.user);
 
-        const postsResponse =
-          await fetch(
-            `${API_URL}/api/profile/${encodeURIComponent(
-              profileResult.user.username
-            )}/posts`
-          );
+        localStorage.setItem(
+          `impressa_profile_${viewedUsername.toLowerCase()}`,
+          JSON.stringify(profileResult.user)
+        );
 
-        const postsResult =
-          await postsResponse.json();
+        const postsResponse = await fetch(
+          `${API_URL}/api/profile/${encodeURIComponent(
+            profileResult.user.username
+          )}/posts`,
+          {
+            method: "GET",
+            headers: token
+              ? { Authorization: `Bearer ${token}` }
+              : {},
+          }
+        );
+
+        const postsResult = await postsResponse.json();
+
+        if (requestId !== profileRequestIdRef.current) {
+          return;
+        }
 
         if (postsResponse.ok) {
-          setProfilePosts(
-            postsResult.posts || []
+          const freshPosts = postsResult.posts || [];
+
+          setProfilePosts(freshPosts);
+
+          localStorage.setItem(
+            `impressa_profile_posts_${viewedUsername.toLowerCase()}`,
+            JSON.stringify(freshPosts)
           );
         } else {
           setProfilePosts([]);
@@ -109,21 +203,35 @@ function Profile() {
 
       } catch (error) {
 
-        console.error(
-          "Profile fetch error:",
-          error
-        );
+        if (requestId !== profileRequestIdRef.current) {
+          return;
+        }
 
-        setProfileError(
-          error.message ||
-            "Unable to load profile."
-        );
+        console.error("Profile fetch error:", error);
 
-        setProfilePosts([]);
+        if (error.status === 404) {
+          // Deleted, not found, or blocked: never show a stale cached copy
+          const cacheKey = viewedUsername.toLowerCase();
+
+          localStorage.removeItem(`impressa_profile_${cacheKey}`);
+          localStorage.removeItem(`impressa_profile_posts_${cacheKey}`);
+
+          setProfileData(null);
+          setProfilePosts([]);
+          setProfileError("This profile isn't available.");
+        } else if (!getCachedProfile(viewedUsername)) {
+          setProfileError(
+            error.message || "Unable to load profile."
+          );
+
+          setProfilePosts([]);
+        }
 
       } finally {
 
-        setProfileLoading(false);
+        if (requestId === profileRequestIdRef.current) {
+          setProfileLoading(false);
+        }
 
       }
     };
@@ -138,59 +246,25 @@ function Profile() {
   const selectedUser = profileData
     ? {
         name: profileData.name,
-
-        username:
-          profileData.username,
-
-        bio:
-          profileData.bio || "",
-
+        username: profileData.username,
+        bio: profileData.bio || "",
         profilePic:
-          profileData.profilePicture ||
-          "https://i.pravatar.cc/300?img=32",
-
-        followers:
-          profileData.followersCount ?? 0,
-
-        following:
-          profileData.followingCount ?? 0,
-
-        impressions:
-          profileData.impressionsReceived ?? 0,
-
-        badge:
-          profileData.badge ||
-          "Impression Starter",
-
-        // ==========================================
-        // OFFICIAL ACCOUNT
-        // ==========================================
-
-        isOfficial:
-          profileData.isOfficial === true,
+          profileData.profilePicture || DEFAULT_PROFILE_PIC,
+        followers: profileData.followersCount ?? 0,
+        following: profileData.followingCount ?? 0,
+        impressions: profileData.impressionsReceived ?? 0,
+        badge: profileData.badge || "Impression Starter",
+        isOfficial: profileData.isOfficial === true,
       }
-
     : {
-        name:
-          viewedUsername || "",
-
-        username:
-          viewedUsername || "",
-
+        name: viewedUsername || "",
+        username: viewedUsername || "",
         bio: "",
-
-        profilePic:
-          "https://i.pravatar.cc/300?img=32",
-
+        profilePic: DEFAULT_PROFILE_PIC,
         followers: 0,
-
         following: 0,
-
         impressions: 0,
-
-        badge:
-          "Impression Starter",
-
+        badge: "Impression Starter",
         isOfficial: false,
       };
 
@@ -200,49 +274,48 @@ function Profile() {
   PROFILE STATE
   */
 
-  const [menuOpen, setMenuOpen] =
-    useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
-  const [activeTab, setActiveTab] =
-    useState("posts");
+  const [reportOpen, setReportOpen] = useState(false);
 
-  const [followed, setFollowed] =
-    useState(false);
+  const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
 
-  const [connectionsOpen, setConnectionsOpen] =
-    useState(false);
+  const [blocking, setBlocking] = useState(false);
 
-  const [connectionType, setConnectionType] =
-    useState("followers");
+  const [darkTheme, setDarkTheme] = useState(
+    () => getStoredTheme() === "dark"
+  );
 
-  const [connections, setConnections] =
-    useState([]);
+  const [activeTab, setActiveTab] = useState("posts");
 
-  const [connectionsLoading, setConnectionsLoading] =
-    useState(false);
+  const [followed, setFollowed] = useState(false);
 
-  const [connectionsError, setConnectionsError] =
-    useState("");
+  const [connectionsOpen, setConnectionsOpen] = useState(false);
+
+  const [connectionType, setConnectionType] = useState("followers");
+
+  const [connections, setConnections] = useState([]);
+
+  const [connectionsLoading, setConnectionsLoading] = useState(false);
+
+  const [connectionsError, setConnectionsError] = useState("");
 
 
   useEffect(() => {
     const checkFollowStatus = async () => {
 
-      // Own profile doesn't need follow status
       if (isOwnProfile) {
         setFollowed(false);
         return;
       }
 
       try {
-
-        const token =
-          localStorage.getItem("token");
+        const token = localStorage.getItem("token");
 
         if (!token) return;
 
-       const API_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000";
+        const API_URL =
+          import.meta.env.VITE_API_URL || "http://localhost:5000";
 
         const response = await fetch(
           `${API_URL}/api/follow/status/${encodeURIComponent(
@@ -250,44 +323,27 @@ function Profile() {
           )}`,
           {
             method: "GET",
-            headers: {
-              Authorization:
-                `Bearer ${token}`,
-            },
+            headers: { Authorization: `Bearer ${token}` },
           }
         );
 
-        const data =
-          await response.json();
+        const data = await response.json();
 
         if (!response.ok) {
-          console.error(
-            "Follow status error:",
-            data
-          );
+          console.error("Follow status error:", data);
           return;
         }
 
-        setFollowed(
-          data.following === true
-        );
+        setFollowed(data.following === true);
 
       } catch (error) {
-
-        console.error(
-          "Check follow status error:",
-          error
-        );
-
+        console.error("Check follow status error:", error);
       }
     };
 
     checkFollowStatus();
 
-  }, [
-    viewedUsername,
-    isOwnProfile,
-  ]);
+  }, [viewedUsername, isOwnProfile]);
 
 
   /*
@@ -297,65 +353,61 @@ function Profile() {
 
   const [notes, setNotes] = useState([]);
 
-const [noteText, setNoteText] = useState("");
+  const [noteText, setNoteText] = useState("");
 
-const [notesLoading, setNotesLoading] = useState(false);
+  const [notesLoading, setNotesLoading] = useState(false);
 
-// ==========================================
-// LOAD i-NOTES FROM BACKEND
-// ==========================================
+  const pendingNoteDeletesRef = useRef(new Set());
 
-useEffect(() => {
-  const fetchNotes = async () => {
-    try {
-      setNotesLoading(true);
+  useEffect(() => {
+    const fetchNotes = async () => {
+      try {
+        setNotesLoading(true);
 
-      const token = localStorage.getItem("token");
+        const token = localStorage.getItem("token");
 
-      if (!token) return;
+        if (!token) return;
 
-    const API_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000";
+        const API_URL =
+          import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-      const notesUrl = isOwnProfile
-        ? `${API_URL}/api/notes`
-        : `${API_URL}/api/notes/user/${encodeURIComponent(
-            viewedUsername
-          )}`;
+        const notesUrl = isOwnProfile
+          ? `${API_URL}/api/notes`
+          : `${API_URL}/api/notes/user/${encodeURIComponent(
+              viewedUsername
+            )}`;
 
-      const response = await fetch(notesUrl, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+        const response = await fetch(notesUrl, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-      const data = await response.json();
+        const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(
-          data.message || "Unable to load i-Notes."
+        if (!response.ok) {
+          throw new Error(
+            data.message || "Unable to load i-Notes."
+          );
+        }
+
+        setNotes(
+          (data.notes || []).map((note) => ({
+            id: note._id,
+            text: note.text,
+          }))
         );
+      } catch (error) {
+        console.error("Load i-Notes error:", error);
+        setNotes([]);
+      } finally {
+        setNotesLoading(false);
       }
+    };
 
-      setNotes(
-        (data.notes || []).map((note) => ({
-          id: note._id,
-          text: note.text,
-        }))
-      );
-    } catch (error) {
-      console.error("Load i-Notes error:", error);
-      setNotes([]);
-    } finally {
-      setNotesLoading(false);
+    if (viewedUsername || isOwnProfile) {
+      fetchNotes();
     }
-  };
-
-  if (viewedUsername || isOwnProfile) {
-    fetchNotes();
-  }
-}, [viewedUsername, isOwnProfile]);
+  }, [viewedUsername, isOwnProfile]);
 
 
   /*
@@ -363,30 +415,21 @@ useEffect(() => {
   EDIT PROFILE
   */
 
-  const [editOpen, setEditOpen] =
-    useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
-  const [name, setName] =
-    useState(selectedUser.name);
+  const [name, setName] = useState(selectedUser.name);
 
-  const [username, setUsername] =
-    useState(selectedUser.username);
+  const [username, setUsername] = useState(selectedUser.username);
 
-  const [bio, setBio] =
-    useState(selectedUser.bio);
+  const [bio, setBio] = useState(selectedUser.bio);
 
-  const [profilePic, setProfilePic] =
-    useState(selectedUser.profilePic);
+  const [profilePic, setProfilePic] = useState(selectedUser.profilePic);
 
+  const [tempName, setTempName] = useState(selectedUser.name);
 
-  const [tempName, setTempName] =
-    useState(selectedUser.name);
+  const [tempUsername, setTempUsername] = useState(selectedUser.username);
 
-  const [tempUsername, setTempUsername] =
-    useState(selectedUser.username);
-
-  const [tempBio, setTempBio] =
-    useState(selectedUser.bio);
+  const [tempBio, setTempBio] = useState(selectedUser.bio);
 
 
   /*
@@ -395,26 +438,14 @@ useEffect(() => {
   */
 
   useEffect(() => {
-
     if (!profileData) return;
 
-    setName(
-      profileData.name || ""
-    );
-
-    setUsername(
-      profileData.username || ""
-    );
-
-    setBio(
-      profileData.bio || ""
-    );
-
+    setName(profileData.name || "");
+    setUsername(profileData.username || "");
+    setBio(profileData.bio || "");
     setProfilePic(
-      profileData.profilePicture ||
-        "https://i.pravatar.cc/300?img=32"
+      profileData.profilePicture || DEFAULT_PROFILE_PIC
     );
-
   }, [profileData]);
 
 
@@ -423,45 +454,122 @@ useEffect(() => {
   PROFILE IMAGE VIEWER
   */
 
-  const [imageViewerOpen, setImageViewerOpen] =
-    useState(false);
+  const [imageViewerOpen, setImageViewerOpen] = useState(false);
 
 
   /*
   ============================================================
   PROFILE IMAGE CROP
+  ============================================================
+  The image fills the circle ("cover"), then is zoomed and
+  panned with a CSS transform. applyCrop() reproduces exactly
+  the same framing on a canvas, so the saved picture matches
+  what the user sees inside the circle.
   */
 
-  const [cropOpen, setCropOpen] =
-    useState(false);
+  const [cropOpen, setCropOpen] = useState(false);
 
-  const [cropImage, setCropImage] =
-    useState("");
+  const [cropImage, setCropImage] = useState("");
 
-  const [cropZoom, setCropZoom] =
-    useState(1);
+  const [cropZoom, setCropZoom] = useState(1);
 
-  const [cropX, setCropX] =
-    useState(0);
+  const [cropX, setCropX] = useState(0);
 
-  const [cropY, setCropY] =
-    useState(0);
+  const [cropY, setCropY] = useState(0);
 
+  const [cropNatural, setCropNatural] = useState({ w: 0, h: 0 });
 
-  const fileInputRef =
-    useRef(null);
+  const [cropApplying, setCropApplying] = useState(false);
 
-  const cropAreaRef =
-    useRef(null);
+  const fileInputRef = useRef(null);
 
-  const dragRef =
-    useRef({
-      active: false,
-      startX: 0,
-      startY: 0,
-      originalX: 0,
-      originalY: 0,
+  const cropAreaRef = useRef(null);
+
+  const cropCircleRef = useRef(null);
+
+  // Live crop values (so gesture handlers never read stale state)
+  const cropStateRef = useRef({ x: 0, y: 0, zoom: 1 });
+
+  const cropPointersRef = useRef(new Map());
+
+  const cropGestureRef = useRef({
+    origX: 0,
+    origY: 0,
+    origZoom: 1,
+    p0: { x: 0, y: 0 },
+    dist: 0,
+  });
+
+  const cropImageRef = useRef("");
+
+  useEffect(() => {
+    cropImageRef.current = cropImage;
+  }, [cropImage]);
+
+  // Release the blob URL if the page is left mid-crop
+  useEffect(() => {
+    return () => {
+      if (cropImageRef.current) {
+        URL.revokeObjectURL(cropImageRef.current);
+      }
+    };
+  }, []);
+
+  const updateCrop = (x, y, zoom) => {
+    cropStateRef.current = { x, y, zoom };
+    setCropX(x);
+    setCropY(y);
+    setCropZoom(zoom);
+  };
+
+  // Size of the circle and how far the image may be moved
+  // before the circle would show empty space.
+  const getCropBounds = (zoom) => {
+    const circle = cropCircleRef.current;
+
+    if (!circle || !cropNatural.w || !cropNatural.h) {
+      return { size: 0, cover: 1, maxX: 0, maxY: 0 };
+    }
+
+    const size = circle.clientWidth;
+
+    const cover = Math.max(
+      size / cropNatural.w,
+      size / cropNatural.h
+    );
+
+    return {
+      size,
+      cover,
+      maxX: Math.max(
+        0,
+        (cropNatural.w * cover * zoom - size) / 2
+      ),
+      maxY: Math.max(
+        0,
+        (cropNatural.h * cover * zoom - size) / 2
+      ),
+    };
+  };
+
+  const clampCropOffset = (x, y, zoom) => {
+    const { maxX, maxY } = getCropBounds(zoom);
+
+    return {
+      x: Math.min(maxX, Math.max(-maxX, x)),
+      y: Math.min(maxY, Math.max(-maxY, y)),
+    };
+  };
+
+  const clampCropZoom = (value) =>
+    Math.min(CROP_MAX_ZOOM, Math.max(1, value));
+
+  const handleCropImageLoad = (event) => {
+    setCropNatural({
+      w: event.target.naturalWidth,
+      h: event.target.naturalHeight,
     });
+  };
 
 
  /*
@@ -470,56 +578,22 @@ useEffect(() => {
   ============================================================
 */
 
-const impressions = Number(
-  selectedUser.impressions || 0
-);
+const impressions = Number(selectedUser.impressions || 0);
 
 const badges = Math.floor(impressions / 100);
 
 const starLevels = [
-  {
-    min: 1,
-    impressions: 100,
-    name: "i Bronze Star",
-    icon: "★",
-    className: "bronze",
-  },
-  {
-    min: 3,
-    impressions: 300,
-    name: "i Silver Star",
-    icon: "★",
-    className: "silver",
-  },
-  {
-    min: 5,
-    impressions: 500,
-    name: "i Gold Star",
-    icon: "★",
-    className: "gold",
-  },
-  {
-    min: 7,
-    impressions: 700,
-    name: "Legend",
-    icon: "★",
-    className: "legend",
-  },
-  {
-    min: 15,
-    impressions: 1500,
-    name: "i Pro",
-    icon: "★",
-    className: "pro",
-  },
+  { min: 1, impressions: 100, name: "i Bronze Star", icon: "★", className: "bronze" },
+  { min: 3, impressions: 300, name: "i Silver Star", icon: "★", className: "silver" },
+  { min: 5, impressions: 500, name: "i Gold Star", icon: "★", className: "gold" },
+  { min: 7, impressions: 700, name: "Legend", icon: "★", className: "legend" },
+  { min: 15, impressions: 1500, name: "i Pro", icon: "★", className: "pro" },
 ];
 
 const currentStar =
   [...starLevels]
     .reverse()
-    .find(
-      (star) => badges >= star.min
-    ) || {
+    .find((star) => badges >= star.min) || {
       min: 0,
       impressions: 0,
       name: "No Star",
@@ -527,21 +601,15 @@ const currentStar =
       className: "none",
     };
 
-const nextStar = starLevels.find(
-  (star) => badges < star.min
-);
+const nextStar = starLevels.find((star) => badges < star.min);
 
 const progress = nextStar
   ? Math.min(
       100,
       Math.max(
         0,
-        (
-          (impressions -
-            currentStar.impressions) /
-          (nextStar.impressions -
-            currentStar.impressions)
-        ) * 100
+        ((impressions - currentStar.impressions) /
+          (nextStar.impressions - currentStar.impressions)) * 100
       )
     )
   : 100;
@@ -566,42 +634,33 @@ if (badges >= 15) {
   POSTS
   */
 
-  const posts = profilePosts.map(
-    (post) => {
+  const posts = profilePosts.map((post) => {
 
-      const firstMedia =
-        post.media?.[0];
+    const firstMedia = post.media?.[0];
 
-      let image =
-        typeof firstMedia === "string"
-          ? firstMedia
-          : firstMedia?.url ||
-            firstMedia?.path ||
-            firstMedia?.src;
-
+    let image =
+      typeof firstMedia === "string"
+        ? firstMedia
+        : firstMedia?.url ||
+          firstMedia?.path ||
+          firstMedia?.src;
 
     if (image?.startsWith("/")) {
-  image = `${API_BASE_URL}${image}`;
-}
-
-
-     if (image?.startsWith("http://localhost:5000")) {
-  image = image.replace(
-    "http://localhost:5000",
-    API_BASE_URL
-  );
-}
-
-      return {
-        id: post._id,
-
-        image:
-          image ||
-          "https://picsum.photos/500/500",
-      };
-
+      image = `${API_BASE_URL}${image}`;
     }
-  );
+
+    if (image?.startsWith("http://localhost:5000")) {
+      image = image.replace(
+        "http://localhost:5000",
+        API_BASE_URL
+      );
+    }
+
+    return {
+      id: post._id,
+      image: image || "https://picsum.photos/500/500",
+    };
+  });
 
 
   /*
@@ -609,82 +668,222 @@ if (badges >= 15) {
   ADD i-NOTE
   MAXIMUM = 10 NOTES
   */
-const addNote = async () => {
-  const text = noteText.trim();
+  const addNote = async () => {
+    const text = noteText.trim();
 
-  if (!text) return;
+    if (!text) return;
 
-  const lines = text.split("\n");
+    const lines = text.split("\n");
 
-  if (lines.length > 6) {
-    alert(
-      "i-Notes can contain a maximum of 6 lines."
-    );
-    return;
-  }
-
-  if (notes.length >= 10) {
-    alert(
-      "You can have a maximum of 10 i-Notes."
-    );
-    return;
-  }
-
-  try {
-    const token = localStorage.getItem("token");
-
-    if (!token) {
-      alert("Please sign in again.");
+    if (lines.length > 6) {
+      alert("i-Notes can contain a maximum of 6 lines.");
       return;
     }
 
-   const API_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000";
+    if (notes.length >= 10) {
+      alert("You can have a maximum of 10 i-Notes.");
+      return;
+    }
 
-    const response = await fetch(
-      `${API_URL}/api/notes`,
-      {
+    try {
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        alert("Please sign in again.");
+        return;
+      }
+
+      const API_URL =
+        import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+      const response = await fetch(`${API_URL}/api/notes`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          text,
-        }),
+        body: JSON.stringify({ text }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.message || "Unable to create i-Note.");
+        return;
       }
-    );
 
-    const data = await response.json();
+      setNotes((currentNotes) => [
+        { id: data.note._id, text: data.note.text },
+        ...currentNotes,
+      ]);
 
-    if (!response.ok) {
-      alert(
-        data.message ||
-          "Unable to create i-Note."
-      );
+      setNoteText("");
+    } catch (error) {
+      console.error("Create i-Note error:", error);
+      alert("Unable to connect to Impressa server.");
+    }
+  };
+
+
+  /*
+  ============================================================
+  DELETE i-NOTE
+  ============================================================
+  */
+
+  const deleteNote = async (noteId) => {
+    if (pendingNoteDeletesRef.current.has(noteId)) {
       return;
     }
 
-    setNotes((currentNotes) => [
-      {
-        id: data.note._id,
-        text: data.note.text,
-      },
-      ...currentNotes,
-    ]);
+    pendingNoteDeletesRef.current.add(noteId);
 
-    setNoteText("");
-  } catch (error) {
-    console.error(
-      "Create i-Note error:",
-      error
+    const previousNotes = notes;
+
+    setNotes((currentNotes) =>
+      currentNotes.filter((note) => note.id !== noteId)
     );
 
-    alert(
-      "Unable to connect to Impressa server."
+    try {
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        alert("Please sign in again.");
+        setNotes(previousNotes);
+        return;
+      }
+
+      const API_URL =
+        import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+      const response = await fetch(
+        `${API_URL}/api/notes/${noteId}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (!response.ok) {
+        let data = {};
+
+        try {
+          data = await response.json();
+        } catch (parseError) {
+          // no JSON body
+        }
+
+        console.error("Delete i-Note error:", data);
+
+        alert(data.message || "Unable to delete i-Note.");
+
+        setNotes(previousNotes);
+        return;
+      }
+    } catch (error) {
+      console.error("Delete i-Note connection error:", error);
+
+      alert("Unable to connect to Impressa server.");
+
+      setNotes(previousNotes);
+    } finally {
+      pendingNoteDeletesRef.current.delete(noteId);
+    }
+  };
+
+
+  /*
+  ============================================================
+  DELETE POST
+  ============================================================
+  Calls DELETE /api/posts/:postId
+  */
+
+  const pendingPostDeletesRef = useRef(new Set());
+
+  const deletePost = async (postId) => {
+    if (pendingPostDeletesRef.current.has(postId)) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Delete this post? This cannot be undone."
     );
-  }
-};
+
+    if (!confirmed) {
+      return;
+    }
+
+    pendingPostDeletesRef.current.add(postId);
+
+    const previousPosts = profilePosts;
+
+    const updatedPosts = previousPosts.filter(
+      (post) => post._id !== postId
+    );
+
+    setProfilePosts(updatedPosts);
+
+    localStorage.setItem(
+      `impressa_profile_posts_${viewedUsername.toLowerCase()}`,
+      JSON.stringify(updatedPosts)
+    );
+
+    const rollback = () => {
+      setProfilePosts(previousPosts);
+
+      localStorage.setItem(
+        `impressa_profile_posts_${viewedUsername.toLowerCase()}`,
+        JSON.stringify(previousPosts)
+      );
+    };
+
+    try {
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        alert("Please sign in again.");
+        rollback();
+        return;
+      }
+
+      const API_URL =
+        import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+      const response = await fetch(
+        `${API_URL}/api/posts/${postId}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (!response.ok) {
+        let data = {};
+
+        try {
+          data = await response.json();
+        } catch (parseError) {
+          // no JSON body
+        }
+
+        console.error("Delete post error:", data);
+
+        alert(data.message || "Unable to delete post.");
+
+        rollback();
+        return;
+      }
+    } catch (error) {
+      console.error("Delete post connection error:", error);
+
+      alert("Unable to connect to Impressa server.");
+
+      rollback();
+    } finally {
+      pendingPostDeletesRef.current.delete(postId);
+    }
+  };
 
 
   /*
@@ -693,17 +892,11 @@ const addNote = async () => {
   */
 
   const openEdit = () => {
-
     setTempName(name);
-
     setTempUsername(username);
-
     setTempBio(bio);
-
     setEditOpen(true);
-
     setMenuOpen(false);
-
   };
 
 
@@ -716,196 +909,98 @@ const addNote = async () => {
 
     try {
 
-      const token =
-        localStorage.getItem("token");
+      const token = localStorage.getItem("token");
 
       if (!token) {
-
-        alert(
-          "Please sign in again."
-        );
-
+        alert("Please sign in again.");
         return;
       }
 
-const API_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000";
+      const API_URL =
+        import.meta.env.VITE_API_URL || "http://localhost:5000";
 
+      const updatedName = tempName.trim();
 
-      const updatedName =
-        tempName.trim();
+      const updatedUsername = tempUsername.trim().toLowerCase();
 
-      const updatedUsername =
-        tempUsername.trim().toLowerCase();
-
-      const updatedBio =
-        tempBio.trim();
-
+      const updatedBio = tempBio.trim();
 
       if (!updatedName) {
-
-        alert(
-          "Profile name cannot be empty."
-        );
-
+        alert("Profile name cannot be empty.");
         return;
       }
-
 
       if (!updatedUsername) {
-
-        alert(
-          "Username cannot be empty."
-        );
-
+        alert("Username cannot be empty.");
         return;
       }
 
+      const response = await fetch(`${API_URL}/api/profile/me`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: updatedName,
+          username: updatedUsername,
+          bio: updatedBio,
+          profilePicture:
+            profilePic === DEFAULT_PROFILE_PIC ? "" : profilePic,
+        }),
+      });
 
-      const response =
-        await fetch(
-          `${API_URL}/api/profile/me`,
-          {
-            method: "PUT",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-
-              Authorization:
-                `Bearer ${token}`,
-            },
-
-            body: JSON.stringify({
-              name:
-                updatedName,
-
-              username:
-                updatedUsername,
-
-              bio:
-                updatedBio,
-
-              profilePicture:
-                profilePic,
-            }),
-          }
-        );
-
-
-      const data =
-        await response.json();
-
+      const data = await response.json();
 
       if (!response.ok) {
-
-        alert(
-          data.message ||
-            "Unable to update profile."
-        );
-
+        alert(data.message || "Unable to update profile.");
         return;
       }
 
+      setProfileData(data.user);
 
-      /*
-      ----------------------------------------------------------
-      UPDATE CURRENT PROFILE
-      ----------------------------------------------------------
-      */
+      setName(data.user.name);
 
-      setProfileData(
-        data.user
-      );
+      setUsername(data.user.username);
 
-      setName(
-        data.user.name
-      );
-
-      setUsername(
-        data.user.username
-      );
-
-      setBio(
-        data.user.bio || ""
-      );
+      setBio(data.user.bio || "");
 
       setProfilePic(
-        data.user.profilePicture ||
-          "https://i.pravatar.cc/300?img=32"
+        data.user.profilePicture || DEFAULT_PROFILE_PIC
       );
 
+      const currentStoredUser = JSON.parse(
+        localStorage.getItem("user") || "null"
+      );
 
-      /*
-      ----------------------------------------------------------
-      UPDATE LOCAL STORAGE USER
-      ----------------------------------------------------------
-      */
-
-      const storedUser =
-        JSON.parse(
-          localStorage.getItem("user") ||
-            "null"
-        );
-
-
-      if (storedUser) {
-
+      if (currentStoredUser) {
         localStorage.setItem(
           "user",
           JSON.stringify({
-            ...storedUser,
-
-            id:
-              data.user.id,
-
-            name:
-              data.user.name,
-
-            username:
-              data.user.username,
-
-            bio:
-              data.user.bio,
-
-            profilePicture:
-              data.user.profilePicture,
-
-            badge:
-              data.user.badge,
+            ...currentStoredUser,
+            id: data.user.id,
+            name: data.user.name,
+            username: data.user.username,
+            bio: data.user.bio,
+            profilePicture: data.user.profilePicture,
+            badge: data.user.badge,
           })
         );
-
       }
 
-
-      /*
-      ----------------------------------------------------------
-      CLOSE EDIT MODAL
-      ----------------------------------------------------------
-      */
+      localStorage.setItem(
+        `impressa_profile_${data.user.username.toLowerCase()}`,
+        JSON.stringify(data.user)
+      );
 
       setEditOpen(false);
 
-
-      alert(
-        "Profile updated successfully 🎉"
-      );
+      alert("Profile updated successfully 🎉");
 
     } catch (error) {
-
-      console.error(
-        "Save profile error:",
-        error
-      );
-
-
-      alert(
-        "Unable to connect to Impressa server."
-      );
-
+      console.error("Save profile error:", error);
+      alert("Unable to connect to Impressa server.");
     }
-
   };
 
 
@@ -915,226 +1010,236 @@ const API_URL =
   ============================================================
   */
 
-  const selectProfileImage = (
-    event
-  ) => {
+  const selectProfileImage = (event) => {
 
-    const file =
-      event.target.files?.[0];
+    const file = event.target.files?.[0];
 
     if (!file) return;
 
-
     if (!file.type.startsWith("image/")) {
-
-      alert(
-        "Please select an image."
-      );
-
+      alert("Please select an image.");
+      event.target.value = "";
       return;
-
     }
 
+    if (cropImageRef.current) {
+      URL.revokeObjectURL(cropImageRef.current);
+    }
 
-    const imageUrl =
-      URL.createObjectURL(file);
+    setCropImage(URL.createObjectURL(file));
 
+    setCropNatural({ w: 0, h: 0 });
 
-    setCropImage(
-      imageUrl
-    );
+    updateCrop(0, 0, 1);
 
-    setCropZoom(1);
-
-    setCropX(0);
-
-    setCropY(0);
+    cropPointersRef.current.clear();
 
     setCropOpen(true);
 
+    event.target.value = "";
   };
 
 
   /*
   ============================================================
-  CROP DRAG
+  CROP GESTURES
+  One pointer  = drag to move
+  Two pointers = pinch to zoom
   ============================================================
   */
 
-  const startCropDrag = (
-    event
-  ) => {
+  const startCropGesture = () => {
+    const points = Array.from(cropPointersRef.current.values());
 
+    if (points.length === 0) return;
+
+    const { x, y, zoom } = cropStateRef.current;
+
+    cropGestureRef.current = {
+      origX: x,
+      origY: y,
+      origZoom: zoom,
+      p0: points[0],
+      dist:
+        points.length >= 2
+          ? Math.hypot(
+              points[1].x - points[0].x,
+              points[1].y - points[0].y
+            )
+          : 0,
+    };
+  };
+
+  const handleCropPointerDown = (event) => {
     event.preventDefault();
 
+    event.currentTarget.setPointerCapture?.(event.pointerId);
 
-    dragRef.current = {
+    cropPointersRef.current.set(event.pointerId, {
+      x: event.clientX,
+      y: event.clientY,
+    });
 
-      active: true,
-
-      startX:
-        event.clientX,
-
-      startY:
-        event.clientY,
-
-      originalX:
-        cropX,
-
-      originalY:
-        cropY,
-
-    };
-
-
-    window.addEventListener(
-      "pointermove",
-      moveCropDrag
-    );
-
-    window.addEventListener(
-      "pointerup",
-      stopCropDrag
-    );
-
+    startCropGesture();
   };
 
-
-  const moveCropDrag = (
-    event
-  ) => {
-
-    if (
-      !dragRef.current.active
-    ) {
-
+  const handleCropPointerMove = (event) => {
+    if (!cropPointersRef.current.has(event.pointerId)) {
       return;
-
     }
 
+    cropPointersRef.current.set(event.pointerId, {
+      x: event.clientX,
+      y: event.clientY,
+    });
 
-    const deltaX =
-      event.clientX -
-      dragRef.current.startX;
+    const points = Array.from(cropPointersRef.current.values());
 
+    const gesture = cropGestureRef.current;
 
-    const deltaY =
-      event.clientY -
-      dragRef.current.startY;
+    // Pinch
+    if (points.length >= 2 && gesture.dist > 0) {
+      const distance = Math.hypot(
+        points[1].x - points[0].x,
+        points[1].y - points[0].y
+      );
 
+      const nextZoom = clampCropZoom(
+        gesture.origZoom * (distance / gesture.dist)
+      );
 
-    setCropX(
-      dragRef.current.originalX +
-      deltaX
-    );
+      const next = clampCropOffset(
+        gesture.origX,
+        gesture.origY,
+        nextZoom
+      );
 
+      updateCrop(next.x, next.y, nextZoom);
+      return;
+    }
 
-    setCropY(
-      dragRef.current.originalY +
-      deltaY
-    );
+    // Drag
+    if (points.length === 1) {
+      const zoom = cropStateRef.current.zoom;
 
+      const next = clampCropOffset(
+        gesture.origX + (points[0].x - gesture.p0.x),
+        gesture.origY + (points[0].y - gesture.p0.y),
+        zoom
+      );
+
+      updateCrop(next.x, next.y, zoom);
+    }
   };
 
+  const handleCropPointerUp = (event) => {
+    cropPointersRef.current.delete(event.pointerId);
 
-  const stopCropDrag = () => {
+    // Continue smoothly with whichever finger is still down
+    startCropGesture();
+  };
 
-    dragRef.current.active =
-      false;
+  const handleCropZoomSlider = (event) => {
+    const nextZoom = clampCropZoom(Number(event.target.value));
 
+    const { x, y } = cropStateRef.current;
 
-    window.removeEventListener(
-      "pointermove",
-      moveCropDrag
-    );
+    const next = clampCropOffset(x, y, nextZoom);
 
+    updateCrop(next.x, next.y, nextZoom);
+  };
 
-    window.removeEventListener(
-      "pointerup",
-      stopCropDrag
-    );
-
+  const resetCrop = () => {
+    updateCrop(0, 0, 1);
   };
 
 
   /*
   ============================================================
   APPLY CROP
+  Draws exactly the part of the photo that is inside the circle.
   ============================================================
   */
 
-  const applyCrop = async () => {
+  const applyCrop = () => {
 
-    if (!cropImage) return;
+    if (!cropImage || cropApplying) return;
 
+    const { zoom, x, y } = cropStateRef.current;
 
-    try {
+    const { size, cover } = getCropBounds(zoom);
 
-      /*
-      Convert temporary browser image URL
-      into a permanent data URL so the backend
-      can actually save the image.
-      */
+    if (!size || !cropNatural.w) return;
 
-      const response =
-        await fetch(
-          cropImage
-        );
+    setCropApplying(true);
 
-      const blob =
-        await response.blob();
+    const image = new Image();
 
+    image.onload = () => {
 
-      const reader =
-        new FileReader();
+      const scale = cover * zoom;
 
+      // Size of the visible square, in original-photo pixels
+      const sourceSize = size / scale;
 
-      reader.onloadend = () => {
+      // Centre of the visible area, in original-photo pixels
+      const centerX = cropNatural.w / 2 - x / scale;
+      const centerY = cropNatural.h / 2 - y / scale;
 
-        setProfilePic(
-          reader.result
-        );
-
-
-        setCropOpen(false);
-
-
-        URL.revokeObjectURL(
-          cropImage
-        );
-
-
-        setCropImage("");
-
-
-        if (fileInputRef.current) {
-
-          fileInputRef.current.value =
-            "";
-
-        }
-
-      };
-
-
-      reader.readAsDataURL(
-        blob
+      const sourceX = Math.min(
+        cropNatural.w - sourceSize,
+        Math.max(0, centerX - sourceSize / 2)
       );
 
-    } catch (error) {
-
-      console.error(
-        "Profile image processing error:",
-        error
+      const sourceY = Math.min(
+        cropNatural.h - sourceSize,
+        Math.max(0, centerY - sourceSize / 2)
       );
 
+      const canvas = document.createElement("canvas");
 
-      alert(
-        "Unable to process this image."
+      canvas.width = CROP_OUTPUT_SIZE;
+      canvas.height = CROP_OUTPUT_SIZE;
+
+      const context = canvas.getContext("2d");
+
+      context.drawImage(
+        image,
+        sourceX,
+        sourceY,
+        sourceSize,
+        sourceSize,
+        0,
+        0,
+        CROP_OUTPUT_SIZE,
+        CROP_OUTPUT_SIZE
       );
 
-    }
+      setProfilePic(canvas.toDataURL("image/jpeg", 0.88));
 
+      URL.revokeObjectURL(cropImage);
+
+      setCropImage("");
+
+      setCropOpen(false);
+
+      setCropApplying(false);
+
+      cropPointersRef.current.clear();
+
+      updateCrop(0, 0, 1);
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    };
+
+    image.onerror = () => {
+      setCropApplying(false);
+      alert("Unable to process this image.");
+    };
+
+    image.src = cropImage;
   };
 
 
@@ -1142,32 +1247,21 @@ const API_URL =
 
     setCropOpen(false);
 
-
     if (cropImage) {
-
-      URL.revokeObjectURL(
-        cropImage
-      );
-
+      URL.revokeObjectURL(cropImage);
     }
-
 
     setCropImage("");
 
-    setCropZoom(1);
+    setCropApplying(false);
 
-    setCropX(0);
+    cropPointersRef.current.clear();
 
-    setCropY(0);
-
+    updateCrop(0, 0, 1);
 
     if (fileInputRef.current) {
-
-      fileInputRef.current.value =
-        "";
-
+      fileInputRef.current.value = "";
     }
-
   };
 
 
@@ -1178,72 +1272,93 @@ const API_URL =
   */
 
   const openAccountCenter = () => {
-
     setMenuOpen(false);
-
-    navigate(
-      "/account-center"
-    );
-
+    navigate("/account-center");
   };
-
 
   const openAccountSettings = () => {
-
     setMenuOpen(false);
-
-    navigate(
-      "/account-settings"
-    );
-
+    navigate("/account-settings");
   };
-
 
   const openPrivacy = () => {
-
     setMenuOpen(false);
-
-    navigate(
-      "/privacy"
-    );
-
+    navigate("/privacy");
   };
-
 
   const openNotifications = () => {
-
     setMenuOpen(false);
-
-    navigate(
-      "/notifications"
-    );
-
+    navigate("/notifications");
   };
-
-
-  /*
-    HELP NOW CONNECTS TO THE EXISTING Help.jsx
-  */
 
   const openHelp = () => {
-
     setMenuOpen(false);
-
     navigate("/help");
-
   };
 
-
-  /*
-    LOGOUT GOES TO THE EXISTING SIGN-IN PAGE
-  */
-
   const handleLogout = () => {
-
     setMenuOpen(false);
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/signin", { replace: true });
+  };
 
-    navigate("/signin");
+  const openBlockedAccounts = () => {
+    setMenuOpen(false);
+    navigate("/blocked-accounts");
+  };
 
+  const openGuidelines = () => {
+    setMenuOpen(false);
+    navigate("/community-guidelines");
+  };
+
+  const openReport = () => {
+    setMenuOpen(false);
+    setReportOpen(true);
+  };
+
+  const openBlockConfirm = () => {
+    setMenuOpen(false);
+    setBlockConfirmOpen(true);
+  };
+    const openPrivacyPolicy = () => {
+    setMenuOpen(false);
+    navigate("/privacy-policy");
+  };
+
+  const confirmBlock = async () => {
+    if (blocking) return;
+
+    try {
+      setBlocking(true);
+
+      await blockUser(selectedUser.username);
+
+      // Remove cached copies so the blocked profile can't reappear
+      const cacheKey = selectedUser.username.toLowerCase();
+
+      localStorage.removeItem(`impressa_profile_${cacheKey}`);
+      localStorage.removeItem(`impressa_profile_posts_${cacheKey}`);
+      localStorage.removeItem(
+        `impressa_profile_posts_page_${cacheKey}`
+      );
+
+      setBlockConfirmOpen(false);
+
+      navigate("/", { replace: true });
+    } catch (error) {
+      console.error("Block user error:", error);
+      alert(error.message || "Unable to block this user.");
+    } finally {
+      setBlocking(false);
+    }
+  };
+
+  const toggleDarkTheme = () => {
+    const next = setTheme(darkTheme ? "light" : "dark");
+
+    setDarkTheme(next === "dark");
   };
 
 
@@ -1252,53 +1367,79 @@ const API_URL =
   FOLLOW
   ============================================================
   */
-const handleFollow = async () => {
-  const oldFollowed = followed;
+  const handleFollow = async () => {
+    const oldFollowed = followed;
 
-  try {
-    const token = localStorage.getItem("token");
+    try {
+      const token = localStorage.getItem("token");
 
-    if (!token) {
-      alert("Please sign in again.");
-      return;
-    }
-
-   const API_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000";
-
-    // ⚡ Change button immediately
-    setFollowed(!oldFollowed);
-
-    // ⚡ Change follower count immediately
-    setProfileData((previous) => {
-      if (!previous) return previous;
-
-      return {
-        ...previous,
-        followersCount: Math.max(
-          0,
-          (previous.followersCount || 0) +
-            (oldFollowed ? -1 : 1)
-        ),
-      };
-    });
-
-    const response = await fetch(
-      `${API_URL}/api/follow/${encodeURIComponent(
-        viewedUsername
-      )}`,
-      {
-        method: oldFollowed ? "DELETE" : "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      if (!token) {
+        alert("Please sign in again.");
+        return;
       }
-    );
 
-    const data = await response.json();
+      const API_URL =
+        import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-    if (!response.ok) {
-      // Roll back only if backend fails
+      setFollowed(!oldFollowed);
+
+      setProfileData((previous) => {
+        if (!previous) return previous;
+
+        return {
+          ...previous,
+          followersCount: Math.max(
+            0,
+            (previous.followersCount || 0) +
+              (oldFollowed ? -1 : 1)
+          ),
+        };
+      });
+
+      const response = await fetch(
+        `${API_URL}/api/follow/${encodeURIComponent(
+          viewedUsername
+        )}`,
+        {
+          method: oldFollowed ? "DELETE" : "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setFollowed(oldFollowed);
+
+        setProfileData((previous) => {
+          if (!previous) return previous;
+
+          return {
+            ...previous,
+            followersCount: Math.max(
+              0,
+              (previous.followersCount || 0) +
+                (oldFollowed ? 1 : -1)
+            ),
+          };
+        });
+
+        console.error("Follow error:", data);
+        return;
+      }
+
+      setProfileData((previous) => {
+        if (!previous) return previous;
+
+        return {
+          ...previous,
+          followersCount: data.followersCount,
+        };
+      });
+
+    } catch (error) {
+      console.error("Follow error:", error);
+
       setFollowed(oldFollowed);
 
       setProfileData((previous) => {
@@ -1314,47 +1455,14 @@ const handleFollow = async () => {
         };
       });
 
-      console.error("Follow error:", data);
-      return;
+      alert("Unable to connect to Impressa server.");
     }
+  };
 
-    // ✅ Keep the button state we already set.
-    // Only sync the final follower count.
-    setProfileData((previous) => {
-      if (!previous) return previous;
-
-      return {
-        ...previous,
-        followersCount: data.followersCount,
-      };
-    });
-
-  } catch (error) {
-    console.error("Follow error:", error);
-
-    // Roll back only if connection fails
-    setFollowed(oldFollowed);
-
-    setProfileData((previous) => {
-      if (!previous) return previous;
-
-      return {
-        ...previous,
-        followersCount: Math.max(
-          0,
-          (previous.followersCount || 0) +
-            (oldFollowed ? 1 : -1)
-        ),
-      };
-    });
-
-    alert("Unable to connect to Impressa server.");
-  }
-};
 
   /*
   ============================================================
-  OPEN FOLLOWERS
+  OPEN FOLLOWERS / FOLLOWING
   ============================================================
   */
 
@@ -1368,11 +1476,10 @@ const handleFollow = async () => {
 
     try {
 
-      const token =
-        localStorage.getItem("token");
+      const token = localStorage.getItem("token");
 
       const API_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000";
+        import.meta.env.VITE_API_URL || "http://localhost:5000";
 
       const response = await fetch(
         `${API_URL}/api/profile/${encodeURIComponent(
@@ -1381,9 +1488,7 @@ const handleFollow = async () => {
         {
           method: "GET",
           headers: token
-            ? {
-                Authorization: `Bearer ${token}`,
-              }
+            ? { Authorization: `Bearer ${token}` }
             : {},
         }
       );
@@ -1392,8 +1497,7 @@ const handleFollow = async () => {
 
       if (!response.ok) {
         throw new Error(
-          data.message ||
-            `Unable to load ${type}.`
+          data.message || `Unable to load ${type}.`
         );
       }
 
@@ -1404,20 +1508,14 @@ const handleFollow = async () => {
         data.following ||
         [];
 
-      setConnections(
-        Array.isArray(users) ? users : []
-      );
+      setConnections(Array.isArray(users) ? users : []);
 
     } catch (error) {
 
-      console.error(
-        `Load ${type} error:`,
-        error
-      );
+      console.error(`Load ${type} error:`, error);
 
       setConnectionsError(
-        error.message ||
-          `Unable to load ${type}.`
+        error.message || `Unable to load ${type}.`
       );
 
     } finally {
@@ -1425,25 +1523,15 @@ const handleFollow = async () => {
       setConnectionsLoading(false);
 
     }
-
   };
-
 
   const openFollowers = () => {
     openConnections("followers");
   };
 
-
-  /*
-  ============================================================
-  OPEN FOLLOWING
-  ============================================================
-  */
-
   const openFollowing = () => {
     openConnections("following");
   };
-
 
   const closeConnections = () => {
     setConnectionsOpen(false);
@@ -1459,40 +1547,10 @@ const handleFollow = async () => {
   */
 
   const openUserPosts = () => {
-
     navigate(
-      `/profile/${encodeURIComponent(
-        selectedUser.username
-      )}/posts`
+      `/profile/${encodeURIComponent(selectedUser.username)}/posts`
     );
-
   };
-
-
-  /*
-  ============================================================
-  CLEANUP CROP IMAGE
-  ============================================================
-  */
-
-  useEffect(() => {
-
-    return () => {
-
-      if (
-        cropImage &&
-        cropImage.startsWith("blob:")
-      ) {
-
-        URL.revokeObjectURL(
-          cropImage
-        );
-
-      }
-
-    };
-
-  }, [cropImage]);
 
 
   /*
@@ -1501,45 +1559,120 @@ const handleFollow = async () => {
   ============================================================
   */
 
-  if (profileLoading) {
+  if (profileLoading && !profileData) {
+
+    const shimmer = {
+      background:
+        "linear-gradient(100deg, var(--skeleton-a, #fff4eb) 8%, var(--skeleton-b, #ffe9d8) 18%, var(--skeleton-a, #fff4eb) 33%)",
+      backgroundSize: "200% 100%",
+      animation: "profileSkeletonShimmer 1.4s ease-in-out infinite",
+    };
 
     return (
-
       <div className="profile-page">
 
-        <div className="profile-content">
+        <div style={{ padding: "18px 15px" }}>
 
-          <p>
-            Loading profile...
-          </p>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "12px",
+              marginBottom: "20px",
+            }}
+          >
+            <div
+              style={{
+                width: "120px",
+                height: "120px",
+                borderRadius: "50%",
+                ...shimmer,
+              }}
+            />
+
+            <div
+              style={{
+                width: "45%",
+                height: "16px",
+                borderRadius: "6px",
+                ...shimmer,
+              }}
+            />
+
+            <div
+              style={{
+                width: "30%",
+                height: "12px",
+                borderRadius: "6px",
+                ...shimmer,
+              }}
+            />
+          </div>
+
+          <div
+            style={{
+              width: "100%",
+              height: "70px",
+              borderRadius: "18px",
+              marginBottom: "20px",
+              ...shimmer,
+            }}
+          />
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: "8px",
+            }}
+          >
+            {[0, 1, 2].map((key) => (
+              <div
+                key={key}
+                style={{
+                  aspectRatio: "1 / 1",
+                  borderRadius: "14px",
+                  ...shimmer,
+                }}
+              />
+            ))}
+          </div>
+
+          <style>
+            {`
+              @keyframes profileSkeletonShimmer {
+                0% { background-position: 200% 0; }
+                100% { background-position: -200% 0; }
+              }
+            `}
+          </style>
 
         </div>
 
       </div>
-
     );
-
   }
-
 
   if (profileError) {
 
     return (
-
       <div className="profile-page">
-
-        <div className="profile-content">
-
-          <p>
-            {profileError}
-          </p>
-
+        <div className="profile-topbar">
+          <button
+            className="back-button"
+            onClick={() => navigate(-1)}
+            aria-label="Go back"
+          >
+            ←
+          </button>
         </div>
 
+        <div className="profile-content">
+          <p>{profileError}</p>
+        </div>
       </div>
-
     );
-
   }
 
 
@@ -1562,102 +1695,101 @@ const handleFollow = async () => {
 
         <button
           className="back-button"
-          onClick={() =>
-            navigate(-1)
-          }
+          onClick={() => navigate(-1)}
           aria-label="Go back"
         >
           ←
         </button>
 
-
         <button
           className="menu-button"
-          onClick={() =>
-            setMenuOpen(!menuOpen)
-          }
+          onClick={() => setMenuOpen(!menuOpen)}
           aria-label="Profile menu"
         >
           ☰
         </button>
 
-
         {menuOpen && (
 
           <div className="profile-menu">
 
+            {!isOwnProfile && (
+              <>
+                <div className="profile-menu-label">THIS ACCOUNT</div>
+
+                <button onClick={openReport}>
+                  🚩 Report User
+                </button>
+
+                <button onClick={openBlockConfirm}>
+                  🚫 Block User
+                </button>
+              </>
+            )}
+
+            <div className="profile-menu-label">ACCOUNT</div>
 
             {isOwnProfile && (
-
-              <button
-                onClick={openEdit}
-              >
+              <button onClick={openEdit}>
                 ✏️ Edit Profile
               </button>
-
             )}
-
-
-            {/* =================================================
-                NEW ACCOUNT CENTER
-            ================================================= */}
 
             {isOwnProfile && (
-
-              <button
-                onClick={openAccountCenter}
-              >
+              <button onClick={openAccountCenter}>
                 👥 Account Center
               </button>
-
             )}
 
-
-            <button
-              onClick={
-                openAccountSettings
-              }
-            >
+            <button onClick={openAccountSettings}>
               ⚙️ Account Settings
             </button>
 
-
-            <button
-              onClick={openPrivacy}
-            >
-              🔒 Privacy
-            </button>
-
-
-            <button
-              onClick={
-                openNotifications
-              }
-            >
+            <button onClick={openNotifications}>
               🔔 Notifications
             </button>
 
+            <div className="profile-menu-label">SAFETY &amp; PRIVACY</div>
 
-            {/* =================================================
-                HELP → Help.jsx
-            ================================================= */}
+            <button onClick={openBlockedAccounts}>
+              🚫 Blocked Accounts
+            </button>
 
-            <button
-              onClick={openHelp}
-            >
+                        <button onClick={openPrivacy}>
+              🔒 Privacy
+            </button>
+                        <button onClick={openPrivacyPolicy}>
+              📄 Privacy Policy
+            </button>
+
+            <button onClick={openGuidelines}>
+              📋 Community Guidelines
+            </button>
+
+            <div className="profile-menu-label">APPEARANCE</div>
+
+            <button onClick={toggleDarkTheme}>
+              🌙 Dark Theme
+              <span
+                className={`profile-menu-switch ${
+                  darkTheme ? "on" : ""
+                }`}
+              />
+            </button>
+
+            <div className="profile-menu-label">ABOUT</div>
+
+            <button onClick={openHelp}>
               ❓ Help
             </button>
 
-
             {isOwnProfile && (
-
               <button
                 className="logout-btn"
                 onClick={handleLogout}
               >
                 ↪ Logout
               </button>
-
             )}
 
           </div>
@@ -1732,9 +1864,7 @@ const handleFollow = async () => {
                     {connectionType === "followers" ? "👥" : "➜"}
                   </div>
 
-                  <h3>
-                    No {connectionType} yet
-                  </h3>
+                  <h3>No {connectionType} yet</h3>
 
                   <p>
                     {connectionType === "followers"
@@ -1761,7 +1891,7 @@ const handleFollow = async () => {
                   user.profilePicture ||
                   user.profilePic ||
                   user.user?.profilePicture ||
-                  "https://i.pravatar.cc/150?img=32";
+                  DEFAULT_PROFILE_PIC;
 
                 if (!userUsername) return null;
 
@@ -1773,9 +1903,7 @@ const handleFollow = async () => {
                     onClick={() => {
                       closeConnections();
                       navigate(
-                        `/profile/${encodeURIComponent(
-                          userUsername
-                        )}`
+                        `/profile/${encodeURIComponent(userUsername)}`
                       );
                     }}
                   >
@@ -1790,9 +1918,7 @@ const handleFollow = async () => {
                       <span>@{userUsername}</span>
                     </span>
 
-                    <span className="connection-arrow">
-                      →
-                    </span>
+                    <span className="connection-arrow">→</span>
 
                   </button>
                 );
@@ -1814,15 +1940,10 @@ const handleFollow = async () => {
 
       <section className="profile-header">
 
-
-        {/* CLICKABLE PROFILE IMAGE */}
-
         <button
           type="button"
           className="profile-picture-button"
-          onClick={() =>
-            setImageViewerOpen(true)
-          }
+          onClick={() => setImageViewerOpen(true)}
           aria-label={`View ${name}'s profile picture`}
         >
 
@@ -1834,27 +1955,19 @@ const handleFollow = async () => {
 
         </button>
 
-
         <div className="profile-info">
 
           <div className="username-row">
 
             <div>
 
-              <h1>
-                {name}
-              </h1>
-
+              <h1>{name}</h1>
 
               <div className="profile-username-row">
 
                 <p className="profile-username">
                   @{username}
                 </p>
-
-                {/* ==========================================
-                    OFFICIAL IMPRESSA ACCOUNT
-                    ========================================== */}
 
                 {profileData?.isOfficial === true && (
                   <span
@@ -1864,16 +1977,11 @@ const handleFollow = async () => {
                   />
                 )}
 
-
                 {animationBadgeLevel > 0 && (
-
                   <BadgeAnimation
-                    badgeLevel={
-                      animationBadgeLevel
-                    }
+                    badgeLevel={animationBadgeLevel}
                     animate={true}
                   />
-
                 )}
 
               </div>
@@ -1882,11 +1990,7 @@ const handleFollow = async () => {
 
           </div>
 
-
-          <p className="profile-bio">
-            {bio}
-          </p>
-
+          <p className="profile-bio">{bio}</p>
 
           {isOwnProfile ? (
 
@@ -1901,15 +2005,11 @@ const handleFollow = async () => {
 
             <button
               className={`edit-profile-btn ${
-                followed
-                  ? "following-btn"
-                  : ""
+                followed ? "following-btn" : ""
               }`}
               onClick={handleFollow}
             >
-              {followed
-                ? "Following"
-                : "Follow"}
+              {followed ? "Following" : "Follow"}
             </button>
 
           )}
@@ -1925,19 +2025,10 @@ const handleFollow = async () => {
 
       <div className="profile-stats">
 
-
         <div className="stat">
-
-          <strong>
-            {posts.length}
-          </strong>
-
-          <span>
-            Posts
-          </span>
-
+          <strong>{posts.length}</strong>
+          <span>Posts</span>
         </div>
-
 
         <button
           type="button"
@@ -1945,17 +2036,9 @@ const handleFollow = async () => {
           onClick={openFollowers}
           aria-label={`View ${selectedUser.username}'s followers`}
         >
-
-          <strong>
-            {selectedUser.followers}
-          </strong>
-
-          <span>
-            Followers
-          </span>
-
+          <strong>{selectedUser.followers}</strong>
+          <span>Followers</span>
         </button>
-
 
         <button
           type="button"
@@ -1963,30 +2046,14 @@ const handleFollow = async () => {
           onClick={openFollowing}
           aria-label={`View ${selectedUser.username}'s following`}
         >
-
-          <strong>
-            {selectedUser.following}
-          </strong>
-
-          <span>
-            Following
-          </span>
-
+          <strong>{selectedUser.following}</strong>
+          <span>Following</span>
         </button>
 
-
         <div className="stat impression-stat">
-
-          <strong>
-            {selectedUser.impressions}
-          </strong>
-
-          <span>
-            Impressions
-          </span>
-
+          <strong>{selectedUser.impressions}</strong>
+          <span>Impressions</span>
         </div>
-
 
       </div>
 
@@ -1997,56 +2064,31 @@ const handleFollow = async () => {
 
       <section className="badge-section">
 
-        <div
-          className={`badge-card ${
-            currentStar.className
-          }`}
-        >
+        <div className={`badge-card ${currentStar.className}`}>
 
-          <div
-            className={`badge-star ${
-              currentStar.className
-            }`}
-          >
-
-            <span>
-              {currentStar.icon}
-            </span>
-
+          <div className={`badge-star ${currentStar.className}`}>
+            <span>{currentStar.icon}</span>
           </div>
-
 
           <div className="badge-details">
 
-            <h2>
-              {currentStar.name}
-            </h2>
-
+            <h2>{currentStar.name}</h2>
 
             <p>
               {badges} badges · 100 impressions = 1 badge
             </p>
 
-
             <div className="progress-bar">
-
               <div
                 className="progress-fill"
-                style={{
-                  width:
-                    `${progress}%`,
-                }}
+                style={{ width: `${progress}%` }}
               />
-
             </div>
 
-
             <span className="progress-text">
-
               {nextStar
                 ? `${nextStar.min - badges} badges to ${nextStar.name}`
                 : "Maximum star reached"}
-
             </span>
 
           </div>
@@ -2062,38 +2104,24 @@ const handleFollow = async () => {
 
       <div className="star-chart">
 
-        {starLevels.map(
-          (star) => (
+        {starLevels.map((star) => (
 
-            <div
-              className={`star-level ${
-                badges >= star.min
-                  ? "unlocked"
-                  : ""
-              } ${
-                star.className
-              }`}
-              key={star.name}
-            >
+          <div
+            className={`star-level ${
+              badges >= star.min ? "unlocked" : ""
+            } ${star.className}`}
+            key={star.name}
+          >
 
-              <div className="chart-star">
-                {star.icon}
-              </div>
+            <div className="chart-star">{star.icon}</div>
 
+            <strong>{star.min}</strong>
 
-              <strong>
-                {star.min}
-              </strong>
+            <span>{star.name}</span>
 
+          </div>
 
-              <span>
-                {star.name}
-              </span>
-
-            </div>
-
-          )
-        )}
+        ))}
 
       </div>
 
@@ -2104,34 +2132,19 @@ const handleFollow = async () => {
 
       <div className="profile-tabs">
 
-
         <button
-          className={
-            activeTab === "posts"
-              ? "active-tab"
-              : ""
-          }
-          onClick={() =>
-            setActiveTab("posts")
-          }
+          className={activeTab === "posts" ? "active-tab" : ""}
+          onClick={() => setActiveTab("posts")}
         >
           ▦ Posts
         </button>
 
-
         <button
-          className={
-            activeTab === "notes"
-              ? "active-tab"
-              : ""
-          }
-          onClick={() =>
-            setActiveTab("notes")
-          }
+          className={activeTab === "notes" ? "active-tab" : ""}
+          onClick={() => setActiveTab("notes")}
         >
           ✎ i-Notes
         </button>
-
 
       </div>
 
@@ -2142,49 +2155,75 @@ const handleFollow = async () => {
 
       <div className="profile-content">
 
-
-        {/* POSTS */}
-
         {activeTab === "posts" && (
 
           <div className="posts-grid">
 
-            {posts.map(
-              (post) => (
+            {posts.map((post) => (
 
-                <button
-                  className="post-card"
-                  key={post.id}
-                  type="button"
-                  onClick={
-                    openUserPosts
+              <div
+                className="post-card"
+                key={post.id}
+                role="button"
+                tabIndex={0}
+                onClick={openUserPosts}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openUserPosts();
                   }
-                  aria-label={`Open ${selectedUser.username}'s posts`}
-                >
+                }}
+                aria-label={`Open ${selectedUser.username}'s posts`}
+              >
 
-                  <img
-                    src={post.image}
-                    alt={`Post ${post.id}`}
-                  />
+                <img
+                  src={post.image}
+                  alt={`Post ${post.id}`}
+                />
 
-                </button>
+                {isOwnProfile && (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      deletePost(post.id);
+                    }}
+                    aria-label="Delete post"
+                    title="Delete post"
+                    style={{
+                      position: "absolute",
+                      top: "6px",
+                      right: "6px",
+                      width: "30px",
+                      height: "30px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      border: "none",
+                      borderRadius: "50%",
+                      background: "rgba(0,0,0,0.55)",
+                      color: "#ffffff",
+                      fontSize: "13px",
+                      cursor: "pointer",
+                      zIndex: 2,
+                    }}
+                  >
+                    🗑
+                  </button>
+                )}
 
-              )
-            )}
+              </div>
+
+            ))}
 
           </div>
 
         )}
 
 
-        {/* =================================================
-            i-NOTES
-        ================================================= */}
-
         {activeTab === "notes" && (
 
           <div className="notes-area">
-
 
             {isOwnProfile && (
 
@@ -2192,37 +2231,21 @@ const handleFollow = async () => {
 
                 <textarea
                   value={noteText}
-                  onChange={(e) =>
-                    setNoteText(
-                      e.target.value
-                    )
-                  }
+                  onChange={(e) => setNoteText(e.target.value)}
                   placeholder="Write an i-Note... (maximum 6 lines)"
                   rows={6}
                 />
 
-
                 <div className="note-actions">
 
                   <span>
-
-                    {
-                      noteText
-                        .split("\n")
-                        .filter(Boolean)
-                        .length
-                    }
-
+                    {noteText.split("\n").filter(Boolean).length}
                     /6 lines · {notes.length}/10 notes
-
                   </span>
-
 
                   <button
                     onClick={addNote}
-                    disabled={
-                      notes.length >= 10
-                    }
+                    disabled={notes.length >= 10}
                   >
                     Post i-Note
                   </button>
@@ -2233,94 +2256,65 @@ const handleFollow = async () => {
 
             )}
 
-
             {notes.length === 0 ? (
 
               <div className="empty-content">
 
-                <div>
-                  ✎
-                </div>
-
+                <div>✎</div>
 
                 <h3>
-
                   {isOwnProfile
                     ? "No i-Notes Yet"
                     : "No Public i-Notes"}
-
                 </h3>
 
-
                 <p>
-
                   {isOwnProfile
                     ? "Your public i-Notes will appear here for everyone to see."
                     : `@${selectedUser.username} has not posted an i-Note yet.`}
-
                 </p>
 
               </div>
 
             ) : (
 
-              notes.map(
-                (note) => (
+              notes.map((note) => (
 
-                  <div
-                    className="public-note"
-                    key={note.id}
-                  >
+                <div
+                  className="public-note"
+                  key={note.id}
+                >
 
-                    <div className="note-header">
+                  <div className="note-header">
 
-                      <div>
-
-                        <strong>
-                          {name}
-                        </strong>
-
-                        <span>
-                          @{username}
-                        </span>
-
-                      </div>
-
-
-                      {isOwnProfile && (
-
-                        <button
-                          className="delete-note"
-                          onClick={() =>
-                            deleteNote(
-                              note.id
-                            )
-                          }
-                          title="Delete i-Note"
-                        >
-                          🗑
-                        </button>
-
-                      )}
-
+                    <div>
+                      <strong>{name}</strong>
+                      <span>@{username}</span>
                     </div>
 
-
-                    <p>
-                      {note.text}
-                    </p>
+                    {isOwnProfile && (
+                      <button
+                        className="delete-note"
+                        onClick={() => deleteNote(note.id)}
+                        title="Delete i-Note"
+                      >
+                        🗑
+                      </button>
+                    )}
 
                   </div>
 
-                )
-              )
+                  <p>{note.text}</p>
+
+                </div>
+
+              ))
 
             )}
 
           </div>
 
         )}
-
 
       </div>
 
@@ -2333,30 +2327,23 @@ const handleFollow = async () => {
 
         <div
           className="profile-image-viewer"
-          onClick={() =>
-            setImageViewerOpen(false)
-          }
+          onClick={() => setImageViewerOpen(false)}
         >
 
           <button
             type="button"
             className="profile-image-viewer-close"
-            onClick={() =>
-              setImageViewerOpen(false)
-            }
+            onClick={() => setImageViewerOpen(false)}
             aria-label="Close profile image"
           >
             ×
           </button>
 
-
           <img
             src={profilePic}
             alt={`${name}'s enlarged profile`}
             className="profile-image-large"
-            onClick={(event) =>
-              event.stopPropagation()
-            }
+            onClick={(event) => event.stopPropagation()}
           />
 
         </div>
@@ -2372,29 +2359,20 @@ const handleFollow = async () => {
 
         <div
           className="edit-overlay"
-          onClick={() =>
-            setEditOpen(false)
-          }
+          onClick={() => setEditOpen(false)}
         >
 
           <div
             className="edit-modal"
-            onClick={(e) =>
-              e.stopPropagation()
-            }
+            onClick={(e) => e.stopPropagation()}
           >
 
             <div className="edit-modal-header">
 
-              <h2>
-                Change Profile
-              </h2>
-
+              <h2>Change Profile</h2>
 
               <button
-                onClick={() =>
-                  setEditOpen(false)
-                }
+                onClick={() => setEditOpen(false)}
                 aria-label="Close"
               >
                 ×
@@ -2402,11 +2380,7 @@ const handleFollow = async () => {
 
             </div>
 
-
-            <label>
-              Profile Picture
-            </label>
-
+            <label>Profile Picture</label>
 
             <div className="edit-profile-photo">
 
@@ -2415,75 +2389,44 @@ const handleFollow = async () => {
                 alt="Current profile"
               />
 
-
               <button
                 type="button"
-                onClick={() =>
-                  fileInputRef.current?.click()
-                }
+                onClick={() => fileInputRef.current?.click()}
               >
                 Choose Media
               </button>
 
             </div>
 
-
             <input
               ref={fileInputRef}
               className="hidden-file-input"
               type="file"
               accept="image/*"
-              onChange={
-                selectProfileImage
-              }
+              onChange={selectProfileImage}
             />
 
-
-            <label>
-              Profile Name
-            </label>
-
+            <label>Profile Name</label>
 
             <input
               value={tempName}
-              onChange={(e) =>
-                setTempName(
-                  e.target.value
-                )
-              }
+              onChange={(e) => setTempName(e.target.value)}
             />
 
-
-            <label>
-              Username
-            </label>
-
+            <label>Username</label>
 
             <input
               value={tempUsername}
-              onChange={(e) =>
-                setTempUsername(
-                  e.target.value
-                )
-              }
+              onChange={(e) => setTempUsername(e.target.value)}
             />
 
-
-            <label>
-              Bio
-            </label>
-
+            <label>Bio</label>
 
             <textarea
               value={tempBio}
-              onChange={(e) =>
-                setTempBio(
-                  e.target.value
-                )
-              }
+              onChange={(e) => setTempBio(e.target.value)}
               rows={4}
             />
-
 
             <button
               className="save-profile-btn"
@@ -2509,21 +2452,12 @@ const handleFollow = async () => {
 
           <div className="crop-modal">
 
-
             <div className="crop-header">
 
               <div>
-
-                <span>
-                  IMPRESSA
-                </span>
-
-                <h2>
-                  Set Profile Picture
-                </h2>
-
+                <span>IMPRESSA</span>
+                <h2>Set Profile Picture</h2>
               </div>
-
 
               <button
                 type="button"
@@ -2535,31 +2469,34 @@ const handleFollow = async () => {
 
             </div>
 
-
             <p className="crop-description">
-              Drag the image to position it and
-              use the slider to zoom.
+              Drag to reposition. Pinch with two fingers
+              (or use the slider) to zoom.
             </p>
-
 
             <div
               ref={cropAreaRef}
               className="crop-area"
-              onPointerDown={
-                startCropDrag
-              }
+              onPointerDown={handleCropPointerDown}
+              onPointerMove={handleCropPointerMove}
+              onPointerUp={handleCropPointerUp}
+              onPointerCancel={handleCropPointerUp}
+              style={{ touchAction: "none" }}
             >
 
-              <div className="crop-circle">
+              <div
+                className="crop-circle"
+                ref={cropCircleRef}
+              >
 
                 <img
                   src={cropImage}
                   alt="Crop preview"
                   draggable="false"
                   className="crop-image"
+                  onLoad={handleCropImageLoad}
                   style={{
-                    transform:
-                      `translate(${cropX}px, ${cropY}px) scale(${cropZoom})`,
+                    transform: `translate(${cropX}px, ${cropY}px) scale(${cropZoom})`,
                   }}
                 />
 
@@ -2567,31 +2504,37 @@ const handleFollow = async () => {
 
             </div>
 
-
             <div className="crop-controls">
 
-              <label>
-                Zoom
-              </label>
-
+              <label>Zoom</label>
 
               <input
                 type="range"
                 min="1"
-                max="3"
+                max={CROP_MAX_ZOOM}
                 step="0.01"
                 value={cropZoom}
-                onChange={(e) =>
-                  setCropZoom(
-                    Number(
-                      e.target.value
-                    )
-                  )
-                }
+                onChange={handleCropZoomSlider}
               />
 
-            </div>
+              <button
+                type="button"
+                onClick={resetCrop}
+                style={{
+                  padding: "8px 14px",
+                  border: "1px solid #e6ddd5",
+                  borderRadius: "999px",
+                  background: "#ffffff",
+                  color: "#777777",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                Reset
+              </button>
 
+            </div>
 
             <div className="crop-actions">
 
@@ -2603,23 +2546,44 @@ const handleFollow = async () => {
                 Cancel
               </button>
 
-
               <button
                 type="button"
                 className="crop-apply"
                 onClick={applyCrop}
+                disabled={cropApplying || !cropNatural.w}
               >
-                Use Photo
+                {cropApplying ? "Applying..." : "Use Photo"}
               </button>
 
             </div>
-
 
           </div>
 
         </div>
 
       )}
+
+
+      {/* =====================================================
+          BLOCK / REPORT DIALOGS
+      ===================================================== */}
+
+      <ConfirmDialog
+        open={blockConfirmOpen}
+        title={`Block @${selectedUser.username}?`}
+        message="You won't be able to find or interact with each other on Impressa."
+        confirmLabel="Block"
+        busy={blocking}
+        onCancel={() => setBlockConfirmOpen(false)}
+        onConfirm={confirmBlock}
+      />
+
+      <ReportModal
+        open={reportOpen}
+        type="user"
+        target={selectedUser.username}
+        onClose={() => setReportOpen(false)}
+      />
 
     </div>
 

@@ -16,14 +16,16 @@ const musicLibrary = [
     title: "Golden Hour",
     artist: "Impressa Sounds",
     duration: "0:24",
-    audioUrl: "https://res.cloudinary.com/xlf4ww86/video/upload/v1788812409/sound1.mp3",
+    audioUrl:
+      "https://res.cloudinary.com/xlf4ww86/video/upload/v1788812409/sound1.mp3",
   },
   {
     id: 2,
     title: "New Beginning",
     artist: "Impressa Sounds",
     duration: "0:21",
-    audioUrl: "https://res.cloudinary.com/xlf4ww86/video/upload/v1788812410/sound2.mp3",
+    audioUrl:
+      "https://res.cloudinary.com/xlf4ww86/video/upload/v1788812410/sound2.mp3",
   },
   {
     id: 3,
@@ -49,46 +51,27 @@ const musicLibrary = [
 ];
 
 const moods = [
-  {
-    id: "energetic",
-    emoji: "🔥",
-    name: "Energetic",
-  },
-  {
-    id: "calm",
-    emoji: "🌙",
-    name: "Calm",
-  },
-  {
-    id: "inspired",
-    emoji: "✨",
-    name: "Inspired",
-  },
-  {
-    id: "happy",
-    emoji: "❤️",
-    name: "Happy",
-  },
-  {
-    id: "deep",
-    emoji: "🖤",
-    name: "Deep",
-  },
-  {
-    id: "peaceful",
-    emoji: "🌿",
-    name: "Peaceful",
-  },
+  { id: "energetic", emoji: "🔥", name: "Energetic" },
+  { id: "calm", emoji: "🌙", name: "Calm" },
+  { id: "inspired", emoji: "✨", name: "Inspired" },
+  { id: "happy", emoji: "❤️", name: "Happy" },
+  { id: "deep", emoji: "🖤", name: "Deep" },
+  { id: "peaceful", emoji: "🌿", name: "Peaceful" },
 ];
 
 function CreatePost() {
   const fileInputRef = useRef(null);
   const audioRef = useRef(null);
 
-const [media, setMedia] = useState([]);
+  const [media, setMedia] = useState([]);
+
+  const mediaRef = useRef(media);
+
+  useEffect(() => {
+    mediaRef.current = media;
+  }, [media]);
 
   const [activeIndex, setActiveIndex] = useState(0);
-
   const [caption, setCaption] = useState("");
 
   const [editingIndex, setEditingIndex] = useState(null);
@@ -105,26 +88,16 @@ const [media, setMedia] = useState([]);
 
   const [isPosting, setIsPosting] = useState(false);
 
-  /* =====================================================
-     MEDIA UPLOAD
-  ===================================================== */
-
   const openFilePicker = () => {
     fileInputRef.current?.click();
   };
 
   const handleFiles = (event) => {
-  const files = Array.from(event.target.files || []);
+    const files = Array.from(event.target.files || []);
 
-    // Some mobile browsers can return an empty MIME type for
-    // photos selected from the gallery. Fall back to the file
-    // extension so valid mobile images are not rejected.
     const getMediaType = (file) => {
       const mimeType = (file.type || "").toLowerCase();
-      const extension = file.name
-        .split(".")
-        .pop()
-        .toLowerCase();
+      const extension = file.name.split(".").pop().toLowerCase();
 
       const imageExtensions = [
         "jpg",
@@ -138,19 +111,19 @@ const [media, setMedia] = useState([]);
         "bmp",
       ];
 
-      const videoExtensions = [
-        "mp4",
-        "mov",
-        "webm",
-        "m4v",
-        "avi",
-      ];
+      const videoExtensions = ["mp4", "mov", "webm", "m4v", "avi"];
 
-      if (mimeType.startsWith("video/") || videoExtensions.includes(extension)) {
+      if (
+        mimeType.startsWith("video/") ||
+        videoExtensions.includes(extension)
+      ) {
         return "video";
       }
 
-      if (mimeType.startsWith("image/") || imageExtensions.includes(extension)) {
+      if (
+        mimeType.startsWith("image/") ||
+        imageExtensions.includes(extension)
+      ) {
         return "image";
       }
 
@@ -175,10 +148,7 @@ const [media, setMedia] = useState([]);
     }));
 
     setMedia((previousMedia) => {
-      const updatedMedia = [
-        ...previousMedia,
-        ...newMedia,
-      ];
+      const updatedMedia = [...previousMedia, ...newMedia];
 
       if (previousMedia.length === 0) {
         setActiveIndex(0);
@@ -190,25 +160,15 @@ const [media, setMedia] = useState([]);
     event.target.value = "";
   };
 
-  /* =====================================================
-     REMOVE MEDIA
-  ===================================================== */
-
   const removeMedia = (id) => {
     setMedia((previousMedia) => {
-      const itemToRemove = previousMedia.find(
-        (item) => item.id === id
-      );
+      const itemToRemove = previousMedia.find((item) => item.id === id);
 
       if (itemToRemove) {
         URL.revokeObjectURL(itemToRemove.url);
       }
 
-      const updatedMedia = previousMedia.filter(
-        (item) => item.id !== id
-      );
-
-      return updatedMedia;
+      return previousMedia.filter((item) => item.id !== id);
     });
 
     setActiveIndex((currentIndex) => {
@@ -222,27 +182,16 @@ const [media, setMedia] = useState([]);
     setEditingIndex(null);
   };
 
-  /* =====================================================
-     REORDER MEDIA
-  ===================================================== */
-
   const moveMedia = (index, direction) => {
     setMedia((previousMedia) => {
       const updatedMedia = [...previousMedia];
-
       const targetIndex = index + direction;
 
-      if (
-        targetIndex < 0 ||
-        targetIndex >= updatedMedia.length
-      ) {
+      if (targetIndex < 0 || targetIndex >= updatedMedia.length) {
         return previousMedia;
       }
 
-      [
-        updatedMedia[index],
-        updatedMedia[targetIndex],
-      ] = [
+      [updatedMedia[index], updatedMedia[targetIndex]] = [
         updatedMedia[targetIndex],
         updatedMedia[index],
       ];
@@ -263,10 +212,6 @@ const [media, setMedia] = useState([]);
     });
   };
 
-  /* =====================================================
-     CAROUSEL
-  ===================================================== */
-
   const nextMedia = () => {
     if (activeIndex < media.length - 1) {
       setActiveIndex((previous) => previous + 1);
@@ -279,26 +224,13 @@ const [media, setMedia] = useState([]);
     }
   };
 
-  /* =====================================================
-     EDITOR
-  ===================================================== */
-
   const openEditor = (index) => {
     const selectedMedia = media[index];
 
     setEditingIndex(index);
-
-    setSelectedFilter(
-      selectedMedia.filter || "none"
-    );
-
-    setRotation(
-      selectedMedia.rotation || 0
-    );
-
-    setCropMode(
-      selectedMedia.crop || false
-    );
+    setSelectedFilter(selectedMedia.filter || "none");
+    setRotation(selectedMedia.rotation || 0);
+    setCropMode(selectedMedia.crop || false);
   };
 
   const closeEditor = () => {
@@ -315,12 +247,7 @@ const [media, setMedia] = useState([]);
 
     setMedia((previousMedia) =>
       previousMedia.map((item, index) =>
-        index === editingIndex
-          ? {
-              ...item,
-              filter: filterValue,
-            }
-          : item
+        index === editingIndex ? { ...item, filter: filterValue } : item
       )
     );
   };
@@ -336,12 +263,7 @@ const [media, setMedia] = useState([]);
 
     setMedia((previousMedia) =>
       previousMedia.map((item, index) =>
-        index === editingIndex
-          ? {
-              ...item,
-              rotation: newRotation,
-            }
-          : item
+        index === editingIndex ? { ...item, rotation: newRotation } : item
       )
     );
   };
@@ -357,32 +279,17 @@ const [media, setMedia] = useState([]);
 
     setMedia((previousMedia) =>
       previousMedia.map((item, index) =>
-        index === editingIndex
-          ? {
-              ...item,
-              crop: newCropState,
-            }
-          : item
+        index === editingIndex ? { ...item, crop: newCropState } : item
       )
     );
   };
 
-  /* =====================================================
-     MUSIC
-  ===================================================== */
-
   const filteredMusic = musicLibrary.filter((track) => {
-    const search = musicSearch
-      .toLowerCase()
-      .trim();
+    const search = musicSearch.toLowerCase().trim();
 
     return (
-      track.title
-        .toLowerCase()
-        .includes(search) ||
-      track.artist
-        .toLowerCase()
-        .includes(search)
+      track.title.toLowerCase().includes(search) ||
+      track.artist.toLowerCase().includes(search)
     );
   });
 
@@ -408,9 +315,7 @@ const [media, setMedia] = useState([]);
   const toggleMusicPreview = (track) => {
     if (!track.audioUrl) {
       setPlayingMusicId((currentId) =>
-        currentId === track.id
-          ? null
-          : track.id
+        currentId === track.id ? null : track.id
       );
 
       return;
@@ -440,10 +345,6 @@ const [media, setMedia] = useState([]);
       });
   };
 
-  /* =====================================================
-     CLEAR
-  ===================================================== */
-
   const clearAll = () => {
     media.forEach((item) => {
       URL.revokeObjectURL(item.url);
@@ -452,113 +353,89 @@ const [media, setMedia] = useState([]);
     setMedia([]);
     setCaption("");
     setActiveIndex(0);
-
     setEditingIndex(null);
-
     setSelectedMusic(null);
     setShowMusicLibrary(false);
     setMusicSearch("");
     setPlayingMusicId(null);
-
     setSelectedMood(null);
   };
 
-  /* =====================================================
-     POST
-  ===================================================== */
-
- const handlePost = async () => {
-  if (media.length === 0) {
-    return;
-  }
-
-  const token = localStorage.getItem("token");
-
-  if (!token) {
-    console.error("No login token found.");
-    return;
-  }
-
-  setIsPosting(true);
-
-  try {
-    const formData = new FormData();
-
-    media.forEach((item) => {
-      formData.append("media", item.file);
-    });
-
-    formData.append("caption", caption.trim());
-
-    if (selectedMusic) {
-      formData.append(
-        "music",
-        JSON.stringify({
-          id: selectedMusic.id,
-          title: selectedMusic.title,
-          artist: selectedMusic.artist,
-          audioUrl: selectedMusic.audioUrl || "",
-        })
-      );
+  const handlePost = async () => {
+    if (media.length === 0) {
+      return;
     }
 
-   const API_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000";
+    const token = localStorage.getItem("token");
 
-    const response = await fetch(
-      `${API_URL}/api/posts`,
-      {
+    if (!token) {
+      console.error("No login token found.");
+      return;
+    }
+
+    setIsPosting(true);
+
+    try {
+      const formData = new FormData();
+
+      media.forEach((item) => {
+        formData.append("media", item.file);
+      });
+
+      formData.append("caption", caption.trim());
+
+      if (selectedMusic) {
+        formData.append(
+          "music",
+          JSON.stringify({
+            id: selectedMusic.id,
+            title: selectedMusic.title,
+            artist: selectedMusic.artist,
+            audioUrl: selectedMusic.audioUrl || "",
+          })
+        );
+      }
+
+      const API_URL =
+        import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+      const response = await fetch(`${API_URL}/api/posts`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
         },
         body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("Create post failed:", data);
+        return;
       }
-    );
 
-    const data = await response.json();
+      console.log("Impressa post created successfully:", data);
 
-    if (!response.ok) {
-      console.error(
-        "Create post failed:",
-        data
-      );
-      return;
+      media.forEach((item) => {
+        URL.revokeObjectURL(item.url);
+      });
+
+      setMedia([]);
+      setCaption("");
+      setActiveIndex(0);
+      setSelectedMusic(null);
+      setSelectedMood(null);
+      setEditingIndex(null);
+    } catch (error) {
+      console.error("Create post error:", error);
+    } finally {
+      setIsPosting(false);
     }
-
-    console.log(
-      "Impressa post created successfully:",
-      data
-    );
-
-    media.forEach((item) => {
-      URL.revokeObjectURL(item.url);
-    });
-
-    setMedia([]);
-    setCaption("");
-    setActiveIndex(0);
-    setSelectedMusic(null);
-    setSelectedMood(null);
-    setEditingIndex(null);
-
-  } catch (error) {
-    console.error(
-      "Create post error:",
-      error
-    );
-  } finally {
-    setIsPosting(false);
-  }
-};
-
-  /* =====================================================
-     CLEANUP
-  ===================================================== */
+  };
 
   useEffect(() => {
     return () => {
-      media.forEach((item) => {
+      mediaRef.current.forEach((item) => {
         URL.revokeObjectURL(item.url);
       });
     };
@@ -567,42 +444,23 @@ const [media, setMedia] = useState([]);
   return (
     <main className="create-post-page">
       <section className="create-post-container">
-
-        {/* =================================================
-            HEADER
-        ================================================= */}
-
         <header className="create-post-header">
-
           <div>
-            <p className="create-post-small-title">
-              IMPRESSA
-            </p>
-
-            <h1>Create Post</h1> 
+            <p className="create-post-small-title">IMPRESSA</p>
+            <h1>Create Post</h1>
           </div>
 
           <div className="media-count">
-            {media.length === 0
-              ? "New post"
-              : `${media.length} media`}
+            {media.length === 0 ? "New post" : `${media.length} media`}
           </div>
-
         </header>
-
-        {/* =================================================
-            EMPTY UPLOAD
-        ================================================= */}
 
         {media.length === 0 ? (
           <div className="empty-upload">
-
             <div className="upload-orbit">
-
               <div className="upload-icon">
-  <span>i</span>
-</div>
-
+                <span>i</span>
+              </div>
             </div>
 
             <h2>Share your moment</h2>
@@ -626,47 +484,26 @@ const [media, setMedia] = useState([]);
               <span>VIDEO</span>
               <span>MIXED</span>
             </div>
-
           </div>
         ) : (
           <>
-            {/* =============================================
-                CAROUSEL
-            ============================================= */}
-
             <div className="carousel-section">
-
               <div className="carousel">
-
-                {media[activeIndex]?.type ===
-                "image" ? (
+                {media[activeIndex]?.type === "image" ? (
                   <img
-                    src={
-                      media[activeIndex].url
-                    }
-                    alt={`Post media ${
-                      activeIndex + 1
-                    }`}
+                    src={media[activeIndex].url}
+                    alt={`Post media ${activeIndex + 1}`}
                     className={`carousel-media ${
-                      media[activeIndex].crop
-                        ? "cropped-media"
-                        : ""
+                      media[activeIndex].crop ? "cropped-media" : ""
                     }`}
                     style={{
-                      filter:
-                        media[activeIndex]
-                          .filter,
-                      transform: `rotate(${
-                        media[activeIndex]
-                          .rotation
-                      }deg)`,
+                      filter: media[activeIndex].filter,
+                      transform: `rotate(${media[activeIndex].rotation}deg)`,
                     }}
                   />
                 ) : (
                   <video
-                    src={
-                      media[activeIndex].url
-                    }
+                    src={media[activeIndex].url}
                     className="carousel-media"
                     controls
                     playsInline
@@ -674,8 +511,7 @@ const [media, setMedia] = useState([]);
                 )}
 
                 <div className="carousel-counter">
-                  {activeIndex + 1} /{" "}
-                  {media.length}
+                  {activeIndex + 1} / {media.length}
                 </div>
 
                 {activeIndex > 0 && (
@@ -689,8 +525,7 @@ const [media, setMedia] = useState([]);
                   </button>
                 )}
 
-                {activeIndex <
-                  media.length - 1 && (
+                {activeIndex < media.length - 1 && (
                   <button
                     type="button"
                     className="carousel-arrow next"
@@ -704,42 +539,26 @@ const [media, setMedia] = useState([]);
                 <button
                   type="button"
                   className="edit-main-button"
-                  onClick={() =>
-                    openEditor(activeIndex)
-                  }
+                  onClick={() => openEditor(activeIndex)}
                 >
                   ✦ Edit
                 </button>
-
               </div>
 
               <div className="carousel-dots">
-
                 {media.map((item, index) => (
                   <button
                     type="button"
                     key={item.id}
                     className={`carousel-dot ${
-                      activeIndex === index
-                        ? "active"
-                        : ""
+                      activeIndex === index ? "active" : ""
                     }`}
-                    onClick={() =>
-                      setActiveIndex(index)
-                    }
-                    aria-label={`Show media ${
-                      index + 1
-                    }`}
+                    onClick={() => setActiveIndex(index)}
+                    aria-label={`Show media ${index + 1}`}
                   />
                 ))}
-
               </div>
-
             </div>
-
-            {/* =============================================
-                ADD MORE MEDIA
-            ============================================= */}
 
             <button
               type="button"
@@ -750,53 +569,33 @@ const [media, setMedia] = useState([]);
               Add more media
             </button>
 
-            {/* =============================================
-                MEDIA MANAGER
-            ============================================= */}
-
             <div className="media-manager">
-
               <div className="section-heading">
-
                 <div>
                   <h3>Your media</h3>
-                  <p>
-                    Arrange your carousel
-                  </p>
+                  <p>Arrange your carousel</p>
                 </div>
 
                 <span>{media.length}</span>
-
               </div>
 
               <div className="media-list">
-
                 {media.map((item, index) => (
                   <div
                     className={`media-item ${
-                      activeIndex === index
-                        ? "selected"
-                        : ""
+                      activeIndex === index ? "selected" : ""
                     }`}
                     key={item.id}
-                    onClick={() =>
-                      setActiveIndex(index)
-                    }
+                    onClick={() => setActiveIndex(index)}
                   >
-
                     <div className="thumbnail-wrapper">
-
                       {item.type === "image" ? (
                         <img
                           src={item.url}
-                          alt={`Thumbnail ${
-                            index + 1
-                          }`}
+                          alt={`Thumbnail ${index + 1}`}
                           style={{
                             filter: item.filter,
-                            transform: `rotate(${
-                              item.rotation
-                            }deg)`,
+                            transform: `rotate(${item.rotation}deg)`,
                           }}
                         />
                       ) : (
@@ -808,20 +607,14 @@ const [media, setMedia] = useState([]);
                             preload="metadata"
                           />
 
-                          <span className="video-badge">
-                            ▶
-                          </span>
+                          <span className="video-badge">▶</span>
                         </>
                       )}
 
-                      <span className="media-number">
-                        {index + 1}
-                      </span>
-
+                      <span className="media-number">{index + 1}</span>
                     </div>
 
                     <div className="media-actions">
-
                       <button
                         type="button"
                         onClick={(event) => {
@@ -838,10 +631,7 @@ const [media, setMedia] = useState([]);
                         disabled={index === 0}
                         onClick={(event) => {
                           event.stopPropagation();
-                          moveMedia(
-                            index,
-                            -1
-                          );
+                          moveMedia(index, -1);
                         }}
                         aria-label="Move media left"
                       >
@@ -850,16 +640,10 @@ const [media, setMedia] = useState([]);
 
                       <button
                         type="button"
-                        disabled={
-                          index ===
-                          media.length - 1
-                        }
+                        disabled={index === media.length - 1}
                         onClick={(event) => {
                           event.stopPropagation();
-                          moveMedia(
-                            index,
-                            1
-                          );
+                          moveMedia(index, 1);
                         }}
                         aria-label="Move media right"
                       >
@@ -871,132 +655,75 @@ const [media, setMedia] = useState([]);
                         className="delete-media"
                         onClick={(event) => {
                           event.stopPropagation();
-                          removeMedia(
-                            item.id
-                          );
+                          removeMedia(item.id);
                         }}
                         aria-label="Delete media"
                       >
                         ×
                       </button>
-
                     </div>
-
                   </div>
                 ))}
-
               </div>
-
             </div>
           </>
         )}
 
-        {/* =================================================
-            CAPTION
-        ================================================= */}
-
         <div className="caption-section">
-
           <div className="caption-heading">
-
             <h3>Caption</h3>
-
-            <span>
-              {caption.length}/500
-            </span>
-
+            <span>{caption.length}/500</span>
           </div>
 
           <textarea
             value={caption}
             onChange={(event) => {
-              if (
-                event.target.value.length <=
-                500
-              ) {
-                setCaption(
-                  event.target.value
-                );
+              if (event.target.value.length <= 500) {
+                setCaption(event.target.value);
               }
             }}
             placeholder="Write something about this moment..."
             maxLength={500}
           />
-
         </div>
 
-        {/* =================================================
-            MUSIC
-        ================================================= */}
-
         <section className="music-section">
-
           <div className="music-heading">
-
             <div>
-
               <div className="music-title-row">
-
-                <span className="music-symbol">
-                  ♪
-                </span>
-
+                <span className="music-symbol">♪</span>
                 <h3>Add Music</h3>
-
               </div>
 
-              <p>
-                Add one song to your entire post
-              </p>
-
+              <p>Add one song to your entire post</p>
             </div>
 
             {selectedMusic && (
               <button
                 type="button"
                 className="change-music-btn"
-                onClick={() =>
-                  setShowMusicLibrary(true)
-                }
+                onClick={() => setShowMusicLibrary(true)}
               >
                 Change
               </button>
             )}
-
           </div>
 
           {selectedMusic ? (
             <div className="selected-music-card">
-
-              <div className="music-cover">
-                ♪
-              </div>
+              <div className="music-cover">♪</div>
 
               <div className="selected-music-info">
-
-                <strong>
-                  {selectedMusic.title}
-                </strong>
-
-                <span>
-                  {selectedMusic.artist}
-                </span>
-
+                <strong>{selectedMusic.title}</strong>
+                <span>{selectedMusic.artist}</span>
               </div>
 
               <button
                 type="button"
                 className="music-play-btn"
-                onClick={() =>
-                  toggleMusicPreview(
-                    selectedMusic
-                  )
-                }
+                onClick={() => toggleMusicPreview(selectedMusic)}
               >
-                {playingMusicId ===
-                selectedMusic.id
-                  ? "Ⅱ"
-                  : "▶"}
+                {playingMusicId === selectedMusic.id ? "Ⅱ" : "▶"}
               </button>
 
               <button
@@ -1007,131 +734,73 @@ const [media, setMedia] = useState([]);
               >
                 ×
               </button>
-
             </div>
           ) : (
             <button
               type="button"
               className="add-music-card"
-              onClick={() =>
-                setShowMusicLibrary(true)
-              }
+              onClick={() => setShowMusicLibrary(true)}
             >
-
-              <div className="music-add-icon">
-                ♪
-              </div>
+              <div className="music-add-icon">♪</div>
 
               <div>
-
-                <strong>
-                  Choose a song
-                </strong>
-
-                <span>
-                  From the Impressa music library
-                </span>
-
+                <strong>Choose a song</strong>
+                <span>From the Impressa music library</span>
               </div>
 
-              <span className="music-arrow">
-                ›
-              </span>
-
+              <span className="music-arrow">›</span>
             </button>
           )}
-
         </section>
 
-        {/* =================================================
-            MOOD
-        ================================================= */}
-
         <section className="mood-section">
-
           <div className="mood-heading">
-
             <div>
-
               <div className="mood-title-row">
-
-                <span className="mood-symbol">
-                  ✦
-                </span>
-
+                <span className="mood-symbol">✦</span>
                 <h3>Set the mood</h3>
-
               </div>
 
-              <p>
-                Tell people how this moment feels
-              </p>
-
+              <p>Tell people how this moment feels</p>
             </div>
 
             {selectedMood && (
               <button
                 type="button"
                 className="clear-mood-btn"
-                onClick={() =>
-                  setSelectedMood(null)
-                }
+                onClick={() => setSelectedMood(null)}
               >
                 Clear
               </button>
             )}
-
           </div>
 
           <div className="mood-list">
-
             {moods.map((mood) => (
               <button
                 type="button"
                 key={mood.id}
                 className={`mood-item ${
-                  selectedMood?.id === mood.id
-                    ? "active"
-                    : ""
+                  selectedMood?.id === mood.id ? "active" : ""
                 }`}
                 onClick={() => {
                   setSelectedMood(
-                    selectedMood?.id ===
-                      mood.id
-                      ? null
-                      : mood
+                    selectedMood?.id === mood.id ? null : mood
                   );
                 }}
               >
+                <span className="mood-emoji">{mood.emoji}</span>
+                <span className="mood-name">{mood.name}</span>
 
-                <span className="mood-emoji">
-                  {mood.emoji}
-                </span>
-
-                <span className="mood-name">
-                  {mood.name}
-                </span>
-
-                {selectedMood?.id ===
-                  mood.id && (
-                  <span className="mood-check">
-                    ✓
-                  </span>
+                {selectedMood?.id === mood.id && (
+                  <span className="mood-check">✓</span>
                 )}
-
               </button>
             ))}
-
           </div>
-
         </section>
 
-        {/* =================================================
-            POST BUTTONS
-        ================================================= */}
-
         <div className="create-post-actions">
-
           <button
             type="button"
             className="clear-btn"
@@ -1149,349 +818,204 @@ const [media, setMedia] = useState([]);
           <button
             type="button"
             className="post-btn"
-            disabled={
-              media.length === 0 ||
-              isPosting
-            }
+            disabled={media.length === 0 || isPosting}
             onClick={handlePost}
           >
-            {isPosting
-              ? "Posting..."
-              : "Post on Impressa"}
+            {isPosting ? "Posting..." : "Post on Impressa"}
           </button>
-
         </div>
-
       </section>
-
-      {/* ===================================================
-          MUSIC LIBRARY MODAL
-      =================================================== */}
 
       {showMusicLibrary && (
         <div className="music-overlay">
-
           <div className="music-panel">
-
             <div className="music-panel-header">
-
               <div>
-
                 <span>IMPRESSA</span>
-
                 <h2>Music Library</h2>
-
               </div>
 
               <button
                 type="button"
                 className="close-music"
-                onClick={() =>
-                  setShowMusicLibrary(false)
-                }
+                onClick={() => setShowMusicLibrary(false)}
                 aria-label="Close music library"
               >
                 ×
               </button>
-
             </div>
 
             <div className="music-search">
-
               <span>⌕</span>
 
               <input
                 type="text"
                 value={musicSearch}
-                onChange={(event) =>
-                  setMusicSearch(
-                    event.target.value
-                  )
-                }
+                onChange={(event) => setMusicSearch(event.target.value)}
                 placeholder="Search songs or artists..."
               />
-
             </div>
 
             <div className="music-library-list">
-
               {filteredMusic.length > 0 ? (
                 filteredMusic.map((track) => (
                   <div
                     className={`music-track ${
-                      selectedMusic?.id ===
-                      track.id
-                        ? "selected"
-                        : ""
+                      selectedMusic?.id === track.id ? "selected" : ""
                     }`}
                     key={track.id}
                   >
-
-                    <div className="track-cover">
-                      ♪
-                    </div>
+                    <div className="track-cover">♪</div>
 
                     <div className="track-details">
-
-                      <strong>
-                        {track.title}
-                      </strong>
-
-                      <span>
-                        {track.artist}
-                      </span>
-
+                      <strong>{track.title}</strong>
+                      <span>{track.artist}</span>
                     </div>
 
-                    <span className="track-duration">
-                      {track.duration}
-                    </span>
+                    <span className="track-duration">{track.duration}</span>
 
                     <button
                       type="button"
                       className="track-play"
-                      onClick={() =>
-                        toggleMusicPreview(
-                          track
-                        )
-                      }
+                      onClick={() => toggleMusicPreview(track)}
                     >
-                      {playingMusicId ===
-                      track.id
-                        ? "Ⅱ"
-                        : "▶"}
+                      {playingMusicId === track.id ? "Ⅱ" : "▶"}
                     </button>
 
                     <button
                       type="button"
                       className="select-track"
-                      onClick={() =>
-                        selectMusic(track)
-                      }
+                      onClick={() => selectMusic(track)}
                     >
-                      {selectedMusic?.id ===
-                      track.id
-                        ? "✓"
-                        : "Add"}
+                      {selectedMusic?.id === track.id ? "✓" : "Add"}
                     </button>
-
                   </div>
                 ))
               ) : (
                 <div className="no-music">
-
                   <span>♪</span>
-
-                  <p>
-                    No songs found
-                  </p>
-
+                  <p>No songs found</p>
                 </div>
               )}
-
             </div>
 
             <p className="music-library-note">
-              Music available in Impressa will be
-              properly licensed for use on the platform.
+              Music available in Impressa will be properly licensed for use
+              on the platform.
             </p>
-
           </div>
-
         </div>
       )}
 
-      {/* ===================================================
-          EDITOR MODAL
-      =================================================== */}
-
-      {editingIndex !== null &&
-        media[editingIndex] && (
-          <div className="editor-overlay">
-
-            <div className="editor-panel">
-
-              <div className="editor-header">
-
-                <div>
-
-                  <span>
-                    IMPRESSA EDITOR
-                  </span>
-
-                  <h2>Edit Media</h2>
-
-                </div>
-
-                <button
-                  type="button"
-                  className="close-editor"
-                  onClick={closeEditor}
-                  aria-label="Close editor"
-                >
-                  ×
-                </button>
-
+      {editingIndex !== null && media[editingIndex] && (
+        <div className="editor-overlay">
+          <div className="editor-panel">
+            <div className="editor-header">
+              <div>
+                <span>IMPRESSA EDITOR</span>
+                <h2>Edit Media</h2>
               </div>
-
-              <div className="editor-preview">
-
-                {media[editingIndex].type ===
-                "image" ? (
-                  <img
-                    src={
-                      media[editingIndex].url
-                    }
-                    alt="Editing preview"
-                    className={
-                      cropMode
-                        ? "editor-crop-preview"
-                        : ""
-                    }
-                    style={{
-                      filter:
-                        selectedFilter,
-                      transform: `rotate(${
-                        rotation
-                      }deg)`,
-                    }}
-                  />
-                ) : (
-                  <video
-                    src={
-                      media[editingIndex].url
-                    }
-                    controls
-                    playsInline
-                  />
-                )}
-
-              </div>
-
-              {media[editingIndex].type ===
-                "image" && (
-                <div className="editor-tools">
-
-                  <button
-                    type="button"
-                    className={
-                      cropMode
-                        ? "tool active"
-                        : "tool"
-                    }
-                    onClick={toggleCrop}
-                  >
-                    <span>□</span>
-                    Crop
-                  </button>
-
-                  <button
-                    type="button"
-                    className="tool"
-                    onClick={rotateImage}
-                  >
-                    <span>↻</span>
-                    Rotate
-                  </button>
-
-                </div>
-              )}
-
-              {media[editingIndex].type ===
-                "image" && (
-                <div className="filter-section">
-
-                  <div className="filter-title">
-
-                    <h3>Filters</h3>
-
-                    <span>
-                      Choose a look
-                    </span>
-
-                  </div>
-
-                  <div className="filter-list">
-
-                    {filters.map((filter) => (
-                      <button
-                        type="button"
-                        key={filter.name}
-                        className={
-                          selectedFilter ===
-                          filter.value
-                            ? "filter-item active"
-                            : "filter-item"
-                        }
-                        onClick={() =>
-                          applyFilter(
-                            filter.value
-                          )
-                        }
-                      >
-
-                        <div className="filter-preview">
-
-                          <img
-                            src={
-                              media[
-                                editingIndex
-                              ].url
-                            }
-                            alt={filter.name}
-                            style={{
-                              filter:
-                                filter.value,
-                            }}
-                          />
-
-                        </div>
-
-                        <span>
-                          {filter.name}
-                        </span>
-
-                      </button>
-                    ))}
-
-                  </div>
-
-                </div>
-              )}
 
               <button
                 type="button"
-                className="done-editing"
+                className="close-editor"
                 onClick={closeEditor}
+                aria-label="Close editor"
               >
-                Done
+                ×
               </button>
-
             </div>
 
+            <div className="editor-preview">
+              {media[editingIndex].type === "image" ? (
+                <img
+                  src={media[editingIndex].url}
+                  alt="Editing preview"
+                  className={cropMode ? "editor-crop-preview" : ""}
+                  style={{
+                    filter: selectedFilter,
+                    transform: `rotate(${rotation}deg)`,
+                  }}
+                />
+              ) : (
+                <video src={media[editingIndex].url} controls playsInline />
+              )}
+            </div>
+
+            {media[editingIndex].type === "image" && (
+              <div className="editor-tools">
+                <button
+                  type="button"
+                  className={cropMode ? "tool active" : "tool"}
+                  onClick={toggleCrop}
+                >
+                  <span>□</span>
+                  Crop
+                </button>
+
+                <button type="button" className="tool" onClick={rotateImage}>
+                  <span>↻</span>
+                  Rotate
+                </button>
+              </div>
+            )}
+
+            {media[editingIndex].type === "image" && (
+              <div className="filter-section">
+                <div className="filter-title">
+                  <h3>Filters</h3>
+                  <span>Choose a look</span>
+                </div>
+
+                <div className="filter-list">
+                  {filters.map((filter) => (
+                    <button
+                      type="button"
+                      key={filter.name}
+                      className={
+                        selectedFilter === filter.value
+                          ? "filter-item active"
+                          : "filter-item"
+                      }
+                      onClick={() => applyFilter(filter.value)}
+                    >
+                      <div className="filter-preview">
+                        <img
+                          src={media[editingIndex].url}
+                          alt={filter.name}
+                          style={{ filter: filter.value }}
+                        />
+                      </div>
+
+                      <span>{filter.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <button
+              type="button"
+              className="done-editing"
+              onClick={closeEditor}
+            >
+              Done
+            </button>
           </div>
-        )}
+        </div>
+      )}
 
-      {/* ===================================================
-          FILE INPUT
-      =================================================== */}
-
-   <input
-  ref={fileInputRef}
-  type="file"
-  accept="image/*,video/*"
-  multiple
-  onChange={handleFiles}
-  aria-label="Choose photos or videos"
-  style={{ display: "none" }}
-/>
-      <audio
-        ref={audioRef}
-        onEnded={() =>
-          setPlayingMusicId(null)
-        }
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,video/*"
+        multiple
+        onChange={handleFiles}
+        aria-label="Choose photos or videos"
+        style={{ display: "none" }}
       />
 
+      <audio ref={audioRef} onEnded={() => setPlayingMusicId(null)} />
     </main>
   );
 }

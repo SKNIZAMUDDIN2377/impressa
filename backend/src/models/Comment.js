@@ -6,9 +6,10 @@ const commentSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Post",
       required: true,
+      index: true,
     },
 
-    author: {
+    user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
@@ -25,5 +26,7 @@ const commentSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+commentSchema.index({ post: 1, createdAt: 1 });
 
 module.exports = mongoose.model("Comment", commentSchema);

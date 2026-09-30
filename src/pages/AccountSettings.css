@@ -1,221 +1,122 @@
 /* =========================================================
-   IMPRESSA ACCOUNT SETTINGS
-   Mobile-first
+   IMPRESSA — ACCOUNT SETTINGS
 ========================================================= */
 
 .settings-page {
   min-height: 100vh;
   min-height: 100dvh;
-
-  background:
-    radial-gradient(
-      circle at 100% 0%,
-      rgba(255, 106, 0, 0.09),
-      transparent 30%
-    ),
-    #ffffff;
-
-  color: #171717;
-
-  font-family:
-    Inter,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-
-  padding: 0 16px 35px;
-
+  padding: 0 16px 40px;
   box-sizing: border-box;
-
-  position: relative;
-
+  background: #fafafa;
+  color: #181818;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
 }
 
+.settings-page button,
+.settings-page input {
+  font-family: inherit;
+}
 
-/* =========================================================
-   BACKGROUND ORBS
-========================================================= */
-
+/* Decorative orbs removed for a cleaner, native look */
 .settings-orb {
-  position: fixed;
-
-  border-radius: 50%;
-
-  pointer-events: none;
-
-  filter: blur(25px);
-
-  z-index: 0;
+  display: none;
 }
-
-.settings-orb-one {
-  width: 150px;
-  height: 150px;
-
-  top: -70px;
-  right: -70px;
-
-  background:
-    rgba(255, 106, 0, 0.07);
-
-  animation:
-    settingsOrbOne 8s ease-in-out infinite;
-}
-
-.settings-orb-two {
-  width: 130px;
-  height: 130px;
-
-  bottom: -60px;
-  left: -70px;
-
-  background:
-    rgba(255, 106, 0, 0.05);
-
-  animation:
-    settingsOrbTwo 9s ease-in-out infinite;
-}
-
-
-/* =========================================================
-   CONTAINER
-========================================================= */
 
 .settings-container {
   width: 100%;
-  max-width: 650px;
-
-  margin: auto;
-
-  position: relative;
-
-  z-index: 2;
+  max-width: 560px;
+  margin: 0 auto;
 }
 
-
-/* =========================================================
-   TOP BAR
-========================================================= */
+/* TOP BAR */
 
 .settings-topbar {
-  min-height: 70px;
-
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  min-height: 60px;
+  margin: 0 -16px;
+  padding: 0 12px;
   display: grid;
-
-  grid-template-columns: 42px 1fr 42px;
-
+  grid-template-columns: 44px 1fr 44px;
   align-items: center;
+  background: rgba(250, 250, 250, 0.94);
+  border-bottom: 1px solid #eeeeee;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
 
-  border-bottom:
-    1px solid #eeeeee;
+.settings-topbar > div:nth-child(2) {
+  text-align: center;
 }
 
 .settings-back {
-  width: 38px;
-  height: 38px;
-
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: none;
-
-  border-radius: 12px;
-
-  background: #f7f7f7;
-
-  color: #222;
-
-  font-size: 20px;
-
+  border-radius: 50%;
+  background: transparent;
+  color: #181818;
+  font-size: 22px;
   cursor: pointer;
-
-  transition:
-    transform 0.2s ease,
-    background 0.2s ease;
 }
 
 .settings-back:active {
-  transform: scale(0.94);
-}
-
-.settings-back:hover {
-  background: #fff0e6;
+  background: #efefef;
 }
 
 .settings-small-title {
   display: block;
-
   color: #ff6a00;
-
-  font-size: 8px;
-
-  font-weight: 800;
-
-  letter-spacing: 2px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 2.2px;
 }
 
 .settings-topbar h1 {
-  margin: 3px 0 0;
-
+  margin: 2px 0 0;
   font-size: 17px;
-
-  letter-spacing: -0.4px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
 }
 
 .settings-top-space {
-  width: 42px;
+  width: 44px;
 }
 
-
-/* =========================================================
-   SECTION
-========================================================= */
+/* SECTIONS */
 
 .settings-section {
-  margin-top: 18px;
-
-  padding: 17px;
-
-  background: #ffffff;
-
-  border:
-    1px solid #eeeeee;
-
+  margin-top: 16px;
+  padding: 18px 16px;
+  border: 1px solid #ececec;
   border-radius: 18px;
-
-  box-shadow:
-    0 6px 24px rgba(0, 0, 0, 0.035);
+  background: #ffffff;
 }
-
-
-/* =========================================================
-   SECTION TITLE
-========================================================= */
 
 .settings-section-title {
   display: flex;
-
   align-items: center;
-
-  gap: 11px;
-
-  margin-bottom: 15px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .settings-section-icon {
-  width: 36px;
-  height: 36px;
-
-  flex: 0 0 36px;
-
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-
-  border-radius: 11px;
-
-  background: #f6f6f6;
-
-  font-size: 16px;
+  border-radius: 12px;
+  background: #f5f5f5;
+  font-size: 18px;
 }
 
 .settings-section-icon.orange-icon {
@@ -224,207 +125,106 @@
 
 .settings-section-title h2 {
   margin: 0;
-
-  font-size: 14px;
-
+  font-size: 16px;
+  font-weight: 800;
   letter-spacing: -0.2px;
 }
 
 .settings-section-title p {
   margin: 3px 0 0;
-
-  color: #999;
-
-  font-size: 9px;
+  color: #8a8a8a;
+  font-size: 13px;
 }
 
-
-/* =========================================================
-   ACCOUNT ROWS
-========================================================= */
+/* ACCOUNT ROWS */
 
 .settings-list {
-  border-top:
-    1px solid #f1f1f1;
+  border-top: 1px solid #f0f0f0;
 }
 
 .settings-row {
-  padding: 13px 2px;
-
-  border-bottom:
-    1px solid #f1f1f1;
+  padding: 14px 2px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .settings-row:last-child {
   border-bottom: 0;
+  padding-bottom: 2px;
 }
 
 .settings-label {
   display: block;
-
-  color: #777;
-
-  font-size: 9px;
-
   margin-bottom: 4px;
-}
-
-.settings-value {
-  color: #222;
-
+  color: #8a8a8a;
   font-size: 12px;
-
   font-weight: 600;
 }
 
-
-/* =========================================================
-   PASSWORD FORM
-========================================================= */
-
-.password-form {
-  display: flex;
-
-  flex-direction: column;
-
-  gap: 13px;
-}
-
-
-/* =========================================================
-   FIELD
-========================================================= */
-
-.settings-field label {
-  display: block;
-
-  margin-bottom: 6px;
-
-  color: #444;
-
-  font-size: 9px;
-
+.settings-value {
+  color: #181818;
+  font-size: 15px;
   font-weight: 700;
 }
 
+/* PASSWORD FORM */
 
-/* =========================================================
-   INPUT
-========================================================= */
+.password-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-field label {
+  display: block;
+  margin-bottom: 7px;
+  color: #3a3a3a;
+  font-size: 13px;
+  font-weight: 700;
+}
 
 .settings-input {
   width: 100%;
-
-  height: 47px;
-
+  height: 50px;
+  padding: 0 6px 0 14px;
   box-sizing: border-box;
-
   display: flex;
   align-items: center;
-
-  padding: 0 11px;
-
-  border:
-    1px solid #e7e7e7;
-
-  border-radius: 12px;
-
+  border: 1px solid #e5e5e5;
+  border-radius: 13px;
   background: #fafafa;
-
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease,
-    background 0.2s ease;
+  transition: border-color 0.2s ease, background 0.2s ease;
 }
 
 .settings-input:focus-within {
-  border-color:
-    rgba(255, 106, 0, 0.45);
-
+  border-color: #ff9a5c;
   background: #ffffff;
-
-  box-shadow:
-    0 0 0 4px
-    rgba(255, 106, 0, 0.055);
 }
 
 .settings-input input {
   width: 100%;
   min-width: 0;
-
   height: 100%;
-
   border: none;
   outline: none;
-
   background: transparent;
-
-  font: inherit;
-
-  font-size: 11px;
-
-  color: #222;
+  color: #181818;
+  font-size: 16px;
 }
 
 .settings-input input::placeholder {
-  color: #aaa;
+  color: #b0b0b0;
 }
 
 .settings-input button {
-  width: 28px;
-  height: 28px;
-
-  flex: 0 0 28px;
-
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
   border: none;
-
   background: transparent;
-
-  color: #999;
-
+  color: #999999;
+  font-size: 16px;
   cursor: pointer;
 }
-
-
-/* =========================================================
-   PASSWORD RULES
-========================================================= */
-
-.password-rules {
-  display: grid;
-
-  grid-template-columns:
-    repeat(2, 1fr);
-
-  gap: 7px;
-
-  padding:
-    10px 11px;
-
-  border-radius: 11px;
-
-  background: #fafafa;
-
-  border:
-    1px solid #f0f0f0;
-}
-
-.password-rules span {
-  color: #aaa;
-
-  font-size: 8px;
-}
-
-.password-rules span.valid {
-  color: #159447;
-
-  font-weight: 700;
-}
-
-
-/* =========================================================
-   PASSWORD ERROR
-========================================================= */
 
 .settings-input-error {
   border-color: #e15c50;
@@ -432,171 +232,151 @@
 
 .password-match-error {
   display: block;
-
-  margin-top: 5px;
-
-  color: #d9534f;
-
-  font-size: 8px;
+  margin-top: 6px;
+  color: #d9453a;
+  font-size: 12px;
+  font-weight: 600;
 }
 
+/* PASSWORD RULES */
 
-/* =========================================================
-   CHANGE PASSWORD
-========================================================= */
+.password-rules {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 10px;
+  padding: 12px 14px;
+  border: 1px solid #f0f0f0;
+  border-radius: 12px;
+  background: #fafafa;
+}
+
+.password-rules span {
+  color: #a3a3a3;
+  font-size: 12px;
+}
+
+.password-rules span.valid {
+  color: #1f9d55;
+  font-weight: 700;
+}
+
+/* CHANGE PASSWORD BUTTON */
 
 .change-password-button {
-  height: 48px;
-
+  min-height: 50px;
   border: none;
-
   border-radius: 13px;
-
-  background:
-    linear-gradient(
-      135deg,
-      #ff6500,
-      #ff7b20
-    );
-
-  color: white;
-
-  font-family: inherit;
-
-  font-size: 11px;
-
+  background: linear-gradient(150deg, #ff8534, #ff6a00);
+  color: #ffffff;
+  font-size: 15px;
   font-weight: 800;
-
   display: flex;
-
   align-items: center;
   justify-content: center;
-
   gap: 10px;
-
   cursor: pointer;
-
-  box-shadow:
-    0 9px 22px
-    rgba(255, 106, 0, 0.16);
-
-  transition:
-    transform 0.2s ease,
-    opacity 0.2s ease;
+  transition: transform 0.15s ease;
 }
 
 .change-password-button:active:not(:disabled) {
-  transform: scale(0.985);
+  transform: scale(0.98);
 }
 
 .change-password-button:disabled {
-  opacity: 0.42;
-
+  opacity: 0.4;
   cursor: not-allowed;
-
-  box-shadow: none;
 }
 
-
-/* =========================================================
-   LOADER
-========================================================= */
+/* LOADER */
 
 .settings-loader {
   display: flex;
-
   gap: 5px;
 }
 
 .settings-loader span {
-  width: 5px;
-  height: 5px;
-
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-
-  background: #fff;
-
-  animation:
-    settingsLoading 0.8s infinite;
+  background: #ffffff;
+  animation: settingsLoading 0.8s infinite;
 }
 
-.settings-loader span:nth-child(2) {
-  animation-delay: 0.12s;
+.settings-loader span:nth-child(2) { animation-delay: 0.12s; }
+.settings-loader span:nth-child(3) { animation-delay: 0.24s; }
+
+@keyframes settingsLoading {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 1; }
 }
 
-.settings-loader span:nth-child(3) {
-  animation-delay: 0.24s;
-}
-
-
-/* =========================================================
-   FUTURE SETTINGS
-========================================================= */
+/* FUTURE / INFO SETTINGS */
 
 .future-setting {
   display: flex;
-
   align-items: center;
   justify-content: space-between;
-
-  gap: 15px;
-
-  padding-top: 14px;
-
-  border-top:
-    1px solid #f1f1f1;
+  gap: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
 }
 
 .future-setting strong {
   display: block;
-
-  font-size: 11px;
+  font-size: 15px;
+  font-weight: 750;
 }
 
 .future-setting span {
   display: block;
-
   margin-top: 4px;
-
-  color: #999;
-
-  font-size: 8px;
-
-  line-height: 1.4;
+  color: #8a8a8a;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
+.privacy-setting-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
-/* =========================================================
-   TOGGLE
-========================================================= */
+.v1-badge {
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: #fff0e6;
+  color: #ff6a00;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+}
+
+/* TOGGLE */
 
 .fake-toggle {
-  width: 39px;
-  height: 23px;
-
-  flex: 0 0 39px;
-
+  width: 50px;
+  height: 30px;
+  flex: 0 0 50px;
   padding: 3px;
-
   box-sizing: border-box;
-
-  border-radius: 20px;
-
-  background: #ddd;
+  display: flex;
+  align-items: center;
+  border: none;
+  border-radius: 999px;
+  background: #d8d8d8;
+  cursor: pointer;
+  transition: background 0.25s ease;
 }
 
 .fake-toggle span {
-  width: 17px;
-  height: 17px;
-
   display: block;
-
+  width: 24px;
+  height: 24px;
+  margin: 0;
   border-radius: 50%;
-
-  background: white;
-
-  transition:
-    transform 0.25s ease;
+  background: #ffffff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.18);
+  transition: transform 0.25s ease;
 }
 
 .fake-toggle.active {
@@ -604,104 +384,61 @@
 }
 
 .fake-toggle.active span {
-  transform:
-    translateX(16px);
+  transform: translateX(20px);
 }
 
+.fake-toggle:active {
+  transform: scale(0.95);
+}
 
-/* =========================================================
-   DANGER
-========================================================= */
+/* ACCOUNT ACTIONS */
 
 .danger-section {
-  margin-top: 18px;
-
-  padding: 17px;
-
-  border:
-    1px solid #ffe0dc;
-
+  margin-top: 16px;
+  padding: 18px 16px;
+  border: 1px solid #f6d9d5;
   border-radius: 18px;
-
-  background:
-    linear-gradient(
-      145deg,
-      #fffafa,
-      #ffffff
-    );
+  background: #ffffff;
 }
 
 .danger-title {
-  margin-bottom: 11px;
-
-  color: #d9534f;
-
-  font-size: 10px;
-
+  margin-bottom: 12px;
+  color: #d9453a;
+  font-size: 12px;
   font-weight: 800;
-
+  letter-spacing: 1.2px;
   text-transform: uppercase;
-
-  letter-spacing: 1px;
 }
-
-
-/* =========================================================
-   LOGOUT
-========================================================= */
 
 .logout-button {
   width: 100%;
-
-  min-height: 58px;
-
+  min-height: 60px;
+  padding: 10px 12px;
+  box-sizing: border-box;
   display: flex;
-
   align-items: center;
-
-  gap: 11px;
-
-  padding: 10px;
-
-  border: none;
-
-  border-radius: 12px;
-
-  background: #fff;
-
+  gap: 12px;
+  border: 1px solid #f0f0f0;
+  border-radius: 14px;
+  background: #ffffff;
   text-align: left;
-
   cursor: pointer;
-
-  transition:
-    background 0.2s ease,
-    transform 0.2s ease;
-}
-
-.logout-button:hover {
-  background: #fff1ef;
 }
 
 .logout-button:active {
-  transform: scale(0.99);
+  background: #fafafa;
 }
 
 .logout-button > span {
-  width: 32px;
-  height: 32px;
-
+  width: 38px;
+  height: 38px;
   display: flex;
-
   align-items: center;
   justify-content: center;
-
-  border-radius: 9px;
-
+  border-radius: 11px;
   background: #fff0ee;
-
-  color: #d9534f;
-
-  font-size: 16px;
+  color: #d9453a;
+  font-size: 18px;
 }
 
 .logout-button div {
@@ -710,318 +447,134 @@
 
 .logout-button strong {
   display: block;
-
-  color: #333;
-
-  font-size: 11px;
+  color: #181818;
+  font-size: 15px;
+  font-weight: 750;
 }
 
 .logout-button small {
   display: block;
-
-  margin-top: 3px;
-
-  color: #999;
-
-  font-size: 8px;
+  margin-top: 2px;
+  color: #8a8a8a;
+  font-size: 12px;
 }
 
 .logout-button b {
-  color: #d9534f;
-
-  font-size: 15px;
+  color: #b3b3b3;
+  font-size: 16px;
 }
 
-
-/* =========================================================
-   DELETE
-========================================================= */
-
-.delete-account-button {
+.settings-page .delete-account-button {
   width: 100%;
-
-  margin-top: 9px;
-
-  padding: 10px;
-
-  border: none;
-
-  background: transparent;
-
-  color: #d9534f;
-
-  font-size: 9px;
-
-  font-weight: 700;
-
+  min-height: 48px;
+  margin-top: 10px;
+  padding: 0 10px;
+  border: 1px solid #f3d3cf;
+  border-radius: 13px;
+  background: #ffffff;
+  color: #d9453a;
+  font-size: 14px;
+  font-weight: 750;
   cursor: pointer;
 }
 
-
-/* =========================================================
-   FOOTER
-========================================================= */
-
-.settings-footer {
-  margin: 22px 0;
-
-  text-align: center;
-
-  color: #c0c0c0;
-
-  font-size: 8px;
+.settings-page .delete-account-button:active:not(:disabled) {
+  background: #fff5f4;
 }
 
-
-/* =========================================================
-   ANIMATION
-========================================================= */
-
-@keyframes settingsOrbOne {
-  0%, 100% {
-    transform: translate(0, 0);
-  }
-
-  50% {
-    transform: translate(-12px, 15px);
-  }
+.settings-page .delete-account-button:disabled {
+  opacity: 0.5;
 }
 
-@keyframes settingsOrbTwo {
-  0%, 100% {
-    transform: translate(0, 0);
-  }
-
-  50% {
-    transform: translate(12px, -12px);
-  }
-}
-
-@keyframes settingsLoading {
-  0%, 60%, 100% {
-    transform: translateY(0);
-    opacity: 0.4;
-  }
-
-  30% {
-    transform: translateY(-4px);
-    opacity: 1;
-  }
-}
-
-
-/* =========================================================
-   DESKTOP
-========================================================= */
-
-@media (min-width: 800px) {
-
-  .settings-page {
-    padding:
-      0 30px 50px;
-  }
-
-  .settings-container {
-    max-width: 650px;
-  }
-
-  .settings-topbar {
-    min-height: 80px;
-  }
-}
-
-
-/* =========================================================
-   SHORT PHONES
-========================================================= */
-
-@media (max-height: 650px) {
-
-  .settings-page {
-    overflow-y: auto;
-  }
-
-  .settings-section {
-    margin-top: 13px;
-
-    padding: 14px;
-  }
-
-  .settings-topbar {
-    min-height: 60px;
-  }
-}
-
-
-/* =========================================================
-   REDUCED MOTION
-========================================================= */
-
-@media (prefers-reduced-motion: reduce) {
-
-  *,
-  *::before,
-  *::after {
-    animation: none !important;
-
-    transition: none !important;
-  }
-}
-
-/* =========================================
-   V1 PRIVACY
-========================================= */
-
-.privacy-setting-heading {
-  display: flex;
-
-  align-items: center;
-
-  gap: 6px;
-}
-
-.v1-badge {
-  padding:
-    3px 5px;
-
-  border-radius: 5px;
-
-  background: #fff0e6;
-
-  color: #ff6a00;
-
-  font-size: 6px;
-
-  font-weight: 900;
-
-  letter-spacing: 0.5px;
-}
-
-.fake-toggle {
-  cursor: pointer;
-
-  border: none;
-}
-
-.fake-toggle:active {
-  transform: scale(0.94);
-}
-
-/* ==========================================
-   DELETE ACCOUNT CONFIRMATION
-========================================== */
+/* DELETE CONFIRMATION */
 
 .delete-confirm-box {
-  margin-top: 18px;
-  padding: 20px;
-  border: 1px solid rgba(255, 70, 70, 0.25);
+  margin-top: 14px;
+  padding: 18px 16px;
+  border: 1px solid #f3d3cf;
   border-radius: 16px;
-  background: rgba(255, 245, 245, 0.95);
+  background: #fff8f7;
 }
 
 .delete-confirm-box h3 {
   margin: 0 0 8px;
-  font-size: 18px;
-  font-weight: 700;
   color: #d93030;
+  font-size: 17px;
+  font-weight: 800;
 }
 
 .delete-confirm-box > p {
-  margin: 0 0 18px;
+  margin: 0 0 16px;
+  color: #666666;
   font-size: 13px;
   line-height: 1.6;
-  color: #666;
 }
-
-/* Password field inside delete box */
 
 .delete-confirm-box .settings-field {
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
-
-.delete-confirm-box .settings-field label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #333;
-}
-
-.delete-confirm-box .settings-input {
-  width: 100%;
-}
-
-/* ==========================================
-   DELETE CONFIRMATION BUTTONS
-========================================== */
 
 .delete-confirm-actions {
   display: flex;
   gap: 10px;
-  justify-content: flex-end;
-  margin-top: 4px;
 }
 
 .delete-confirm-actions button {
-  min-height: 42px;
-  padding: 0 16px;
-  border-radius: 10px;
+  flex: 1;
+  min-height: 46px;
+  padding: 0 14px;
   border: none;
-  font-size: 13px;
-  font-weight: 600;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 750;
   cursor: pointer;
-  transition: opacity 0.2s ease;
 }
-
-/* Cancel */
 
 .delete-confirm-actions button:first-child {
-  background: #eeeeee;
-  color: #333;
+  background: #ececec;
+  color: #333333;
 }
-
-/* Permanently Delete */
 
 .delete-confirm-actions button:last-child {
   background: #d93030;
   color: #ffffff;
 }
 
-.delete-confirm-actions button:hover {
-  opacity: 0.85;
-}
-
-/* Disabled state */
-
 .delete-confirm-actions button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
+.settings-footer {
+  margin: 24px 0 0;
+  text-align: center;
+  color: #b7b7b7;
+  font-size: 12px;
+}
 
-/* ==========================================
-   MOBILE
-========================================== */
-
-@media (max-width: 600px) {
-  .delete-confirm-box {
-    padding: 16px;
-    border-radius: 14px;
+@media (min-width: 700px) {
+  .settings-page {
+    padding-bottom: 60px;
   }
 
-  .delete-confirm-box h3 {
-    font-size: 17px;
+  .settings-topbar {
+    min-height: 68px;
   }
+}
 
-  .delete-confirm-box > p {
-    font-size: 12px;
+@media (max-width: 360px) {
+  .password-rules {
+    grid-template-columns: 1fr;
   }
 
   .delete-confirm-actions {
     flex-direction: column;
   }
+}
 
-  .delete-confirm-actions button {
-    width: 100%;
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
   }
 }

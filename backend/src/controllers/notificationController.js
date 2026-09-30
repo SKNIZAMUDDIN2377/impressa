@@ -1,4 +1,5 @@
 const Notification = require("../models/Notification");
+const { getBlockedUserIds } = require("../utils/blockUtils");
 
 // ==========================================
 // GET MY NOTIFICATIONS
@@ -6,8 +7,13 @@ const Notification = require("../models/Notification");
 
 const getNotifications = async (req, res) => {
   try {
+    // Users blocked in either direction (filtered, not deleted,
+    // so unblocking restores the old notifications)
+    const hidden = await getBlockedUserIds(req.user.userId);
+
     const notifications = await Notification.find({
       recipient: req.user.userId,
+      sender: { $nin: hidden },
     })
       .populate(
         "sender",
@@ -23,6 +29,7 @@ const getNotifications = async (req, res) => {
     const unreadCount = await Notification.countDocuments({
       recipient: req.user.userId,
       read: false,
+      sender: { $nin: hidden },
     });
 
     res.status(200).json({
@@ -49,9 +56,12 @@ const getNotifications = async (req, res) => {
 
 const getUnreadCount = async (req, res) => {
   try {
+    const hidden = await getBlockedUserIds(req.user.userId);
+
     const unreadCount = await Notification.countDocuments({
       recipient: req.user.userId,
       read: false,
+      sender: { $nin: hidden },
     });
 
     res.status(200).json({

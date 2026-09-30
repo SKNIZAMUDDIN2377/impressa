@@ -1,8 +1,16 @@
+const mongoose = require("mongoose");
 const streamifier = require("streamifier");
 
 const cloudinary = require("../config/cloudinary");
 const Post = require("../models/Post");
 const User = require("../models/User");
+const Comment = require("../models/Comment");
+const Impression = require("../models/Impression");
+const Notification = require("../models/Notification");
+const {
+  getBlockedUserIds,
+  isBlockedBetween,
+} = require("../utils/blockUtils");
 
 // ==========================================
 // UPLOAD FILE TO CLOUDINARY
@@ -34,6 +42,26 @@ const uploadToCloudinary = (file) => {
       .createReadStream(file.buffer)
       .pipe(uploadStream);
   });
+};
+
+// ==========================================
+// CLOUDINARY PUBLIC ID FROM URL
+// ==========================================
+
+const getCloudinaryPublicId = (url) => {
+  try {
+    if (!url || !String(url).includes("res.cloudinary.com")) {
+      return null;
+    }
+
+    const match = String(url).match(
+      /\/upload\/(?:v\d+\/)?(.+)\.[a-zA-Z0-9]+(?:\?.*)?$/
+    );
+
+    return match ? match[1] : null;
+  } catch (error) {
+    return null;
+  }
 };
 
 // ==========================================
@@ -181,7 +209,10 @@ const createPost = async (req, res) => {
 
 const getPosts = async (req, res) => {
   try {
-    const posts = await Post.find()
+    // Hide posts from users blocked in either direction
+    const hidden = await getBlockedUserIds(req.user.userId);
+
+    const posts = await Post.find({ author: { $nin: hidden } })
       .populate(
         "author",
         "name username profilePicture badge isOfficial"
@@ -211,12 +242,26 @@ const getPostById = async (req, res) => {
   try {
     const { postId } = req.params;
 
+    if (!mongoose.Types.ObjectId.isValid(postId)) {
+      return res.status(404).json({
+        success: false,
+        message: "Post not found",
+      });
+    }
+
     const post = await Post.findById(postId).populate(
       "author",
       "name username profilePicture badge isOfficial"
     );
 
     if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: "Post not found",
+      });
+    }
+
+    if (await isBlockedBetween(req.user.userId, post.author?._id)) {
       return res.status(404).json({
         success: false,
         message: "Post not found",
@@ -241,6 +286,75 @@ const getPostById = async (req, res) => {
 };
 
 // ==========================================
+// DELETE POST (owner only)
+// ==========================================
+
+const deletePost = async (req, res) => {
+  try {
+    const { postId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(postId)) {
+      return res.status(404).json({
+        success: false,
+        message: "Post not found",
+      });
+    }
+
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: "Post not found",
+      });
+    }
+
+    if (String(post.author) !== String(req.user.userId)) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only delete your own posts",
+      });
+    }
+
+    // Remove everything attached to the post.
+    // (Reports are kept on purpose: they hold their own snapshot.)
+    await Promise.all([
+      Comment.deleteMany({ post: post._id }),
+      Impression.deleteMany({ post: post._id }),
+      Notification.deleteMany({ post: post._id }),
+    ]);
+
+    await post.deleteOne();
+
+    // Best-effort cleanup of the media stored on Cloudinary.
+    // A failure here never blocks the deletion itself.
+    await Promise.allSettled(
+      (post.media || []).map((item) => {
+        const publicId = getCloudinaryPublicId(item.url);
+
+        if (!publicId) return Promise.resolve();
+
+        return cloudinary.uploader.destroy(publicId, {
+          resource_type: item.type === "video" ? "video" : "image",
+        });
+      })
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Post deleted",
+    });
+  } catch (error) {
+    console.error("Delete post error ❌", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error while deleting post",
+    });
+  }
+};
+
+// ==========================================
 // EXPORT
 // ==========================================
 
@@ -248,4 +362,5 @@ module.exports = {
   createPost,
   getPosts,
   getPostById,
+  deletePost,
 };

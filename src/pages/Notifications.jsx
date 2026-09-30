@@ -1,20 +1,50 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Notifications.css";
 
+const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+const DEFAULT_SETTINGS = {
+  impressions: true,
+  comments: true,
+  followers: true,
+  notes: true,
+  spark: true,
+};
+
+const getFeedCacheKey = () =>
+  `impressa_notifications_feed_${localStorage.getItem("token") || "guest"}`;
+
+const readFeedCache = () => {
+  try {
+    return JSON.parse(localStorage.getItem(getFeedCacheKey()) || "null");
+  } catch (error) {
+    return null;
+  }
+};
+
+const writeFeedCache = (notifications, unreadCount) => {
+  try {
+    localStorage.setItem(
+      getFeedCacheKey(),
+      JSON.stringify({ notifications, unreadCount })
+    );
+  } catch (error) {
+    console.error("Notifications cache write error:", error);
+  }
+};
+
 function Notifications() {
   const navigate = useNavigate();
+
+  const [cachedFeed] = useState(readFeedCache);
 
   // ==========================================
   // NOTIFICATION SETTINGS
   // ==========================================
 
-  const [impressions, setImpressions] = useState(true);
-  const [comments, setComments] = useState(true);
-  const [followers, setFollowers] = useState(true);
-  const [notes, setNotes] = useState(true);
-  const [spark, setSpark] = useState(true);
-
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -22,144 +52,186 @@ function Notifications() {
   // REAL NOTIFICATIONS
   // ==========================================
 
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [notificationsLoading, setNotificationsLoading] =
-    useState(true);
+  const [notifications, setNotifications] = useState(
+    cachedFeed?.notifications || []
+  );
+  const [unreadCount, setUnreadCount] = useState(
+    cachedFeed?.unreadCount || 0
+  );
+  const [notificationsLoading, setNotificationsLoading] = useState(
+    !cachedFeed
+  );
+
+  const pendingReadRef = useRef(new Set());
 
   // ==========================================
-  // API
-  // ==========================================
-
-  const API_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000";
-
-  // ==========================================
-  // LOAD NOTIFICATIONS
+  // LOAD FEED + SETTINGS (in parallel, one auth check)
   // ==========================================
 
   useEffect(() => {
-    const loadNotifications = async () => {
-      try {
-        const token = localStorage.getItem("token");
+    let cancelled = false;
 
-        if (!token) {
-          navigate("/signin");
-          return;
-        }
-
-        const response = await fetch(
-          `${API_URL}/api/notifications`,
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            data.message ||
-              "Unable to load notifications"
-          );
-        }
-
-        setNotifications(
-          data.notifications || []
-        );
-
-        setUnreadCount(
-          data.unreadCount || 0
-        );
-
-      } catch (error) {
-        console.error(
-          "Notifications loading error ❌",
-          error
-        );
-
-        if (
-          error.message.includes("Authentication") ||
-          error.message.includes("expired")
-        ) {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          navigate("/signin");
-        }
-      } finally {
-        setNotificationsLoading(false);
-      }
-    };
-
-    loadNotifications();
-  }, [navigate]);
-
-  // ==========================================
-  // MARK ONE NOTIFICATION AS READ
-  // ==========================================
-
-  const markNotificationRead = async (
-    notificationId
-  ) => {
-    try {
-      const token =
-        localStorage.getItem("token");
+    const load = async () => {
+      const token = localStorage.getItem("token");
 
       if (!token) {
         navigate("/signin");
         return;
       }
 
-      const notification =
-        notifications.find(
-          (item) =>
-            item._id === notificationId
-        );
+      const headers = { Authorization: `Bearer ${token}` };
 
-      if (!notification || notification.read) {
-        return;
-      }
+      const expireSession = () => {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        navigate("/signin");
+      };
 
-      // Update UI immediately
-      setNotifications((previous) =>
-        previous.map((item) =>
-          item._id === notificationId
-            ? { ...item, read: true }
-            : item
-        )
-      );
+      const loadFeed = async () => {
+        try {
+          const response = await fetch(`${API_URL}/api/notifications`, {
+            method: "GET",
+            headers,
+          });
 
-      setUnreadCount((previous) =>
-        Math.max(0, previous - 1)
-      );
+          const data = await response.json();
 
+          if (cancelled) return;
+
+          if (response.status === 401) {
+            expireSession();
+            return;
+          }
+
+          if (!response.ok) {
+            throw new Error(data.message || "Unable to load notifications");
+          }
+
+          const list = data.notifications || [];
+          const unread = data.unreadCount || 0;
+
+          setNotifications(list);
+          setUnreadCount(unread);
+          writeFeedCache(list, unread);
+        } catch (error) {
+          console.error("Notifications loading error ❌", error);
+        } finally {
+          if (!cancelled) setNotificationsLoading(false);
+        }
+      };
+
+      const loadSettings = async () => {
+        try {
+          const response = await fetch(`${API_URL}/api/auth/settings`, {
+            method: "GET",
+            headers,
+          });
+
+          const data = await response.json();
+
+          if (cancelled) return;
+
+          if (response.status === 401) {
+            expireSession();
+            return;
+          }
+
+          if (!response.ok) {
+            throw new Error(
+              data.message || "Unable to load notification settings"
+            );
+          }
+
+          if (data.user?.notifications) {
+            const saved = data.user.notifications;
+
+            setSettings({
+              impressions: saved.impressions ?? true,
+              comments: saved.comments ?? true,
+              followers: saved.followers ?? true,
+              notes: saved.notes ?? true,
+              spark: saved.spark ?? true,
+            });
+          }
+        } catch (error) {
+          console.error("Notification settings loading error ❌", error);
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      };
+
+      await Promise.all([loadFeed(), loadSettings()]);
+    };
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
+
+  // ==========================================
+  // MARK ONE NOTIFICATION AS READ
+  // ==========================================
+
+  const markNotificationRead = async (notificationId) => {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      navigate("/signin");
+      return;
+    }
+
+    const notification = notifications.find(
+      (item) => item._id === notificationId
+    );
+
+    if (
+      !notification ||
+      notification.read ||
+      pendingReadRef.current.has(notificationId)
+    ) {
+      return;
+    }
+
+    pendingReadRef.current.add(notificationId);
+
+    const previousNotifications = notifications;
+    const previousUnread = unreadCount;
+
+    const updated = notifications.map((item) =>
+      item._id === notificationId ? { ...item, read: true } : item
+    );
+    const updatedUnread = Math.max(0, unreadCount - 1);
+
+    setNotifications(updated);
+    setUnreadCount(updatedUnread);
+    writeFeedCache(updated, updatedUnread);
+
+    try {
       const response = await fetch(
         `${API_URL}/api/notifications/${notificationId}/read`,
         {
           method: "PUT",
           headers: {
-            Authorization:
-              `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
           },
         }
       );
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Unable to mark notification as read"
-        );
+        throw new Error("Unable to mark notification as read");
       }
+
+      window.dispatchEvent(new Event("impressa-notifications-refresh"));
     } catch (error) {
-      console.error(
-        "Mark notification read error ❌",
-        error
-      );
+      console.error("Mark notification read error ❌", error);
+
+      setNotifications(previousNotifications);
+      setUnreadCount(previousUnread);
+      writeFeedCache(previousNotifications, previousUnread);
+    } finally {
+      pendingReadRef.current.delete(notificationId);
     }
   };
 
@@ -168,53 +240,46 @@ function Notifications() {
   // ==========================================
 
   const markAllNotificationsRead = async () => {
-    if (unreadCount === 0) {
+    if (unreadCount === 0) return;
+
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      navigate("/signin");
       return;
     }
 
+    const previousNotifications = notifications;
+    const previousUnread = unreadCount;
+
+    const updated = notifications.map((item) => ({
+      ...item,
+      read: true,
+    }));
+
+    setNotifications(updated);
+    setUnreadCount(0);
+    writeFeedCache(updated, 0);
+
     try {
-      const token =
-        localStorage.getItem("token");
-
-      if (!token) {
-        navigate("/signin");
-        return;
-      }
-
-      // Update UI immediately
-      setNotifications((previous) =>
-        previous.map((item) => ({
-          ...item,
-          read: true,
-        }))
-      );
-
-      setUnreadCount(0);
-
-      const response = await fetch(
-        `${API_URL}/api/notifications/read-all`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization:
-              `Bearer ${token}`,
-          },
-        }
-      );
-
-      const data = await response.json();
+      const response = await fetch(`${API_URL}/api/notifications/read-all`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Unable to mark notifications as read"
-        );
+        throw new Error("Unable to mark notifications as read");
       }
+
+      window.dispatchEvent(new Event("impressa-notifications-refresh"));
     } catch (error) {
-      console.error(
-        "Mark all notifications error ❌",
-        error
-      );
+      console.error("Mark all notifications error ❌", error);
+
+      setNotifications(previousNotifications);
+      setUnreadCount(previousUnread);
+      writeFeedCache(previousNotifications, previousUnread);
     }
   };
 
@@ -226,22 +291,16 @@ function Notifications() {
     switch (type) {
       case "impression":
         return "✨";
-
       case "comment":
         return "💬";
-
       case "follow":
         return "👤";
-
       case "follow_accepted":
         return "🤝";
-
       case "pulse":
         return "⚡";
-
       case "system":
         return "🔔";
-
       default:
         return "🔔";
     }
@@ -252,50 +311,26 @@ function Notifications() {
   // ==========================================
 
   const getNotificationTime = (createdAt) => {
-    if (!createdAt) {
-      return "";
-    }
+    if (!createdAt) return "";
 
-    const created =
-      new Date(createdAt);
-
+    const created = new Date(createdAt);
     const now = new Date();
 
-    const difference =
-      Math.floor(
-        (now - created) / 1000
-      );
+    const difference = Math.floor((now - created) / 1000);
 
-    if (difference < 60) {
-      return "Just now";
-    }
+    if (difference < 60) return "Just now";
 
-    const minutes =
-      Math.floor(
-        difference / 60
-      );
+    const minutes = Math.floor(difference / 60);
 
-    if (minutes < 60) {
-      return `${minutes}m ago`;
-    }
+    if (minutes < 60) return `${minutes}m ago`;
 
-    const hours =
-      Math.floor(
-        minutes / 60
-      );
+    const hours = Math.floor(minutes / 60);
 
-    if (hours < 24) {
-      return `${hours}h ago`;
-    }
+    if (hours < 24) return `${hours}h ago`;
 
-    const days =
-      Math.floor(
-        hours / 24
-      );
+    const days = Math.floor(hours / 24);
 
-    if (days < 7) {
-      return `${days}d ago`;
-    }
+    if (days < 7) return `${days}d ago`;
 
     return created.toLocaleDateString();
   };
@@ -304,307 +339,114 @@ function Notifications() {
   // OPEN NOTIFICATION
   // ==========================================
 
-  const openNotification = async (
-    notification
-  ) => {
-    await markNotificationRead(
-      notification._id
-    );
+  const openNotification = (notification) => {
+    // Fire and forget — navigation should not wait on the network.
+    markNotificationRead(notification._id);
 
-    // Follow notification → sender profile
     if (
       notification.type === "follow" ||
-      notification.type ===
-        "follow_accepted"
+      notification.type === "follow_accepted"
     ) {
-      if (
-        notification.sender?.username
-      ) {
+      if (notification.sender?.username) {
         navigate(
-          `/profile/${encodeURIComponent(
-            notification.sender.username
-          )}`
+          `/profile/${encodeURIComponent(notification.sender.username)}`
         );
       }
 
       return;
     }
 
-    // Post-related notification → post/profile
-    if (
-      notification.post &&
-      notification.sender?.username
-    ) {
+    // Post notifications (impressions / comments) are about MY post,
+    // so open that post on my own profile.
+    const postId =
+      typeof notification.post === "object"
+        ? notification.post?._id
+        : notification.post;
+
+    if (postId) {
+      let myUsername = "";
+
+      try {
+        myUsername =
+          JSON.parse(localStorage.getItem("user") || "null")?.username || "";
+      } catch (error) {
+        myUsername = "";
+      }
+
+      if (myUsername) {
+        navigate(
+          `/profile/${encodeURIComponent(myUsername)}/posts?post=${postId}`
+        );
+        return;
+      }
+    }
+
+    if (notification.sender?.username) {
       navigate(
-        `/profile/${encodeURIComponent(
-          notification.sender.username
-        )}`
+        `/profile/${encodeURIComponent(notification.sender.username)}`
       );
     }
   };
 
   // ==========================================
-  // LOAD SAVED SETTINGS
+  // SAVE SETTINGS (single toggle, rollback on failure)
   // ==========================================
 
-  useEffect(() => {
-    const loadNotificationSettings =
-      async () => {
-        try {
-          const token =
-            localStorage.getItem("token");
+  const toggleSetting = async (key) => {
+    if (saving || loading) return;
 
-          if (!token) {
-            navigate("/signin");
-            return;
-          }
+    const token = localStorage.getItem("token");
 
-          const response =
-            await fetch(
-              `${API_URL}/api/auth/settings`,
-              {
-                method: "GET",
-                headers: {
-                  Authorization:
-                    `Bearer ${token}`,
-                },
-              }
-            );
+    if (!token) {
+      navigate("/signin");
+      return;
+    }
 
-          const data =
-            await response.json();
+    const previous = settings;
+    const updated = { ...settings, [key]: !settings[key] };
 
-          if (!response.ok) {
-            throw new Error(
-              data.message ||
-                "Unable to load notification settings"
-            );
-          }
+    setSettings(updated);
+    setSaving(true);
 
-          if (
-            data.user?.notifications
-          ) {
-            setImpressions(
-              data.user.notifications
-                .impressions ?? true
-            );
-
-            setComments(
-              data.user.notifications
-                .comments ?? true
-            );
-
-            setFollowers(
-              data.user.notifications
-                .followers ?? true
-            );
-
-            setNotes(
-              data.user.notifications
-                .notes ?? true
-            );
-
-            setSpark(
-              data.user.notifications
-                .spark ?? true
-            );
-          }
-        } catch (error) {
-          console.error(
-            "Notification settings loading error ❌",
-            error
-          );
-
-          if (
-            error.message.includes(
-              "Authentication"
-            ) ||
-            error.message.includes(
-              "expired"
-            )
-          ) {
-            localStorage.removeItem(
-              "token"
-            );
-
-            localStorage.removeItem(
-              "user"
-            );
-
-            navigate("/signin");
-          }
-        } finally {
-          setLoading(false);
-        }
-      };
-
-    loadNotificationSettings();
-  }, [navigate]);
-
-  // ==========================================
-  // SAVE SETTINGS
-  // ==========================================
-
-  const saveNotificationSettings = async (
-    updatedSettings
-  ) => {
     try {
-      setSaving(true);
+      const response = await fetch(`${API_URL}/api/auth/settings`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          notifications: updated,
+        }),
+      });
 
-      const token =
-        localStorage.getItem("token");
-
-      if (!token) {
-        navigate("/signin");
-        return;
-      }
-
-      const response =
-        await fetch(
-          `${API_URL}/api/auth/settings`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type":
-                "application/json",
-              Authorization:
-                `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              notifications:
-                updatedSettings,
-            }),
-          }
-        );
-
-      const data =
-        await response.json();
+      const data = await response.json();
 
       if (!response.ok) {
         throw new Error(
-          data.message ||
-            "Unable to save notification settings"
+          data.message || "Unable to save notification settings"
         );
       }
 
       if (data.notifications) {
-        setImpressions(
-          data.notifications
-            .impressions ?? true
-        );
-
-        setComments(
-          data.notifications
-            .comments ?? true
-        );
-
-        setFollowers(
-          data.notifications
-            .followers ?? true
-        );
-
-        setNotes(
-          data.notifications
-            .notes ?? true
-        );
-
-        setSpark(
-          data.notifications
-            .spark ?? true
-        );
+        setSettings((current) => ({
+          ...current,
+          impressions: data.notifications.impressions ?? current.impressions,
+          comments: data.notifications.comments ?? current.comments,
+          followers: data.notifications.followers ?? current.followers,
+          notes: data.notifications.notes ?? current.notes,
+          spark: data.notifications.spark ?? current.spark,
+        }));
       }
     } catch (error) {
-      console.error(
-        "Notification settings save error ❌",
-        error
-      );
+      console.error("Notification settings save error ❌", error);
 
-      alert(
-        error.message ||
-          "Unable to save notification settings."
-      );
+      setSettings(previous);
+
+      alert(error.message || "Unable to save notification settings.");
     } finally {
       setSaving(false);
     }
-  };
-
-  // ==========================================
-  // TOGGLE HANDLERS
-  // ==========================================
-
-  const handleImpressionsChange = () => {
-    const newValue =
-      !impressions;
-
-    setImpressions(newValue);
-
-    saveNotificationSettings({
-      impressions: newValue,
-      comments,
-      followers,
-      notes,
-      spark,
-    });
-  };
-
-  const handleCommentsChange = () => {
-    const newValue =
-      !comments;
-
-    setComments(newValue);
-
-    saveNotificationSettings({
-      impressions,
-      comments: newValue,
-      followers,
-      notes,
-      spark,
-    });
-  };
-
-  const handleFollowersChange = () => {
-    const newValue =
-      !followers;
-
-    setFollowers(newValue);
-
-    saveNotificationSettings({
-      impressions,
-      comments,
-      followers: newValue,
-      notes,
-      spark,
-    });
-  };
-
-  const handleNotesChange = () => {
-    const newValue =
-      !notes;
-
-    setNotes(newValue);
-
-    saveNotificationSettings({
-      impressions,
-      comments,
-      followers,
-      notes: newValue,
-      spark,
-    });
-  };
-
-  const handleSparkChange = () => {
-    const newValue =
-      !spark;
-
-    setSpark(newValue);
-
-    saveNotificationSettings({
-      impressions,
-      comments,
-      followers,
-      notes,
-      spark: newValue,
-    });
   };
 
   // ==========================================
@@ -613,15 +455,8 @@ function Notifications() {
 
   return (
     <main className="notifications-page">
-
       <div className="notifications-container">
-
-        {/* =====================================
-            HEADER
-        ===================================== */}
-
         <header className="notifications-header">
-
           <button
             className="notifications-back"
             onClick={() => navigate(-1)}
@@ -630,71 +465,39 @@ function Notifications() {
           </button>
 
           <div className="notifications-heading">
-
-            <span>
-              IMPRESSA
-            </span>
-
-            <h1>
-              Notifications
-            </h1>
-
+            <span>IMPRESSA</span>
+            <h1>Notifications</h1>
           </div>
 
           <div />
-
         </header>
 
-
-        {/* =====================================
-            NOTIFICATION FEED
-        ===================================== */}
-
         <section className="notifications-card">
-
           <div className="notifications-card-header">
-
-            <div className="notifications-card-icon">
-              🔔
-            </div>
+            <div className="notifications-card-icon">🔔</div>
 
             <div>
-              <h2>
-                Activity
-              </h2>
+              <h2>Activity</h2>
 
-              <p>
-                See what's happening around
-                your Impressa account.
-              </p>
+              <p>See what's happening around your Impressa account.</p>
             </div>
-
           </div>
-
-
-          {/* UNREAD COUNT + MARK ALL */}
 
           {unreadCount > 0 && (
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
-                justifyContent:
-                  "space-between",
+                justifyContent: "space-between",
                 gap: "12px",
-                padding:
-                  "10px 0 14px",
+                padding: "10px 0 14px",
               }}
             >
-              <strong>
-                {unreadCount} unread
-              </strong>
+              <strong>{unreadCount} unread</strong>
 
               <button
                 type="button"
-                onClick={
-                  markAllNotificationsRead
-                }
+                onClick={markAllNotificationsRead}
                 style={{
                   border: "none",
                   background: "none",
@@ -709,9 +512,6 @@ function Notifications() {
             </div>
           )}
 
-
-          {/* LOADING */}
-
           {notificationsLoading && (
             <div
               style={{
@@ -723,393 +523,233 @@ function Notifications() {
             </div>
           )}
 
-
-          {/* EMPTY */}
-
-          {!notificationsLoading &&
-            notifications.length === 0 && (
+          {!notificationsLoading && notifications.length === 0 && (
+            <div
+              style={{
+                padding: "30px 10px",
+                textAlign: "center",
+              }}
+            >
               <div
                 style={{
-                  padding:
-                    "30px 10px",
-                  textAlign: "center",
+                  fontSize: "34px",
+                  marginBottom: "10px",
                 }}
               >
-                <div
+                🔔
+              </div>
+
+              <strong>No notifications yet</strong>
+
+              <p>
+                When people interact with your Impressa account, you'll see it
+                here.
+              </p>
+            </div>
+          )}
+
+          {notifications.length > 0 && (
+            <div>
+              {notifications.map((notification) => (
+                <button
+                  type="button"
+                  key={notification._id}
+                  onClick={() => openNotification(notification)}
                   style={{
-                    fontSize: "34px",
-                    marginBottom: "10px",
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    textAlign: "left",
+                    border: "none",
+                    borderTop: "1px solid rgba(0,0,0,0.08)",
+                    background: notification.read
+                      ? "transparent"
+                      : "rgba(255,106,0,0.07)",
+                    padding: "14px 4px",
+                    cursor: "pointer",
                   }}
                 >
-                  🔔
-                </div>
+                  <div
+                    style={{
+                      width: "42px",
+                      height: "42px",
+                      minWidth: "42px",
+                      borderRadius: "50%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "rgba(255,106,0,0.10)",
+                      fontSize: "20px",
+                    }}
+                  >
+                    {getNotificationIcon(notification.type)}
+                  </div>
 
-                <strong>
-                  No notifications yet
-                </strong>
-
-                <p>
-                  When people interact with
-                  your Impressa account,
-                  you'll see it here.
-                </p>
-              </div>
-            )}
-
-
-          {/* NOTIFICATION LIST */}
-
-          {!notificationsLoading &&
-            notifications.length > 0 && (
-              <div>
-                {notifications.map(
-                  (notification) => (
-                    <button
-                      type="button"
-                      key={notification._id}
-                      onClick={() =>
-                        openNotification(
-                          notification
-                        )
-                      }
+                  <div
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                    }}
+                  >
+                    <div
                       style={{
-                        width: "100%",
                         display: "flex",
-                        alignItems:
-                          "center",
-                        gap: "12px",
-                        textAlign: "left",
-                        border: "none",
-                        borderTop:
-                          "1px solid rgba(0,0,0,0.08)",
-                        background:
-                          notification.read
-                            ? "transparent"
-                            : "rgba(255,106,0,0.07)",
-                        padding:
-                          "14px 4px",
-                        cursor: "pointer",
+                        alignItems: "center",
+                        gap: "6px",
+                        flexWrap: "wrap",
                       }}
                     >
+                      <strong>
+                        {notification.sender?.name ||
+                          notification.sender?.username ||
+                          "Someone"}
+                      </strong>
 
-                      {/* ICON */}
-
-                      <div
-                        style={{
-                          width: "42px",
-                          height: "42px",
-                          minWidth: "42px",
-                          borderRadius:
-                            "50%",
-                          display: "flex",
-                          alignItems:
-                            "center",
-                          justifyContent:
-                            "center",
-                          background:
-                            "rgba(255,106,0,0.10)",
-                          fontSize: "20px",
-                        }}
-                      >
-                        {getNotificationIcon(
-                          notification.type
-                        )}
-                      </div>
-
-
-                      {/* SENDER */}
-
-                      <div
-                        style={{
-                          flex: 1,
-                          minWidth: 0,
-                        }}
-                      >
-
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems:
-                              "center",
-                            gap: "6px",
-                            flexWrap:
-                              "wrap",
-                          }}
-                        >
-
-                          <strong>
-                            {notification
-                              .sender?.name ||
-                              notification
-                                .sender
-                                ?.username ||
-                              "Someone"}
-                          </strong>
-
-                          {notification
-                            .sender
-                            ?.isOfficial ===
-                            true && (
-                            <span
-                              style={{
-                                width: "8px",
-                                height: "8px",
-                                borderRadius:
-                                  "50%",
-                                background:
-                                  "#ff6a00",
-                                display:
-                                  "inline-block",
-                              }}
-                            />
-                          )}
-
-                        </div>
-
-
-                        <div
-                          style={{
-                            fontSize:
-                              "14px",
-                            marginTop:
-                              "3px",
-                          }}
-                        >
-                          {notification.message}
-                        </div>
-
-
-                        <span
-                          style={{
-                            display:
-                              "block",
-                            fontSize:
-                              "12px",
-                            marginTop:
-                              "5px",
-                            opacity:
-                              0.55,
-                          }}
-                        >
-                          {getNotificationTime(
-                            notification.createdAt
-                          )}
-                        </span>
-
-                      </div>
-
-
-                      {/* UNREAD DOT */}
-
-                      {!notification.read && (
+                      {notification.sender?.isOfficial === true && (
                         <span
                           style={{
                             width: "8px",
                             height: "8px",
-                            minWidth: "8px",
-                            borderRadius:
-                              "50%",
-                            background:
-                              "#ff6a00",
+                            borderRadius: "50%",
+                            background: "#ff6a00",
+                            display: "inline-block",
                           }}
                         />
                       )}
+                    </div>
 
-                    </button>
-                  )
-                )}
-              </div>
-            )}
+                    <div
+                      style={{
+                        fontSize: "14px",
+                        marginTop: "3px",
+                      }}
+                    >
+                      {notification.message}
+                    </div>
 
+                    <span
+                      style={{
+                        display: "block",
+                        fontSize: "12px",
+                        marginTop: "5px",
+                        opacity: 0.55,
+                      }}
+                    >
+                      {getNotificationTime(notification.createdAt)}
+                    </span>
+                  </div>
+
+                  {!notification.read && (
+                    <span
+                      style={{
+                        width: "8px",
+                        height: "8px",
+                        minWidth: "8px",
+                        borderRadius: "50%",
+                        background: "#ff6a00",
+                      }}
+                    />
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
         </section>
-
-
-        {/* =====================================
-            HERO
-        ===================================== */}
 
         <section className="notifications-hero">
-
-          <div className="notifications-hero-icon">
-            🔔
-          </div>
+          <div className="notifications-hero-icon">🔔</div>
 
           <div>
+            <h2>Stay in the moment.</h2>
 
-            <h2>
-              Stay in the moment.
-            </h2>
-
-            <p>
-              Choose what Impressa should
-              notify you about.
-            </p>
-
+            <p>Choose what Impressa should notify you about.</p>
           </div>
-
         </section>
 
-
-        {/* =====================================
-            SOCIAL ACTIVITY
-        ===================================== */}
-
         <section className="notifications-card">
-
           <div className="notifications-card-header">
-
-            <div className="notifications-card-icon">
-              ✨
-            </div>
+            <div className="notifications-card-icon">✨</div>
 
             <div>
+              <h2>Social activity</h2>
 
-              <h2>
-                Social activity
-              </h2>
-
-              <p>
-                Know when people interact
-                with your content.
-              </p>
-
+              <p>Know when people interact with your content.</p>
             </div>
-
           </div>
-
 
           <NotificationRow
             title="Impressions"
             description="When someone gives your post an impression."
-            enabled={impressions}
-            setEnabled={
-              handleImpressionsChange
-            }
-            disabled={
-              loading || saving
-            }
+            enabled={settings.impressions}
+            setEnabled={() => toggleSetting("impressions")}
+            disabled={loading || saving}
           />
-
 
           <NotificationRow
             title="Comments"
             description="When someone comments on your post."
-            enabled={comments}
-            setEnabled={
-              handleCommentsChange
-            }
-            disabled={
-              loading || saving
-            }
+            enabled={settings.comments}
+            setEnabled={() => toggleSetting("comments")}
+            disabled={loading || saving}
           />
-
 
           <NotificationRow
             title="New followers"
             description="When someone follows your account."
-            enabled={followers}
-            setEnabled={
-              handleFollowersChange
-            }
-            disabled={
-              loading || saving
-            }
+            enabled={settings.followers}
+            setEnabled={() => toggleSetting("followers")}
+            disabled={loading || saving}
           />
-
         </section>
 
-
-        {/* =====================================
-            IMPRESSA
-        ===================================== */}
-
         <section className="notifications-card">
-
           <div className="notifications-card-header">
-
-            <div className="notifications-card-icon">
-              ⚡
-            </div>
+            <div className="notifications-card-icon">⚡</div>
 
             <div>
+              <h2>Impressa</h2>
 
-              <h2>
-                Impressa
-              </h2>
-
-              <p>
-                Important updates from Impressa.
-              </p>
-
+              <p>Important updates from Impressa.</p>
             </div>
-
           </div>
-
 
           <NotificationRow
             title="i-Notes"
             description="Updates related to your public i-Notes."
-            enabled={notes}
-            setEnabled={
-              handleNotesChange
-            }
-            disabled={
-              loading || saving
-            }
+            enabled={settings.notes}
+            setEnabled={() => toggleSetting("notes")}
+            disabled={loading || saving}
           />
-
 
           <NotificationRow
             title="Spark challenges"
             description="Daily challenge and Spark updates."
-            enabled={spark}
-            setEnabled={
-              handleSparkChange
-            }
-            disabled={
-              loading || saving
-            }
+            enabled={settings.spark}
+            setEnabled={() => toggleSetting("spark")}
+            disabled={loading || saving}
           />
-
         </section>
-
-
-        {/* =====================================
-            BACKEND INFORMATION
-        ===================================== */}
 
         <section className="notifications-info">
-
-          <div className="notifications-info-icon">
-            🔔
-          </div>
+          <div className="notifications-info-icon">🔔</div>
 
           <div>
-
-            <strong>
-              Notification preferences
-            </strong>
+            <strong>Notification preferences</strong>
 
             <p>
-              Your notification choices are
-              saved to your Impressa account.
+              Your notification choices are saved to your Impressa account.
             </p>
-
           </div>
-
         </section>
-
 
         <p className="notifications-footer">
           Impressa · Rise through impressions
         </p>
-
       </div>
-
     </main>
   );
 }
-
 
 // =====================================================
 // NOTIFICATION ROW
@@ -1124,37 +764,23 @@ function NotificationRow({
 }) {
   return (
     <div className="notification-row">
-
       <div className="notification-row-content">
+        <strong>{title}</strong>
 
-        <strong>
-          {title}
-        </strong>
-
-        <span>
-          {description}
-        </span>
-
+        <span>{description}</span>
       </div>
-
 
       <button
         type="button"
-        className={`notification-switch ${
-          enabled ? "is-on" : ""
-        }`}
+        className={`notification-switch ${enabled ? "is-on" : ""}`}
         onClick={setEnabled}
         disabled={disabled}
         aria-label={`Toggle ${title} notifications`}
       >
-
         <span />
-
       </button>
-
     </div>
   );
 }
-
 
 export default Notifications;

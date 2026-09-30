@@ -12,6 +12,7 @@ const {
 
 const authMiddleware = require("../middleware/authMiddleware");
 
+
 const router = express.Router();
 
 // ==========================================
@@ -83,5 +84,11 @@ router.get(
 // ==========================================
 // EXPORT
 // ==========================================
+router.get("/:username/followers", authMiddleware, getUserFollowers);
 
+router.get("/:username/following", authMiddleware, getUserFollowing);
+
+router.get("/:username/posts", authMiddleware, getUserPosts);
+
+router.get("/:username", authMiddleware, getUserProfile);
 module.exports = router;

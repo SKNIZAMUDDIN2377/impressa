@@ -1,0 +1,454 @@
+:root {
+  --safety-bg: #ffffff;
+  --safety-surface: #ffffff;
+  --safety-text: #1f1f1f;
+  --safety-muted: #777777;
+  --safety-border: #eee4dc;
+  --safety-brand: #ff6a00;
+}
+
+html[data-theme="dark"] {
+  --safety-bg: #121212;
+  --safety-surface: #1e1e20;
+  --safety-text: #f2f2f2;
+  --safety-muted: #a9a9ae;
+  --safety-border: #333336;
+}
+
+/* ---------- Pages ---------- */
+
+.safety-page {
+  min-height: 100%;
+  padding: 16px 16px 90px;
+  background: var(--safety-bg);
+  color: var(--safety-text);
+  box-sizing: border-box;
+}
+
+.safety-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.safety-header h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--safety-text);
+}
+
+.safety-back {
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--safety-border);
+  border-radius: 50%;
+  background: var(--safety-surface);
+  color: var(--safety-text);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.safety-search {
+  width: 100%;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  border: 1px solid var(--safety-border);
+  border-radius: 14px;
+  background: var(--safety-surface);
+  color: var(--safety-text);
+  font-size: 15px;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.safety-search:focus {
+  border-color: var(--safety-brand);
+}
+
+.safety-state {
+  padding: 40px 16px;
+  text-align: center;
+  color: var(--safety-muted);
+}
+
+.safety-state h3 {
+  margin: 0 0 6px;
+  color: var(--safety-text);
+}
+
+.safety-state p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.safety-error-text {
+  color: #e5484d;
+  font-size: 13px;
+  margin: 6px 0;
+}
+
+/* ---------- Blocked list ---------- */
+
+.safety-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--safety-border);
+}
+
+.safety-user img {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.safety-user-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.safety-user-info strong {
+  color: var(--safety-text);
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.safety-user-info span {
+  color: var(--safety-muted);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.safety-unblock {
+  padding: 8px 16px;
+  border: 1.5px solid var(--safety-brand);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--safety-brand);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ---------- Guidelines ---------- */
+
+.safety-intro {
+  margin: 0 0 16px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--safety-muted);
+}
+
+.safety-rule {
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  border: 1px solid var(--safety-border);
+  border-radius: 16px;
+  background: var(--safety-surface);
+}
+
+.safety-rule h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  color: var(--safety-text);
+}
+
+.safety-rule p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--safety-muted);
+}
+
+/* ---------- Dialogs ---------- */
+
+.safety-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.safety-dialog {
+  width: 100%;
+  max-width: 360px;
+  padding: 22px 20px 18px;
+  border-radius: 20px;
+  background: var(--safety-surface);
+  color: var(--safety-text);
+  box-sizing: border-box;
+}
+
+.safety-dialog h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.safety-dialog p {
+  margin: 0 0 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--safety-muted);
+}
+
+.safety-dialog-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.safety-btn-cancel,
+.safety-btn-confirm {
+  flex: 1;
+  padding: 12px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.safety-btn-cancel {
+  border: 1px solid var(--safety-border);
+  background: transparent;
+  color: var(--safety-text);
+}
+
+.safety-btn-confirm {
+  border: none;
+  background: var(--safety-brand);
+  color: #ffffff;
+}
+
+.safety-btn-cancel:disabled,
+.safety-btn-confirm:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* ---------- Report ---------- */
+
+.safety-report {
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+.safety-reasons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.safety-reason {
+  padding: 11px 14px;
+  border: 1px solid var(--safety-border);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--safety-text);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.safety-reason.selected {
+  border-color: var(--safety-brand);
+  color: var(--safety-brand);
+  font-weight: 700;
+}
+
+.safety-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--safety-border);
+  border-radius: 12px;
+  background: var(--safety-surface);
+  color: var(--safety-text);
+  font-size: 14px;
+  font-family: inherit;
+  resize: none;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.safety-textarea:focus {
+  border-color: var(--safety-brand);
+}
+
+/* ---------- Profile three-bars menu additions ---------- */
+
+.profile-menu {
+  max-height: 75vh;
+  overflow-y: auto;
+}
+
+.profile-menu-label {
+  padding: 10px 14px 4px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-align: left;
+  color: var(--safety-muted);
+}
+
+.profile-menu-switch {
+  display: inline-block;
+  position: relative;
+  width: 34px;
+  height: 20px;
+  margin-left: 10px;
+  border-radius: 999px;
+  background: #cfcfcf;
+  vertical-align: middle;
+}
+
+.profile-menu-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+}
+
+.profile-menu-switch.on {
+  background: #ff6a00;
+}
+
+.profile-menu-switch.on::after {
+  left: 16px;
+}
+
+html[data-theme="dark"] .profile-menu {
+  background: #1e1e20;
+  border-color: #333336;
+}
+
+html[data-theme="dark"] .profile-menu button:not(.logout-btn) {
+  background: transparent;
+  color: #f2f2f2;
+}
+
+/* ---------- Post ⋮ menu ---------- */
+
+.post-header {
+  position: relative;
+}
+
+.post-menu-wrap {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  z-index: 30;
+}
+
+.post-menu-button {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.post-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  min-width: 180px;
+  padding: 6px;
+  box-sizing: border-box;
+  background: #ffffff;
+  border: 1px solid #efe6de;
+  border-radius: 14px;
+  box-shadow: 0 14px 40px rgba(30, 15, 0, 0.18);
+}
+
+.post-menu button {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: #222222;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.post-menu button:active {
+  background: #fff3eb;
+}
+
+html[data-theme="dark"] .post-menu {
+  background: #1e1e20;
+  border-color: #333336;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6);
+}
+
+html[data-theme="dark"] .post-menu button {
+  color: #f2f2f2;
+}
+
+html[data-theme="dark"] .post-menu button:active {
+  background: #2c2c2f;
+}
+
+/* ---------- Policy pages ---------- */
+
+.safety-page {
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.safety-updated {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--safety-muted);
+}
+
+.safety-rule ul,
+.safety-rule ol {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
+.safety-rule li {
+  margin-bottom: 6px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--safety-muted);
+}
+
+.safety-rule a,
+.safety-intro a {
+  color: var(--safety-brand);
+  font-weight: 700;
+  text-decoration: none;
+}

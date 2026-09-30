@@ -1,4 +1,5 @@
 const Note = require("../models/Note");
+const { isBlockedBetween } = require("../utils/blockUtils");
 
 // ==========================================
 // CREATE NOTE
@@ -89,7 +90,12 @@ const getUserNotes = async (req, res) => {
         message: "User not found",
       });
     }
-
+         if (await isBlockedBetween(req.user.userId, user._id)) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
     const notes = await Note.find({
       user: user._id,
     })

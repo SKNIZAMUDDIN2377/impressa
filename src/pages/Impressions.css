@@ -1,20 +1,20 @@
 /* =========================================================
    IMPRESSA — IMPRESSIONS
-   CLEAR / PREMIUM / MOBILE FIRST
+   CLEAN / OFFICIAL / MOBILE FIRST
    ========================================================= */
 
 .impression-page {
   min-height: 100vh;
   width: 100%;
-  max-width: 900px;
+  max-width: 640px;
   margin: 0 auto;
-  padding: 34px 28px 140px;
+  padding: 22px 18px 140px;
   box-sizing: border-box;
 
   background: #ffffff;
-  color: #222222;
+  color: #171717;
 
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 
@@ -23,96 +23,54 @@
    ========================================================= */
 
 .impression-header {
-  padding: 4px 2px 30px;
-}
-
-.impression-brand-line {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 34px;
-
-  color: #ff6a00;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 2.4px;
-}
-
-.impression-mark,
-.empty-mark {
-  width: 30px;
-  height: 30px;
-
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  border: 2px solid #ff6a00;
-  border-radius: 50%;
-
-  color: #ff6a00;
-
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 18px;
-  font-weight: 700;
-
-  background: #fff8f2;
+  padding: 4px 0 22px;
 }
 
 .impression-title-row {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: 14px;
 }
 
 .impression-small-title,
 .section-kicker {
   display: block;
+  margin-bottom: 4px;
 
   color: #ff6a00;
 
   font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 2px;
+  font-weight: 900;
+  letter-spacing: 2.4px;
 }
 
 .impression-header h1 {
-  margin: 7px 0 0;
+  margin: 0;
 
-  color: #1f1f1f;
+  color: #171717;
 
-  font-size: 42px;
+  font-size: 30px;
   line-height: 1;
-  font-weight: 750;
+  font-weight: 850;
 
-  letter-spacing: -1.8px;
-}
-
-.impression-header p {
-  max-width: 570px;
-  margin: 13px 0 0;
-
-  color: #858585;
-
-  font-size: 14px;
-  line-height: 1.55;
+  letter-spacing: -1.1px;
 }
 
 .read-all-button {
   flex: 0 0 auto;
 
-  border: 0;
-  border-bottom: 1.5px solid #ff6a00;
+  border: none;
+  border-radius: 20px;
 
-  padding: 5px 1px;
+  padding: 8px 14px;
 
-  background: transparent;
+  background: #fff2e8;
 
   color: #ff6a00;
 
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 800;
 
   cursor: pointer;
 }
@@ -126,65 +84,50 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
 
-  margin-bottom: 38px;
+  margin-bottom: 22px;
 
-  border: 1px solid #eeeeee;
-  border-radius: 14px;
+  border-radius: 16px;
 
   overflow: hidden;
 
-  background: #ffffff;
+  background: linear-gradient(150deg, #fff5ec, #ffffff 65%);
+  border: 1px solid #ffe0ca;
 }
 
 .signal-strip > div {
   min-width: 0;
 
-  padding: 22px 20px;
+  padding: 15px 10px;
 
-  border-right: 1px solid #eeeeee;
+  text-align: center;
 
-  background: #ffffff;
+  border-right: 1px solid #ffe6d4;
 }
 
 .signal-strip > div:last-child {
   border-right: 0;
 }
 
-.signal-strip span,
-.signal-strip small {
-  display: block;
-
-  color: #999999;
-
-  font-size: 10px;
-}
-
-.signal-strip span {
-  margin-bottom: 8px;
-
-  color: #ff6a00;
-
-  text-transform: uppercase;
-  letter-spacing: 1.4px;
-  font-weight: 700;
-}
-
 .signal-strip strong {
   display: block;
 
-  color: #242424;
+  color: #1e1e1e;
 
-  font-size: 29px;
-  line-height: 1;
-  font-weight: 750;
+  font-size: 22px;
+  font-weight: 850;
+  letter-spacing: -0.6px;
 }
 
-.signal-strip small {
-  margin-top: 8px;
+.signal-strip span {
+  display: block;
 
-  color: #999999;
+  margin-top: 4px;
 
-  line-height: 1.4;
+  color: #8a8a8a;
+
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
 }
 
 
@@ -194,48 +137,43 @@
 
 .activity-filters {
   display: flex;
-  gap: 30px;
+  gap: 6px;
 
-  margin: 0 0 26px;
+  margin: 0 0 16px;
 
-  border-bottom: 1px solid #eeeeee;
+  padding: 4px;
+
+  border-radius: 12px;
+
+  background: #f5f5f5;
 }
 
 .activity-filters button {
-  position: relative;
+  flex: 1;
 
-  padding: 0 0 12px;
+  padding: 8px 0;
 
   border: 0;
+  border-radius: 9px;
 
   background: transparent;
 
-  color: #999999;
+  color: #8a8a8a;
 
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
 
   cursor: pointer;
+
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 .activity-filters button.active {
-  color: #ff6a00;
-}
+  background: #ffffff;
 
-.activity-filters button.active::after {
-  content: "";
+  color: #1e1e1e;
 
-  position: absolute;
-
-  left: 0;
-  right: 0;
-  bottom: -1px;
-
-  height: 3px;
-
-  border-radius: 3px;
-
-  background: #ff6a00;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 
@@ -243,36 +181,28 @@
    SECTIONS
    ========================================================= */
 
-.activity-section,
+.activity-section {
+  margin-bottom: 6px;
+}
+
 .journey-section {
-  margin-bottom: 42px;
+  margin-top: 28px;
+  margin-bottom: 30px;
 }
 
 .section-heading {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-
-  gap: 15px;
-
-  margin-bottom: 14px;
+  margin-bottom: 11px;
 }
 
 .section-heading h2 {
-  margin: 5px 0 0;
+  margin: 0;
 
-  color: #252525;
+  color: #1e1e1e;
 
-  font-size: 23px;
-  font-weight: 750;
+  font-size: 16px;
+  font-weight: 800;
 
-  letter-spacing: -0.5px;
-}
-
-.section-heading > span {
-  color: #aaaaaa;
-
-  font-size: 11px;
+  letter-spacing: -0.3px;
 }
 
 
@@ -283,142 +213,109 @@
 .notification-list {
   display: flex;
   flex-direction: column;
-
-  border: 1px solid #eeeeee;
-  border-radius: 14px;
-
-  overflow: hidden;
-
-  background: #ffffff;
 }
 
 .notification-card {
   position: relative;
 
   display: flex;
-  align-items: center;
+  align-items: flex-start;
 
-  gap: 13px;
+  gap: 12px;
 
-  min-height: 82px;
+  padding: 12px 4px;
 
-  padding: 13px 15px;
-
-  border-bottom: 1px solid #eeeeee;
+  border-bottom: 1px solid #f2f2f2;
 
   background: #ffffff;
 
   cursor: pointer;
+
+  transition: background 0.15s ease;
 }
 
 .notification-card:last-child {
   border-bottom: 0;
 }
 
+.notification-card:active {
+  background: #fafafa;
+}
+
 .notification-card.unread {
-  background: linear-gradient(
-    90deg,
-    #fff7f0 0%,
-    #ffffff 78%
-  );
-}
-
-.notification-card.unread
-  .notification-content p {
-  color: #252525;
-}
-
-.notification-card.read
-  .notification-content p {
-  color: #666666;
+  background: #fff9f4;
 }
 
 
 /* =========================================================
-   NOTIFICATION ICON
+   AVATAR + BADGE
    ========================================================= */
 
-.notification-icon {
-  width: 38px;
-  height: 38px;
+.notification-avatar-stack {
+  position: relative;
 
+  flex: 0 0 44px;
+}
+
+.notification-avatar {
+  width: 44px;
+  height: 44px;
+
+  display: block;
+
+  object-fit: cover;
+
+  border-radius: 50%;
+}
+
+.notification-avatar-fallback {
   display: flex;
   align-items: center;
   justify-content: center;
-
-  flex: 0 0 38px;
-
-  border: 1px solid #e8e8e8;
-  border-radius: 50%;
-
-  background: #fafafa;
-
-  color: #777777;
-
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.notification-icon.impression {
-  border-color: #ffb27d;
 
   background: #fff2e8;
 
   color: #ff6a00;
 
   font-family: Georgia, "Times New Roman", serif;
-
-  font-size: 21px;
+  font-size: 18px;
+  font-weight: 700;
 }
 
-.notification-icon.badge,
-.notification-icon.milestone,
-.notification-icon.spark {
-  border-color: #ffd0ad;
+.notification-badge {
+  position: absolute;
 
-  background: #fff7f1;
+  right: -2px;
+  bottom: -2px;
 
-  color: #ff6a00;
-}
+  width: 18px;
+  height: 18px;
 
-.notification-icon.post_reach {
-  color: #68806f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
-  background: #f5faf6;
-}
-
-.notification-icon.comment {
-  color: #777777;
-}
-
-.notification-icon.follow_request,
-.notification-icon.follow {
-  color: #ff6a00;
-
-  background: #fff6ef;
-}
-
-.notification-icon.follow_accepted,
-.notification-icon.follow_accepted_self {
-  color: #66806c;
-
-  background: #f5faf6;
-}
-
-
-/* =========================================================
-   USER AVATAR
-   ========================================================= */
-
-.notification-avatar {
-  width: 43px;
-  height: 43px;
-
-  flex: 0 0 43px;
-
-  object-fit: cover;
-
+  border: 2px solid #ffffff;
   border-radius: 50%;
+
+  background: #ff6a00;
+
+  color: #ffffff;
+
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.notification-badge.post_reach,
+.notification-badge.follow_accepted,
+.notification-badge.follow_accepted_self {
+  background: #4c9a63;
+}
+
+.notification-badge.comment,
+.notification-badge.system,
+.notification-badge.note {
+  background: #8a8a8a;
 }
 
 
@@ -432,48 +329,48 @@
   min-width: 0;
 }
 
-.notification-topline {
-  display: flex;
-  align-items: center;
-
-  gap: 9px;
-
-  min-width: 0;
-}
-
-.notification-topline strong {
-  color: #292929;
-
-  font-size: 12px;
-  font-weight: 750;
-}
-
-.notification-time {
-  color: #aaaaaa;
-
-  font-size: 9px;
-
-  white-space: nowrap;
-}
-
 .notification-content p {
-  margin: 4px 0 0;
+  margin: 0;
 
-  color: #666666;
+  color: #333333;
 
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.notification-card.unread .notification-content p {
+  color: #171717;
+}
+
+.notification-content p strong {
+  color: #171717;
+
+  font-weight: 800;
 }
 
 .notification-detail {
   display: block;
 
-  margin-top: 4px;
+  margin-top: 2px;
 
   color: #999999;
 
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.4;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notification-time {
+  display: block;
+
+  margin-top: 4px;
+
+  color: #b3b3b3;
+
+  font-size: 10.5px;
 }
 
 
@@ -482,14 +379,16 @@
    ========================================================= */
 
 .notification-thumbnail {
-  width: 52px;
-  height: 52px;
+  width: 46px;
+  height: 46px;
 
-  flex: 0 0 52px;
+  flex: 0 0 46px;
 
   object-fit: cover;
 
-  border-radius: 9px;
+  border-radius: 8px;
+
+  margin-top: 2px;
 }
 
 
@@ -498,10 +397,13 @@
    ========================================================= */
 
 .unread-dot {
-  width: 7px;
-  height: 7px;
+  position: absolute;
 
-  flex: 0 0 7px;
+  right: 4px;
+  top: 18px;
+
+  width: 8px;
+  height: 8px;
 
   border-radius: 50%;
 
@@ -510,99 +412,49 @@
 
 
 /* =========================================================
-   FOLLOW ACTIONS
-   ========================================================= */
-
-.follow-actions {
-  display: flex;
-
-  gap: 8px;
-
-  margin-top: 9px;
-}
-
-.accept-button,
-.decline-button {
-  min-height: 31px;
-
-  padding: 0 13px;
-
-  border-radius: 7px;
-
-  font-size: 10px;
-  font-weight: 700;
-
-  cursor: pointer;
-}
-
-.accept-button {
-  border: 0;
-
-  background: #ff6a00;
-
-  color: #ffffff;
-}
-
-.decline-button {
-  border: 1px solid #e5e5e5;
-
-  background: #ffffff;
-
-  color: #777777;
-}
-
-.accepted-text {
-  display: block;
-
-  margin-top: 7px;
-
-  color: #66806c;
-
-  font-size: 10px;
-  font-weight: 700;
-}
-
-
-/* =========================================================
    EMPTY STATE
    ========================================================= */
 
 .empty-notifications {
-  padding: 48px 25px;
+  padding: 60px 20px;
 
   text-align: center;
-
-  border-top: 1px solid #eeeeee;
-  border-bottom: 1px solid #eeeeee;
-
-  background: #ffffff;
 }
 
 .empty-mark {
-  width: 42px;
-  height: 42px;
+  width: 52px;
+  height: 52px;
 
-  margin: 0 auto 12px;
+  margin: 0 auto 14px;
 
-  font-size: 21px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: #fff2e8;
+
+  font-size: 22px;
 }
 
 .empty-notifications h3 {
   margin: 0 0 6px;
 
-  color: #303030;
+  color: #1e1e1e;
 
-  font-size: 16px;
+  font-size: 15px;
+  font-weight: 800;
 }
 
 .empty-notifications p {
-  max-width: 330px;
+  max-width: 280px;
 
   margin: 0 auto;
 
   color: #999999;
 
-  font-size: 11px;
+  font-size: 11.5px;
   line-height: 1.55;
 }
 
@@ -614,65 +466,50 @@
 .momentum-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-
-  border: 1px solid #eeeeee;
-  border-radius: 14px;
-
-  overflow: hidden;
-
-  background: #ffffff;
+  gap: 8px;
 }
 
 .momentum-item {
   min-width: 0;
 
-  padding: 21px 20px;
+  padding: 16px 12px;
 
-  border-right: 1px solid #eeeeee;
+  border-radius: 14px;
 
-  background: #ffffff;
-}
-
-.momentum-item:last-child {
-  border-right: 0;
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
 }
 
 .momentum-number {
   display: block;
 
-  margin-bottom: 7px;
+  margin-bottom: 6px;
 
-  color: #333333;
+  color: #1e1e1e;
 
-  font-size: 29px;
-  font-weight: 750;
+  font-size: 22px;
+  font-weight: 850;
 
-  letter-spacing: -1px;
+  letter-spacing: -0.7px;
 }
 
 .momentum-item.highlight {
-  background: #fff8f3;
+  background: linear-gradient(150deg, #fff2e8, #fff8f3);
+  border-color: #ffdcc0;
 }
 
-.momentum-item.highlight
-  .momentum-number {
+.momentum-item.highlight .momentum-number {
   color: #ff6a00;
 }
 
 .momentum-item strong {
   display: block;
 
-  color: #4a4a4a;
+  color: #6e6e6e;
 
-  font-size: 12px;
-}
-
-.momentum-item p {
-  margin: 4px 0 0;
-
-  color: #999999;
-
-  font-size: 9px;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.3;
 }
 
 
@@ -681,34 +518,24 @@
    ========================================================= */
 
 .getting-started {
-  padding: 24px 0 0;
+  padding: 22px 0 0;
 
-  border-top: 1px solid #eeeeee;
+  border-top: 1px solid #f2f2f2;
 }
 
 .getting-started-title {
-  display: flex;
-  align-items: flex-start;
-
-  gap: 13px;
-
-  margin-bottom: 18px;
-}
-
-.spark-symbol {
-  color: #ff6a00;
-
-  font-size: 25px;
-
-  line-height: 1;
+  margin-bottom: 16px;
 }
 
 .getting-started-title h2 {
-  margin: 5px 0 0;
+  margin: 0;
 
-  color: #303030;
+  color: #1e1e1e;
 
-  font-size: 20px;
+  font-size: 17px;
+  font-weight: 800;
+
+  letter-spacing: -0.3px;
 }
 
 .getting-started-title p {
@@ -716,350 +543,88 @@
 
   color: #999999;
 
-  font-size: 11px;
+  font-size: 11.5px;
   line-height: 1.5;
 }
 
 .start-items {
   display: flex;
   flex-direction: column;
-
-  border: 1px solid #eeeeee;
-  border-radius: 14px;
-
-  overflow: hidden;
+  gap: 10px;
 }
 
 .start-item {
   display: flex;
   align-items: center;
 
-  gap: 15px;
+  gap: 14px;
 
-  padding: 16px;
+  padding: 14px;
 
-  border-bottom: 1px solid #eeeeee;
+  border-radius: 14px;
 
-  background: #ffffff;
-}
-
-.start-item:last-child {
-  border-bottom: 0;
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
 }
 
 .start-number {
-  width: 34px;
+  width: 30px;
 
-  flex: 0 0 34px;
+  flex: 0 0 30px;
 
   color: #ff6a00;
 
-  font-size: 10px;
-  font-weight: 800;
+  font-size: 11px;
+  font-weight: 900;
 
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
 }
 
 .start-item strong {
   display: block;
 
-  color: #484848;
+  color: #2e2e2e;
 
-  font-size: 12px;
+  font-size: 12.5px;
+  font-weight: 800;
 }
 
 .start-item p {
-  margin: 4px 0 0;
+  margin: 3px 0 0;
 
   color: #999999;
 
-  font-size: 10px;
-  line-height: 1.45;
+  font-size: 10.5px;
+  line-height: 1.4;
 }
 
 
 /* =========================================================
-   TABLET
+   LOADING SKELETON
    ========================================================= */
 
-@media (max-width: 760px) {
+.impression-skeleton {
+  border-radius: 14px;
 
-  .impression-page {
-    max-width: 700px;
-    padding-left: 20px;
-    padding-right: 20px;
-  }
+  background: linear-gradient(100deg, #f5f5f5 8%, #ececec 18%, #f5f5f5 33%);
+  background-size: 200% 100%;
 
-  .impression-header h1 {
-    font-size: 36px;
-  }
-
+  animation: impressionSkeletonShimmer 1.4s ease-in-out infinite;
 }
 
-
-/* =========================================================
-   MOBILE
-   ========================================================= */
-
-@media (max-width: 600px) {
-
-  .impression-page {
-    padding: 22px 14px 115px;
-
-    background: #ffffff;
-  }
-
-
-  /* HEADER */
-
-  .impression-header {
-    padding-bottom: 25px;
-  }
-
-  .impression-brand-line {
-    margin-bottom: 27px;
-
-    font-size: 10px;
-  }
-
-  .impression-mark {
-    width: 27px;
-    height: 27px;
-
-    font-size: 16px;
-  }
-
-  .impression-title-row {
-    align-items: flex-end;
-  }
-
-  .impression-small-title,
-  .section-kicker {
-    font-size: 9px;
-    letter-spacing: 1.7px;
-  }
-
-  .impression-header h1 {
-    font-size: 31px;
-  }
-
-  .impression-header p {
-    max-width: 310px;
-
-    margin-top: 10px;
-
-    font-size: 11px;
-  }
-
-  .read-all-button {
-    font-size: 9px;
-  }
-
-
-  /* STATS */
-
-  .signal-strip {
-    margin-bottom: 29px;
-
-    border-radius: 11px;
-  }
-
-  .signal-strip > div {
-    padding: 15px 10px;
-  }
-
-  .signal-strip span {
-    margin-bottom: 6px;
-
-    font-size: 8px;
-  }
-
-  .signal-strip strong {
-    font-size: 21px;
-  }
-
-  .signal-strip small {
-    margin-top: 6px;
-
-    font-size: 8px;
-  }
-
-
-  /* FILTERS */
-
-  .activity-filters {
-    gap: 22px;
-
-    margin-bottom: 22px;
-  }
-
-  .activity-filters button {
-    padding-bottom: 10px;
-
-    font-size: 10px;
-  }
-
-
-  /* SECTIONS */
-
-  .activity-section,
-  .journey-section {
-    margin-bottom: 34px;
-  }
-
-  .section-heading {
-    margin-bottom: 11px;
-  }
-
-  .section-heading h2 {
-    font-size: 19px;
-  }
-
-  .section-heading > span {
-    font-size: 9px;
-  }
-
-
-  /* FEED */
-
-  .notification-list {
-    border-radius: 11px;
-  }
-
-  .notification-card {
-    gap: 8px;
-
-    min-height: 70px;
-
-    padding: 10px 9px;
-  }
-
-  .notification-icon {
-    width: 29px;
-    height: 29px;
-
-    flex-basis: 29px;
-
-    font-size: 11px;
-  }
-
-  .notification-icon.impression {
-    font-size: 17px;
-  }
-
-  .notification-avatar {
-    width: 35px;
-    height: 35px;
-
-    flex-basis: 35px;
-  }
-
-  .notification-content p {
-    font-size: 10px;
-  }
-
-  .notification-topline strong {
-    font-size: 10px;
-  }
-
-  .notification-time {
-    font-size: 8px;
-  }
-
-  .notification-detail {
-    font-size: 8px;
-  }
-
-  .notification-thumbnail {
-    width: 42px;
-    height: 42px;
-
-    flex-basis: 42px;
-
-    border-radius: 7px;
-  }
-
-  .unread-dot {
-    width: 6px;
-    height: 6px;
-
-    flex-basis: 6px;
-  }
-
-
-  /* MOMENTUM */
-
-  .momentum-grid {
-    border-radius: 11px;
-  }
-
-  .momentum-item {
-    padding: 15px 10px;
-  }
-
-  .momentum-number {
-    font-size: 22px;
-  }
-
-  .momentum-item strong {
-    font-size: 10px;
-  }
-
-  .momentum-item p {
-    font-size: 8px;
-  }
-
-
-  /* GETTING STARTED */
-
-  .getting-started {
-    padding-top: 20px;
-  }
-
-  .getting-started-title {
-    gap: 10px;
-
-    margin-bottom: 14px;
-  }
-
-  .spark-symbol {
-    font-size: 21px;
-  }
-
-  .getting-started-title h2 {
-    font-size: 17px;
-  }
-
-  .getting-started-title p {
-    font-size: 9px;
-  }
-
-  .start-items {
-    border-radius: 11px;
-  }
-
-  .start-item {
-    gap: 10px;
-
-    padding: 13px 11px;
-  }
-
-  .start-number {
-    width: 29px;
-
-    flex-basis: 29px;
-
-    font-size: 8px;
-  }
-
-  .start-item strong {
-    font-size: 10px;
-  }
-
-  .start-item p {
-    font-size: 8px;
-  }
-
+.stat-row-skeleton {
+  height: 78px;
+
+  margin-bottom: 16px;
+}
+
+.row-skeleton {
+  height: 64px;
+}
+
+@keyframes impressionSkeletonShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 
@@ -1070,47 +635,19 @@
 @media (max-width: 380px) {
 
   .impression-page {
-    padding-left: 10px;
-    padding-right: 10px;
+    padding: 18px 14px 120px;
   }
 
   .impression-header h1 {
-    font-size: 28px;
-  }
-
-  .signal-strip > div {
-    padding-left: 7px;
-    padding-right: 7px;
+    font-size: 26px;
   }
 
   .signal-strip strong {
     font-size: 19px;
   }
 
-  .notification-card {
-    padding-left: 6px;
-    padding-right: 6px;
-  }
-
-  .notification-icon {
-    width: 27px;
-    height: 27px;
-
-    flex-basis: 27px;
-  }
-
-  .notification-avatar {
-    width: 31px;
-    height: 31px;
-
-    flex-basis: 31px;
-  }
-
-  .notification-thumbnail {
-    width: 38px;
-    height: 38px;
-
-    flex-basis: 38px;
+  .momentum-number {
+    font-size: 19px;
   }
 
 }

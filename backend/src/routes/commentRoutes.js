@@ -1,43 +1,21 @@
 const express = require("express");
 
+// ⚠️ Use the SAME auth middleware your other routes use
+// (for example the one used by your pulse or notes routes).
+const authMiddleware = require("../middleware/authMiddleware");
+
 const {
-  createComment,
   getComments,
+  addComment,
   deleteComment,
 } = require("../controllers/commentController");
 
-const authMiddleware = require("../middleware/authMiddleware");
-
 const router = express.Router();
 
-// ==========================================
-// GET COMMENTS FOR A POST
-// ==========================================
+router.get("/:postId/comments", getComments);
+router.post("/:postId/comments", authMiddleware, addComment);
+router.delete("/:postId/comments/:commentId", authMiddleware, deleteComment);
 
-router.get(
-  "/:postId",
-  authMiddleware,
-  getComments
-);
-
-// ==========================================
-// CREATE COMMENT
-// ==========================================
-
-router.post(
-  "/:postId",
-  authMiddleware,
-  createComment
-);
-
-// ==========================================
-// DELETE COMMENT
-// ==========================================
-
-router.delete(
-  "/:commentId",
-  authMiddleware,
-  deleteComment
-);
+router.get("/:postId/comments", authMiddleware, getComments);
 
 module.exports = router;

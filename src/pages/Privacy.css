@@ -1,97 +1,64 @@
 /* =========================================================
-   IMPRESSA PRIVACY
-   MOBILE FIRST
+   IMPRESSA — PRIVACY
 ========================================================= */
 
 .privacy-page {
   width: 100%;
   min-height: 100vh;
   min-height: 100dvh;
-
   box-sizing: border-box;
-
-  padding:
-    0
-    16px
-    35px;
-
-  background:
-    radial-gradient(
-      circle at 100% 0%,
-      rgba(255, 106, 0, 0.08),
-      transparent 32%
-    );
-
+  padding: 0 16px 40px;
+  background: #fafafa;
   color: #181818;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
 
-  font-family:
-    Inter,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+.privacy-page button {
+  font-family: inherit;
 }
 
 .privacy-container {
   width: 100%;
-  max-width: 650px;
-
+  max-width: 560px;
   margin: 0 auto;
 }
 
-
-/* =========================================================
-   HEADER
-========================================================= */
+/* HEADER */
 
 .privacy-header {
-  min-height: 70px;
-
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  min-height: 60px;
+  margin: 0 -16px;
+  padding: 0 12px;
   display: grid;
-
-  grid-template-columns:
-    40px
-    1fr
-    40px;
-
+  grid-template-columns: 44px 1fr 44px;
   align-items: center;
-
-  border-bottom:
-    1px solid #eeeeee;
+  background: rgba(250, 250, 250, 0.94);
+  border-bottom: 1px solid #eeeeee;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
 }
 
 .privacy-back {
-  width: 36px;
-  height: 36px;
-
+  width: 44px;
+  height: 44px;
+  padding: 0;
   display: flex;
-
   align-items: center;
   justify-content: center;
-
   border: none;
-
-  border-radius: 11px;
-
-  background: #f6f6f6;
-
-  color: #222;
-
-  font-size: 19px;
-
+  border-radius: 50%;
+  background: transparent;
+  color: #181818;
+  font-size: 22px;
   cursor: pointer;
-
-  transition:
-    transform 0.2s ease,
-    background 0.2s ease;
 }
 
 .privacy-back:active {
-  transform: scale(0.92);
-}
-
-.privacy-back:hover {
-  background: #fff0e6;
+  background: #efefef;
 }
 
 .privacy-heading {
@@ -100,315 +67,183 @@
 
 .privacy-heading span {
   display: block;
-
+  margin-bottom: 2px;
   color: #ff6a00;
-
-  font-size: 7px;
-
+  font-size: 10px;
   font-weight: 900;
-
-  letter-spacing: 2px;
+  letter-spacing: 2.2px;
 }
 
 .privacy-heading h1 {
-  margin: 3px 0 0;
-
-  color: #181818;
-
-  font-size: 18px;
-
-  line-height: 1.1;
-
-  letter-spacing: -0.4px;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
 }
 
-
-/* =========================================================
-   INTRO
-========================================================= */
+/* INTRO */
 
 .privacy-intro {
   display: flex;
-
   align-items: center;
-
-  gap: 12px;
-
-  margin-top: 18px;
-
-  padding: 15px;
-
+  gap: 14px;
+  margin-top: 16px;
+  padding: 16px;
   box-sizing: border-box;
-
-  border:
-    1px solid #ffe0cc;
-
-  border-radius: 17px;
-
-  background:
-    linear-gradient(
-      135deg,
-      #fff8f3,
-      #ffffff
-    );
-
-  box-shadow:
-    0 7px 22px
-    rgba(255, 106, 0, 0.04);
+  border: 1px solid #ffe0cc;
+  border-radius: 18px;
+  background: linear-gradient(150deg, #fff8f3, #ffffff 70%);
 }
 
 .privacy-shield {
-  width: 43px;
-  height: 43px;
-
-  flex: 0 0 43px;
-
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
   display: flex;
-
   align-items: center;
   justify-content: center;
-
-  border-radius: 13px;
-
+  border-radius: 14px;
   background: #fff0e6;
-
-  font-size: 18px;
+  font-size: 20px;
 }
 
 .privacy-intro h2 {
   margin: 0;
-
-  color: #222;
-
-  font-size: 13px;
-
+  font-size: 17px;
   font-weight: 800;
-
-  letter-spacing: -0.2px;
+  letter-spacing: -0.3px;
 }
 
 .privacy-intro p {
   margin: 4px 0 0;
-
-  color: #999;
-
-  font-size: 9px;
-
-  line-height: 1.45;
+  color: #8a8a8a;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
-
-/* =========================================================
-   CARDS
-========================================================= */
+/* CARDS */
 
 .privacy-card {
-  margin-top: 14px;
-
+  margin-top: 16px;
   padding: 16px;
-
   box-sizing: border-box;
-
-  border:
-    1px solid #eeeeee;
-
-  border-radius: 17px;
-
+  border: 1px solid #ececec;
+  border-radius: 18px;
   background: #ffffff;
-
-  box-shadow:
-    0 7px 25px
-    rgba(0, 0, 0, 0.035);
 }
-
-
-/* =========================================================
-   CARD TITLE
-========================================================= */
 
 .privacy-card-title {
   display: flex;
-
   align-items: center;
-
-  gap: 10px;
-
-  padding-bottom: 13px;
-
-  border-bottom:
-    1px solid #f1f1f1;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .privacy-title-icon {
-  width: 34px;
-  height: 34px;
-
-  flex: 0 0 34px;
-
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
   display: flex;
-
   align-items: center;
   justify-content: center;
-
-  border-radius: 10px;
-
-  background: #f7f7f7;
-
-  font-size: 15px;
+  border-radius: 12px;
+  background: #f5f5f5;
+  font-size: 18px;
 }
 
 .privacy-card-title h2 {
   margin: 0;
-
-  color: #222;
-
-  font-size: 13px;
-
+  font-size: 16px;
   font-weight: 800;
 }
 
 .privacy-card-title p {
   margin: 3px 0 0;
-
-  color: #999;
-
-  font-size: 8px;
-
+  color: #8a8a8a;
+  font-size: 13px;
   line-height: 1.4;
 }
 
-
-/* =========================================================
-   SETTINGS
-========================================================= */
+/* SETTINGS */
 
 .privacy-setting {
-  min-height: 62px;
-
-  display: flex;
-
-  align-items: center;
-
-  justify-content: space-between;
-
-  gap: 14px;
-
-  padding: 12px 0;
-
+  min-height: 70px;
+  padding: 14px 0;
   box-sizing: border-box;
-
-  border-bottom:
-    1px solid #f3f3f3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid #f1f1f1;
 }
 
 .privacy-setting:last-child {
-  border-bottom: none;
-
   padding-bottom: 2px;
+  border-bottom: none;
 }
 
 .privacy-setting-text {
   min-width: 0;
-
   flex: 1;
 }
 
 .privacy-setting-heading {
   display: flex;
-
   align-items: center;
-
-  gap: 6px;
+  gap: 8px;
 }
 
 .privacy-setting-text strong {
   display: block;
-
-  color: #222;
-
-  font-size: 11px;
-
+  color: #181818;
+  font-size: 15px;
   font-weight: 750;
 }
 
 .privacy-setting-text > span:not(.v1-badge) {
   display: block;
-
   margin-top: 4px;
-
-  color: #999;
-
-  font-size: 8px;
-
+  color: #8a8a8a;
+  font-size: 13px;
   line-height: 1.45;
 }
 
-
-/* =========================================================
-   V1 BADGE
-========================================================= */
-
 .v1-badge {
-  padding:
-    3px
-    5px;
-
-  border-radius: 5px;
-
+  padding: 3px 7px;
+  border-radius: 6px;
   background: #fff0e6;
-
   color: #ff6a00;
-
-  font-size: 6px;
-
+  font-size: 10px;
   font-weight: 900;
-
   letter-spacing: 0.5px;
 }
 
-
-/* =========================================================
-   TOGGLE
-========================================================= */
+/* TOGGLE */
 
 .privacy-toggle {
-  width: 42px;
-  height: 25px;
-
-  flex: 0 0 42px;
-
+  width: 50px;
+  height: 30px;
+  flex: 0 0 50px;
   padding: 3px;
-
   box-sizing: border-box;
-
+  display: flex;
+  align-items: center;
   border: none;
-
-  border-radius: 20px;
-
-  background: #dcdcdc;
-
+  border-radius: 999px;
+  background: #d8d8d8;
   cursor: pointer;
-
-  transition:
-    background 0.25s ease;
+  transition: background 0.25s ease;
 }
 
 .privacy-toggle span {
   display: block;
-
-  width: 19px;
-  height: 19px;
-
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-
   background: #ffffff;
-
-  box-shadow:
-    0 2px 5px
-    rgba(0, 0, 0, 0.15);
-
-  transition:
-    transform 0.25s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.18);
+  transition: transform 0.25s ease;
 }
 
 .privacy-toggle.active {
@@ -416,373 +251,178 @@
 }
 
 .privacy-toggle.active span {
-  transform:
-    translateX(17px);
+  transform: translateX(20px);
 }
 
+.privacy-toggle:disabled {
+  opacity: 0.6;
+}
 
-/* =========================================================
-   V1 INFORMATION
-========================================================= */
+/* V1 INFO */
 
 .privacy-v1-card {
   display: flex;
-
   align-items: flex-start;
-
-  gap: 11px;
-
-  margin-top: 15px;
-
-  padding: 14px;
-
+  gap: 12px;
+  margin-top: 16px;
+  padding: 14px 16px;
   box-sizing: border-box;
-
-  border:
-    1px solid #ffe3d0;
-
-  border-radius: 15px;
-
-  background:
-    linear-gradient(
-      135deg,
-      #fffaf7,
-      #ffffff
-    );
+  border: 1px solid #ffe3d0;
+  border-radius: 16px;
+  background: #fffaf7;
 }
 
 .privacy-v1-icon {
-  width: 35px;
-  height: 35px;
-
-  flex: 0 0 35px;
-
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
   display: flex;
-
   align-items: center;
   justify-content: center;
-
-  border-radius: 10px;
-
+  border-radius: 11px;
   background: #fff0e6;
-
   color: #ff6a00;
-
   font-size: 17px;
 }
 
 .privacy-v1-card strong {
   display: block;
-
-  color: #222;
-
-  font-size: 10px;
+  color: #181818;
+  font-size: 14px;
+  font-weight: 750;
 }
 
 .privacy-v1-card p {
   margin: 4px 0 0;
-
-  color: #999;
-
-  font-size: 8px;
-
+  color: #8a8a8a;
+  font-size: 13px;
   line-height: 1.5;
 }
 
-
-/* =========================================================
-   V2 POPUP OVERLAY
-========================================================= */
+/* POPUP */
 
 .privacy-popup-overlay {
   position: fixed;
-
   inset: 0;
-
   z-index: 6000;
-
+  padding: 20px;
+  box-sizing: border-box;
   display: flex;
-
   align-items: center;
   justify-content: center;
-
-  padding: 18px;
-
-  box-sizing: border-box;
-
-  background:
-    rgba(15, 15, 15, 0.48);
-
-  backdrop-filter: blur(6px);
+  background: rgba(15, 15, 15, 0.5);
   -webkit-backdrop-filter: blur(6px);
-
-  animation:
-    privacyOverlayIn
-    0.2s ease both;
+  backdrop-filter: blur(6px);
+  animation: privacyOverlayIn 0.2s ease both;
 }
-
-
-/* =========================================================
-   V2 POPUP
-========================================================= */
 
 .privacy-coming-soon {
   width: 100%;
-  max-width: 390px;
-
-  display: flex;
-
-  align-items: flex-start;
-
-  gap: 13px;
-
-  padding: 19px;
-
+  max-width: 380px;
+  padding: 22px 20px;
   box-sizing: border-box;
-
-  border-radius: 21px;
-
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  border-radius: 22px;
   background: #ffffff;
-
-  box-shadow:
-    0 25px 70px
-    rgba(0, 0, 0, 0.25);
-
-  animation:
-    privacyPopupIn
-    0.3s
-    cubic-bezier(.16,1,.3,1)
-    both;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.25);
+  animation: privacyPopupIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
-
-
-/* =========================================================
-   V2 ICON
-========================================================= */
 
 .coming-soon-star {
-  width: 42px;
-  height: 42px;
-
-  flex: 0 0 42px;
-
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
   display: flex;
-
   align-items: center;
   justify-content: center;
-
-  border-radius: 13px;
-
-  background:
-    radial-gradient(
-      circle,
-      #fff5ec,
-      #ffe9d8
-    );
-
+  border-radius: 14px;
+  background: #fff0e6;
   color: #ff6a00;
-
   font-size: 22px;
-
-  animation:
-    comingSoonStar
-    2s
-    ease-in-out
-    infinite;
 }
-
-
-/* =========================================================
-   V2 CONTENT
-========================================================= */
 
 .coming-soon-content {
   min-width: 0;
-
   flex: 1;
 }
 
 .coming-soon-label {
   display: block;
-
   color: #ff6a00;
-
-  font-size: 7px;
-
+  font-size: 10px;
   font-weight: 900;
-
   letter-spacing: 1.7px;
 }
 
 .coming-soon-content h2 {
   margin: 4px 0 6px;
-
-  color: #181818;
-
-  font-size: 16px;
-
+  font-size: 18px;
   line-height: 1.2;
-
   letter-spacing: -0.3px;
 }
 
 .coming-soon-content p {
   margin: 0;
-
-  color: #888;
-
-  font-size: 9px;
-
+  color: #777777;
+  font-size: 14px;
   line-height: 1.55;
 }
 
 .coming-soon-content button {
-  margin-top: 13px;
-
-  min-width: 65px;
-
-  height: 32px;
-
-  padding:
-    0
-    12px;
-
+  min-width: 90px;
+  min-height: 44px;
+  margin-top: 16px;
+  padding: 0 18px;
   border: none;
-
-  border-radius: 9px;
-
-  background: #ff6a00;
-
+  border-radius: 12px;
+  background: linear-gradient(150deg, #ff8534, #ff6a00);
   color: #ffffff;
-
-  font-family: inherit;
-
-  font-size: 9px;
-
+  font-size: 14px;
   font-weight: 800;
-
   cursor: pointer;
-
-  transition:
-    transform .2s ease;
 }
 
 .coming-soon-content button:active {
-  transform: scale(.95);
+  transform: scale(0.97);
 }
 
-
-/* =========================================================
-   ANIMATIONS
-========================================================= */
-
 @keyframes privacyOverlayIn {
-
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes privacyPopupIn {
-
-  from {
-    opacity: 0;
-
-    transform:
-      translateY(18px)
-      scale(.95);
-  }
-
-  to {
-    opacity: 1;
-
-    transform:
-      translateY(0)
-      scale(1);
-  }
+  from { opacity: 0; transform: translateY(16px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
-
-@keyframes comingSoonStar {
-
-  0%,
-  100% {
-    transform:
-      rotate(0deg)
-      scale(1);
-  }
-
-  50% {
-    transform:
-      rotate(180deg)
-      scale(1.12);
-  }
-}
-
-
-/* =========================================================
-   FOOTER
-========================================================= */
 
 .privacy-footer {
-  margin:
-    22px 0
-    5px;
-
+  margin: 24px 0 0;
   text-align: center;
-
   color: #b7b7b7;
-
-  font-size: 8px;
+  font-size: 12px;
 }
 
-
-/* =========================================================
-   SMALL PHONES
-========================================================= */
-
 @media (max-width: 380px) {
-
   .privacy-page {
     padding-left: 12px;
     padding-right: 12px;
   }
 
-  .privacy-intro {
-    padding: 13px;
-  }
-
-  .privacy-card {
-    padding: 14px;
+  .privacy-header {
+    margin: 0 -12px;
   }
 
   .privacy-coming-soon {
-    padding: 16px;
-
-    border-radius: 19px;
+    padding: 18px 16px;
   }
-
-  .coming-soon-content h2 {
-    font-size: 15px;
-  }
-
 }
 
-
-/* =========================================================
-   REDUCED MOTION
-========================================================= */
-
 @media (prefers-reduced-motion: reduce) {
-
-  *,
-  *::before,
-  *::after {
+  *, *::before, *::after {
     animation: none !important;
-
     transition: none !important;
   }
 }

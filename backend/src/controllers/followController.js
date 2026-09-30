@@ -1,5 +1,6 @@
 const User = require("../models/User");
 const Notification = require("../models/Notification");
+const { isBlockedBetween } = require("../utils/blockUtils");
 
 // ==========================================
 // FOLLOW USER
@@ -43,7 +44,12 @@ const followUser = async (req, res) => {
         message: "You cannot follow yourself",
       });
     }
-
+        if (await isBlockedBetween(currentUser._id, targetUser._id)) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
     // ==========================================
     // CHECK EXISTING RELATIONSHIP
     // ==========================================

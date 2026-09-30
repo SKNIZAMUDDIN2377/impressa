@@ -21,6 +21,8 @@ const pulseRoutes = require("./routes/pulseRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const noteRoutes = require("./routes/noteRoutes");
 const commentRoutes = require("./routes/commentRoutes");
+const blockRoutes = require("./routes/blockRoutes");
+const reportRoutes = require("./routes/reportRoutes");
 
 const app = express();
 
@@ -65,6 +67,11 @@ app.use(
   "/api/comments",
   commentRoutes
 );
+app.use("/api/blocks", blockRoutes);
+
+app.use("/api/reports", reportRoutes);
+
+
 // ==========================================
 // HEALTH CHECK
 // ==========================================

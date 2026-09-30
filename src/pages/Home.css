@@ -1,7 +1,6 @@
 /* =========================================================
-   IMPRESSA HOME
-   CLEAN FLAT MOBILE DESIGN
-   POSITIONS PRESERVED
+   IMPRESSA — HOME
+   Clean flat feed · mobile first
 ========================================================= */
 
 *,
@@ -13,102 +12,187 @@
 .home-page {
   width: 100%;
   min-height: 100vh;
-  background: #fafafa;
-  color: #222222;
-  padding: 22px 16px calc(110px + env(safe-area-inset-bottom));
+  min-height: 100dvh;
+  padding: 8px 0 calc(112px + env(safe-area-inset-bottom));
+  background: #ffffff;
+  color: #181818;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .home-container {
   width: 100%;
-  max-width: 680px;
+  max-width: 620px;
   margin: 0 auto;
   min-width: 0;
 }
 
+/* HEADER */
+
 .home-header {
-  width: 100%;
-  margin: 5px 0 25px;
-  padding: 0 4px;
+  padding: 10px 16px 14px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
 }
 
 .home-header h1 {
   margin: 0;
-  color: #ef7426;
-  font-family: Arial, Helvetica, sans-serif;
-  font-size: 38px;
+  color: #181818;
+  font-size: 28px;
+  font-weight: 850;
   line-height: 1;
-  font-weight: 750;
-  letter-spacing: -1.8px;
+  letter-spacing: -1.2px;
+}
+
+.home-header h1::after {
+  content: ".";
+  color: #ff6a00;
 }
 
 .home-header p {
-  margin: 7px 0 0;
-  color: #999999;
-  font-size: 11px;
-  line-height: 1.4;
+  margin: 5px 0 0;
+  color: #8a8a8a;
+  font-size: 13px;
   font-weight: 500;
 }
 
+/* FEED */
+
 .home-feed {
   width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 28px;
-  min-width: 0;
+  gap: 0;
 }
 
-@media (max-width: 700px) {
-  .home-page {
-    width: 100%;
-    padding: 14px 9px calc(105px + env(safe-area-inset-bottom));
-    overflow-x: hidden;
-  }
+/* PULL TO REFRESH */
 
-  .home-container {
-    width: 100%;
-    max-width: 100%;
-  }
-
-  .home-header {
-    margin: 5px 0 19px;
-    padding: 0 6px;
-  }
-
-  .home-header h1 {
-    font-size: 32px;
-    letter-spacing: -1.5px;
-  }
-
-  .home-header p {
-    margin-top: 6px;
-    font-size: 10px;
-  }
-
-  .home-feed {
-    width: 100%;
-    gap: 24px;
-  }
+.pull-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: #ff6a00;
+  font-size: 13px;
+  font-weight: 700;
 }
 
-@media (max-width: 380px) {
+/* STATES (empty / error) */
+
+.home-state {
+  margin: 30px 16px;
+  padding: 36px 20px;
+  text-align: center;
+  border: 1px solid #f0e6dd;
+  border-radius: 22px;
+  background: #fffaf6;
+}
+
+.home-state-icon {
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #fff0e6;
+  color: #ff6a00;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.home-state h3 {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.home-state p {
+  margin: 0 auto;
+  max-width: 260px;
+  color: #8a8a8a;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.home-state button {
+  min-height: 46px;
+  margin-top: 16px;
+  padding: 0 24px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(150deg, #ff8534, #ff6a00);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.home-state button:active {
+  transform: scale(0.97);
+}
+
+/* SKELETON */
+
+.feed-skeleton {
+  padding: 8px 0 20px;
+}
+
+.feed-skeleton-head {
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.feed-skeleton-foot {
+  padding: 12px 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sk {
+  display: block;
+  background: linear-gradient(100deg, #f4f0ec 8%, #ebe5df 18%, #f4f0ec 33%);
+  background-size: 200% 100%;
+  animation: skShimmer 1.4s ease-in-out infinite;
+}
+
+.sk-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+}
+
+.sk-line {
+  height: 11px;
+  border-radius: 6px;
+}
+
+.sk-media {
+  width: 100%;
+  aspect-ratio: 4 / 5;
+}
+
+.sk-w40 { width: 40%; }
+.sk-w50 { width: 50%; }
+.sk-w70 { width: 70%; }
+
+@keyframes skShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@media (min-width: 700px) {
   .home-page {
-    padding-left: 6px;
-    padding-right: 6px;
-    padding-bottom: calc(100px + env(safe-area-inset-bottom));
-  }
-
-  .home-header {
-    padding-left: 7px;
-    padding-right: 7px;
-  }
-
-  .home-header h1 {
-    font-size: 29px;
-  }
-
-  .home-feed {
-    gap: 22px;
+    padding-top: 20px;
   }
 }
 

@@ -8,6 +8,40 @@ import "./Impressions.css";
 
 
 // ==========================================
+// NOTIFICATIONS CACHE
+// ==========================================
+
+const getNotificationsCacheKey = () => {
+  const token = localStorage.getItem("token");
+  return token
+    ? `impressa_notifications_${token}`
+    : "impressa_notifications";
+};
+
+const getCachedNotifications = () => {
+  try {
+    return JSON.parse(
+      localStorage.getItem(getNotificationsCacheKey()) || "null"
+    );
+  } catch (error) {
+    console.error("Notifications cache read error:", error);
+    return null;
+  }
+};
+
+const setCachedNotifications = (payload) => {
+  try {
+    localStorage.setItem(
+      getNotificationsCacheKey(),
+      JSON.stringify(payload)
+    );
+  } catch (error) {
+    console.error("Notifications cache write error:", error);
+  }
+};
+
+
+// ==========================================
 // ICONS
 // ==========================================
 
@@ -56,7 +90,7 @@ function getTime(createdAt) {
   );
 
   if (minutes < 60) {
-    return `${minutes} min ago`;
+    return `${minutes}m`;
   }
 
   const hours = Math.floor(
@@ -64,7 +98,7 @@ function getTime(createdAt) {
   );
 
   if (hours < 24) {
-    return `${hours} hr ago`;
+    return `${hours}h`;
   }
 
   const days = Math.floor(
@@ -72,9 +106,7 @@ function getTime(createdAt) {
   );
 
   if (days < 7) {
-    return `${days} day${
-      days === 1 ? "" : "s"
-    } ago`;
+    return `${days}d`;
   }
 
   return created.toLocaleDateString();
@@ -147,17 +179,21 @@ function formatNotification(notification) {
 // ==========================================
 
 function Impression() {
+  const cachedPayload = getCachedNotifications();
+
   const [notifications, setNotifications] =
-    useState([]);
+    useState(cachedPayload?.notifications || []);
 
   const [activeFilter, setActiveFilter] =
     useState("all");
 
+  // Only block with a full loading state when there is truly
+  // nothing cached yet.
   const [loading, setLoading] =
-    useState(true);
+    useState(!cachedPayload);
 
   const [profile, setProfile] =
-    useState(null);
+    useState(cachedPayload?.profile || null);
 
   const API_URL =
   import.meta.env.VITE_API_URL || "http://localhost:5000";
@@ -214,11 +250,12 @@ function Impression() {
             );
           }
 
-          setProfile(
+          const nextProfile =
             profileData.user ||
               profileData.profile ||
-              profileData
-          );
+              profileData;
+
+          setProfile(nextProfile);
 
 
           // ----------------------------------
@@ -257,6 +294,11 @@ function Impression() {
           setNotifications(
             formatted
           );
+
+          setCachedNotifications({
+            notifications: formatted,
+            profile: nextProfile,
+          });
 
         } catch (error) {
           console.error(
@@ -362,8 +404,8 @@ function Impression() {
     // Immediate UI update
 
     setNotifications(
-      (previous) =>
-        previous.map(
+      (previous) => {
+        const updated = previous.map(
           (item) =>
             item.id === id
               ? {
@@ -371,7 +413,15 @@ function Impression() {
                   read: true,
                 }
               : item
-        )
+        );
+
+        setCachedNotifications({
+          notifications: updated,
+          profile,
+        });
+
+        return updated;
+      }
     );
 
 
@@ -435,13 +485,21 @@ function Impression() {
     // Immediate UI update
 
     setNotifications(
-      (previous) =>
-        previous.map(
+      (previous) => {
+        const updated = previous.map(
           (notification) => ({
             ...notification,
             read: true,
           })
-        )
+        );
+
+        setCachedNotifications({
+          notifications: updated,
+          profile,
+        });
+
+        return updated;
+      }
     );
 
 
@@ -563,7 +621,7 @@ function Impression() {
 
 
   // ==========================================
-  // LOADING
+  // LOADING (only when nothing cached yet)
   // ==========================================
 
   if (loading) {
@@ -571,19 +629,6 @@ function Impression() {
       <main className="impression-page">
 
         <header className="impression-header">
-
-          <div className="impression-brand-line">
-
-            <span className="impression-mark">
-              i
-            </span>
-
-            <span>
-              IMPRESSA
-            </span>
-
-          </div>
-
 
           <div className="impression-title-row">
 
@@ -597,12 +642,6 @@ function Impression() {
                 Impressions
               </h1>
 
-              <p>
-                See who noticed you, what
-                moved, and what is waiting
-                for you.
-              </p>
-
             </div>
 
           </div>
@@ -610,20 +649,22 @@ function Impression() {
         </header>
 
 
-        <div className="empty-notifications">
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "10px",
+          }}
+        >
 
-          <div className="empty-mark">
-            i
-          </div>
+          <div className="impression-skeleton stat-row-skeleton" />
 
-          <h3>
-            Loading your impressions...
-          </h3>
-
-          <p>
-            Bringing your latest activity
-            from Impressa.
-          </p>
+          {[0, 1, 2, 3].map((key) => (
+            <div
+              key={key}
+              className="impression-skeleton row-skeleton"
+            />
+          ))}
 
         </div>
 
@@ -645,19 +686,6 @@ function Impression() {
 
       <header className="impression-header">
 
-        <div className="impression-brand-line">
-
-          <span className="impression-mark">
-            i
-          </span>
-
-          <span>
-            IMPRESSA
-          </span>
-
-        </div>
-
-
         <div className="impression-title-row">
 
           <div>
@@ -670,11 +698,6 @@ function Impression() {
               Impressions
             </h1>
 
-            <p>
-              See who noticed you, what moved,
-              and what is waiting for you.
-            </p>
-
           </div>
 
 
@@ -684,7 +707,7 @@ function Impression() {
               className="read-all-button"
               onClick={markAllRead}
             >
-              Clear {unreadCount}
+              Mark all read
             </button>
           )}
 
@@ -704,51 +727,39 @@ function Impression() {
 
         <div>
 
-          <span>
-            Today
-          </span>
-
           <strong>
             {todayImpressions}
           </strong>
 
-          <small>
-            impressions received
-          </small>
+          <span>
+            Today
+          </span>
 
         </div>
 
 
         <div>
-
-          <span>
-            Profile
-          </span>
 
           <strong>
             {totalImpressions}
           </strong>
 
-          <small>
-            total impressions
-          </small>
+          <span>
+            Total
+          </span>
 
         </div>
 
 
         <div>
 
-          <span>
-            Next
-          </span>
-
           <strong>
             {badgesNeeded}
           </strong>
 
-          <small>
-            badge to {nextStar}
-          </small>
+          <span>
+            To {nextStar}
+          </span>
 
         </div>
 
@@ -817,27 +828,6 @@ function Impression() {
 
       <section className="activity-section">
 
-        <div className="section-heading">
-
-          <div>
-
-            <span className="section-kicker">
-              LIVE FEED
-            </span>
-
-            <h2>
-              What’s happening
-            </h2>
-
-          </div>
-
-          <span>
-            {filteredNotifications.length} updates
-          </span>
-
-        </div>
-
-
         <div className="notification-list">
 
           {filteredNotifications.length ===
@@ -846,7 +836,7 @@ function Impression() {
             <div className="empty-notifications">
 
               <div className="empty-mark">
-                i
+                🔔
               </div>
 
               <h3>
@@ -873,8 +863,6 @@ function Impression() {
                     notification.read
                       ? "read"
                       : "unread"
-                  } ${
-                    notification.type
                   }`}
                   onClick={() =>
                     markRead(
@@ -883,52 +871,52 @@ function Impression() {
                   }
                 >
 
-                  <div
-                    className={`notification-icon ${notification.type}`}
-                  >
-                    {getIcon(
-                      notification.type
+                  <div className="notification-avatar-stack">
+
+                    {notification.image ? (
+                      <img
+                        className="notification-avatar"
+                        src={
+                          notification.image
+                        }
+                        alt=""
+                      />
+                    ) : (
+                      <div className="notification-avatar notification-avatar-fallback">
+                        {getIcon(
+                          notification.type
+                        )}
+                      </div>
                     )}
+
+                    <span
+                      className={`notification-badge ${notification.type}`}
+                    >
+                      {getIcon(
+                        notification.type
+                      )}
+                    </span>
+
                   </div>
-
-
-                  {notification.image && (
-                    <img
-                      className="notification-avatar"
-                      src={
-                        notification.image
-                      }
-                      alt=""
-                    />
-                  )}
 
 
                   <div className="notification-content">
 
-                    <div className="notification-topline">
+                    <p>
 
                       {notification.username && (
                         <strong>
                           @
                           {
                             notification.username
-                          }
+                          }{" "}
                         </strong>
                       )}
 
-                      <span className="notification-time">
-                        {
-                          notification.time
-                        }
-                      </span>
-
-                    </div>
-
-
-                    <p>
                       {
                         notification.message
                       }
+
                     </p>
 
 
@@ -939,6 +927,13 @@ function Impression() {
                         }
                       </span>
                     )}
+
+
+                    <span className="notification-time">
+                      {
+                        notification.time
+                      }
+                    </span>
 
                   </div>
 
@@ -978,21 +973,9 @@ function Impression() {
 
         <div className="section-heading">
 
-          <div>
-
-            <span className="section-kicker">
-              YOUR JOURNEY
-            </span>
-
-            <h2>
-              Momentum
-            </h2>
-
-          </div>
-
-          <span>
-            Today
-          </span>
+          <h2>
+            Momentum
+          </h2>
 
         </div>
 
@@ -1006,12 +989,8 @@ function Impression() {
             </span>
 
             <strong>
-              Posts
+              Posts today
             </strong>
-
-            <p>
-              shared today
-            </p>
 
           </article>
 
@@ -1023,12 +1002,8 @@ function Impression() {
             </span>
 
             <strong>
-              Impressions
+              Impressions today
             </strong>
-
-            <p>
-              received today
-            </p>
 
           </article>
 
@@ -1040,12 +1015,8 @@ function Impression() {
             </span>
 
             <strong>
-              To go
+              To {nextStar}
             </strong>
-
-            <p>
-              for {nextStar}
-            </p>
 
           </article>
 
@@ -1062,15 +1033,7 @@ function Impression() {
 
         <div className="getting-started-title">
 
-          <span className="spark-symbol">
-            ✧
-          </span>
-
           <div>
-
-            <span className="section-kicker">
-              NEW HERE?
-            </span>
 
             <h2>
               Build your impression trail

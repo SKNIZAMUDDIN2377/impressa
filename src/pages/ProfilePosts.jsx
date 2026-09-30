@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useNavigate,
   useParams,
@@ -7,6 +7,108 @@ import {
 import Post from "../components/Post";
 import "./ProfilePosts.css";
 
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+// ==========================================
+// NORMALIZE A SINGLE MEDIA ITEM'S URL
+// ==========================================
+//
+// Backend media can come back as a relative path ("/uploads/x.jpg")
+// or a hardcoded localhost URL from local testing. Both break once
+// the frontend is deployed to a different origin (e.g. Netlify),
+// so every media URL is rewritten to point at the real API host —
+// the same normalization Profile.jsx already applies to post images.
+//
+
+const normalizeMediaUrl = (url) => {
+  if (!url) return url;
+
+  if (url.startsWith("/")) {
+    return `${API_BASE_URL}${url}`;
+  }
+
+  if (url.startsWith("http://localhost:5000")) {
+    return url.replace(
+      "http://localhost:5000",
+      API_BASE_URL
+    );
+  }
+
+  return url;
+};
+
+const normalizeMediaItem = (item) => {
+  if (typeof item === "string") {
+    return normalizeMediaUrl(item);
+  }
+
+  if (item && typeof item === "object") {
+    return {
+      ...item,
+      url: normalizeMediaUrl(item.url),
+      path: normalizeMediaUrl(item.path),
+      src: normalizeMediaUrl(item.src),
+    };
+  }
+
+  return item;
+};
+
+// ==========================================
+// PROFILE POSTS CACHE
+// ==========================================
+
+const getCachedProfilePosts = (username) => {
+  try {
+    if (!username) return null;
+
+    return JSON.parse(
+      localStorage.getItem(
+        `impressa_profile_posts_page_${username.toLowerCase()}`
+      ) || "null"
+    );
+  } catch (error) {
+    console.error(
+      "Profile posts page cache read error:",
+      error
+    );
+
+    return null;
+  }
+};
+
+const setCachedProfilePosts = (username, posts) => {
+  try {
+    if (!username) return;
+
+    localStorage.setItem(
+      `impressa_profile_posts_page_${username.toLowerCase()}`,
+      JSON.stringify(posts)
+    );
+  } catch (error) {
+    console.error(
+      "Profile posts page cache write error:",
+      error
+    );
+  }
+};
+
+const clearCachedProfilePosts = (username) => {
+  try {
+    if (!username) return;
+
+    localStorage.removeItem(
+      `impressa_profile_posts_page_${username.toLowerCase()}`
+    );
+  } catch (error) {
+    console.error(
+      "Profile posts page cache clear error:",
+      error
+    );
+  }
+};
+
 function ProfilePosts() {
   const navigate = useNavigate();
   const { username } = useParams();
@@ -14,43 +116,72 @@ function ProfilePosts() {
 
   const selectedPostId = searchParams.get("post");
 
-  const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const initialCachedPosts = getCachedProfilePosts(username);
+
+  const [posts, setPosts] = useState(
+    initialCachedPosts || []
+  );
+
+  const [loading, setLoading] = useState(
+    !initialCachedPosts
+  );
+
   const [error, setError] = useState("");
 
+  const requestIdRef = useRef(0);
+
   useEffect(() => {
+    const cachedForThisUser = getCachedProfilePosts(username);
+
+    setPosts(cachedForThisUser || []);
+    setLoading(!cachedForThisUser);
+    setError("");
+
+    const requestId = ++requestIdRef.current;
+
     const fetchUserPosts = async () => {
       try {
-        setLoading(true);
         setError("");
 
-       const API_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000";
+        const token = localStorage.getItem("token");
 
         const response = await fetch(
-          `${API_URL}/api/profile/${encodeURIComponent(
+          `${API_BASE_URL}/api/profile/${encodeURIComponent(
             username
-          )}/posts`
+          )}/posts`,
+          {
+            method: "GET",
+            headers: token
+              ? { Authorization: `Bearer ${token}` }
+              : {},
+          }
         );
 
         const data = await response.json();
 
-        console.log(
-          "Profile Posts response:",
-          data
-        );
-
-        if (!response.ok) {
-          setError(
-            data.message ||
-              "Failed to load posts."
-          );
+        if (requestId !== requestIdRef.current) {
           return;
         }
 
-        // ==========================================
-        // FORMAT BACKEND POSTS FOR POST COMPONENT
-        // ==========================================
+        if (!response.ok) {
+          // Deleted, not found, or blocked: never show a stale cached copy
+          if (response.status === 404) {
+            clearCachedProfilePosts(username);
+
+            setPosts([]);
+            setError("This profile isn't available.");
+
+            return;
+          }
+
+          if (!getCachedProfilePosts(username)) {
+            setError(
+              data.message ||
+                "Failed to load posts."
+            );
+          }
+          return;
+        }
 
         const formattedPosts =
           (data.posts || []).map((post) => ({
@@ -60,18 +191,18 @@ function ProfilePosts() {
               post.author?.username ||
               username,
 
-            profileImage:
-              post.author?.profilePicture ||
-              "https://i.pravatar.cc/150",
+            profileImage: normalizeMediaUrl(
+              post.author?.profilePicture
+            ) || "https://i.pravatar.cc/150",
 
             time: new Date(
               post.createdAt
             ).toLocaleDateString(),
 
-            // Keep the complete media array
-            media: post.media || [],
+            media: (post.media || []).map(
+              normalizeMediaItem
+            ),
 
-            // Keep music from backend
             music:
               post.music || {
                 id: null,
@@ -94,28 +225,35 @@ function ProfilePosts() {
           }));
 
         setPosts(formattedPosts);
+        setCachedProfilePosts(username, formattedPosts);
       } catch (error) {
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+
         console.error(
           "Profile posts error:",
           error
         );
 
-        setError(
-          "Cannot connect to Impressa server."
-        );
+        if (!getCachedProfilePosts(username)) {
+          setError(
+            "Cannot connect to Impressa server."
+          );
+        }
       } finally {
-        setLoading(false);
+        if (requestId === requestIdRef.current) {
+          setLoading(false);
+        }
       }
     };
 
     if (username) {
       fetchUserPosts();
+    } else {
+      setLoading(false);
     }
   }, [username]);
-
-  // ==========================================
-  // SCROLL TO SHARED POST
-  // ==========================================
 
   useEffect(() => {
     if (
@@ -149,10 +287,6 @@ function ProfilePosts() {
   return (
     <main className="profile-posts-page">
 
-      {/* ==========================================
-          HEADER
-      ========================================== */}
-
       <header className="profile-posts-header">
 
         <button
@@ -181,20 +315,16 @@ function ProfilePosts() {
       </header>
 
 
-      {/* ==========================================
-          FEED
-      ========================================== */}
-
       <section className="profile-posts-feed">
 
-        {loading && (
+        {loading && posts.length === 0 && (
           <div className="profile-posts-status">
             Loading posts...
           </div>
         )}
 
 
-        {!loading && error && (
+        {!loading && error && posts.length === 0 && (
           <div className="profile-posts-status">
             {error}
           </div>
@@ -222,12 +352,10 @@ function ProfilePosts() {
 
             </div>
 
-          )}
+        )}
 
 
-        {!loading &&
-          !error &&
-          posts.length > 0 && (
+        {posts.length > 0 && (
 
             <div className="profile-posts-list">
 
@@ -244,7 +372,7 @@ function ProfilePosts() {
 
             </div>
 
-          )}
+        )}
 
       </section>
 

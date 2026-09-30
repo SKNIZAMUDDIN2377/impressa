@@ -72,7 +72,10 @@ const pulseSchema = new mongoose.Schema(
     expiresAt: {
       type: Date,
       required: true,
-      index: true,
+      // NOTE: do NOT add `index: true` here. The TTL index below
+      // already indexes this field. Two indexes on the same key
+      // with different options (plain vs TTL) conflict and can
+      // fail to build / throw IndexOptionsConflict on startup.
     },
 
     // ==========================================
@@ -101,7 +104,9 @@ const pulseSchema = new mongoose.Schema(
 // ==========================================
 //
 // MongoDB will automatically remove the Pulse
-// after expiresAt.
+// document roughly 60 seconds after expiresAt
+// passes (TTL monitor runs every 60s — this is
+// normal MongoDB behavior, not a bug).
 //
 
 pulseSchema.index(

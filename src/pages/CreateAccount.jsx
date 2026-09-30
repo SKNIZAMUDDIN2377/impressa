@@ -17,6 +17,26 @@ function CreateAccount() {
   const passwordsMatch =
     password === confirmPassword;
 
+  // ==========================================
+  // PHONE VALIDATION
+  // ==========================================
+  // Previously any non-empty string (including a 3-digit number)
+  // passed validation and was sent straight to the backend. This
+  // now requires digits only, with a real phone-length minimum.
+
+  const digitsOnly = phone.replace(/\D/g, "");
+
+  const isPhoneValid =
+    digitsOnly.length >= 10 &&
+    digitsOnly.length <= 15;
+
+  const handlePhoneChange = (event) => {
+    // Strip anything that isn't a digit as the user types.
+    const cleaned = event.target.value.replace(/\D/g, "");
+
+    setPhone(cleaned);
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
 
@@ -29,6 +49,10 @@ function CreateAccount() {
       return;
     }
 
+    if (!isPhoneValid) {
+      return;
+    }
+
     if (!passwordsMatch) {
       return;
     }
@@ -36,16 +60,8 @@ function CreateAccount() {
     setIsLoading(true);
 
     try {
-      // ==========================================
-      // IMPRESSA BACKEND URL
-      // ==========================================
-
       const API_URL =
   import.meta.env.VITE_API_URL || "http://localhost:5000";
-
-      // ==========================================
-      // REGISTER USER
-      // ==========================================
 
       const response = await fetch(
         `${API_URL}/api/auth/register`,
@@ -57,9 +73,6 @@ function CreateAccount() {
           },
 
           body: JSON.stringify({
-            // Backend requires name.
-            // Current UI does not have a separate
-            // name field, so username is used initially.
             name: username.trim(),
 
             username: username.trim(),
@@ -78,10 +91,6 @@ function CreateAccount() {
         data
       );
 
-      // ==========================================
-      // REGISTRATION FAILED
-      // ==========================================
-
       if (!response.ok) {
         alert(
           data.message ||
@@ -91,21 +100,9 @@ function CreateAccount() {
         return;
       }
 
-      // ==========================================
-      // REGISTRATION SUCCESSFUL
-      // ==========================================
-
       console.log(
         "Account created successfully 🎉"
       );
-
-      /*
-        Remove the old logged-in account session.
-
-        This is important when creating a second
-        account while the first account is still
-        logged in.
-      */
 
       localStorage.removeItem("token");
       localStorage.removeItem("user");
@@ -114,10 +111,6 @@ function CreateAccount() {
         data.message ||
           "Impressa account created successfully 🎉"
       );
-
-      // ==========================================
-      // GO TO SIGN IN
-      // ==========================================
 
       navigate("/SignIn");
 
@@ -139,30 +132,19 @@ function CreateAccount() {
   return (
     <main className="create-account-page">
 
-      {/* BACKGROUND DECORATION */}
-
-      <div className="create-account-glow create-account-glow-one" />
-      <div className="create-account-glow create-account-glow-two" />
-
       <div className="create-account-container">
-
-        {/* BRAND */}
 
         <section className="create-account-brand">
 
           <div className="create-account-logo">
-            impressa
+            impressa<span>.</span>
           </div>
 
           <p className="create-account-tagline">
             Rise through impressions
           </p>
 
-          <div className="create-account-line" />
-
         </section>
-
-        {/* FORM AREA */}
 
         <section className="create-account-card">
 
@@ -186,8 +168,6 @@ function CreateAccount() {
             className="create-account-form"
             onSubmit={handleSubmit}
           >
-
-            {/* USERNAME */}
 
             <div className="create-account-field">
 
@@ -216,16 +196,19 @@ function CreateAccount() {
 
             </div>
 
-
-            {/* PHONE */}
-
             <div className="create-account-field">
 
               <label htmlFor="create-phone">
                 Phone number
               </label>
 
-              <div className="create-account-input">
+              <div
+                className={`create-account-input ${
+                  phone && !isPhoneValid
+                    ? "field-error"
+                    : ""
+                }`}
+              >
 
                 <span className="create-account-icon phone-icon">
                   +
@@ -235,20 +218,24 @@ function CreateAccount() {
                   id="create-phone"
                   type="tel"
                   value={phone}
-                  onChange={(event) =>
-                    setPhone(event.target.value)
-                  }
+                  onChange={handlePhoneChange}
                   placeholder="Enter your phone number"
                   autoComplete="tel"
                   inputMode="numeric"
+                  maxLength={15}
                 />
 
               </div>
 
+              {phone && !isPhoneValid && (
+                <span className="field-error-text">
+                  {digitsOnly.length < 10
+                    ? "Enter a valid phone number (at least 10 digits)"
+                    : "Phone number is too long"}
+                </span>
+              )}
+
             </div>
-
-
-            {/* PASSWORD */}
 
             <div className="create-account-field">
 
@@ -298,9 +285,6 @@ function CreateAccount() {
 
             </div>
 
-
-            {/* CONFIRM PASSWORD */}
-
             <div className="create-account-field">
 
               <label htmlFor="confirm-password">
@@ -311,7 +295,7 @@ function CreateAccount() {
                 className={`create-account-input ${
                   confirmPassword &&
                   !passwordsMatch
-                    ? "password-error"
+                    ? "field-error"
                     : ""
                 }`}
               >
@@ -358,15 +342,12 @@ function CreateAccount() {
 
               {confirmPassword &&
                 !passwordsMatch && (
-                  <span className="password-error-text">
+                  <span className="field-error-text">
                     Passwords do not match
                   </span>
                 )}
 
             </div>
-
-
-            {/* CREATE ACCOUNT BUTTON */}
 
             <button
               type="submit"
@@ -374,7 +355,7 @@ function CreateAccount() {
               disabled={
                 isLoading ||
                 !username.trim() ||
-                !phone.trim() ||
+                !isPhoneValid ||
                 !password ||
                 !confirmPassword ||
                 !passwordsMatch
@@ -401,10 +382,19 @@ function CreateAccount() {
 
             </button>
 
+            <p className="create-account-terms">
+              By creating an account you agree to our{" "}
+              <Link to="/community-guidelines">
+                Community Guidelines
+              </Link>{" "}
+              and{" "}
+              <Link to="/privacy-policy">
+                Privacy Policy
+              </Link>
+              .
+            </p>
+
           </form>
-
-
-          {/* LOGIN LINK */}
 
           <div className="already-account">
 
@@ -419,9 +409,6 @@ function CreateAccount() {
           </div>
 
         </section>
-
-
-        {/* FOOTER */}
 
         <p className="create-account-footer">
           © {new Date().getFullYear()} Impressa

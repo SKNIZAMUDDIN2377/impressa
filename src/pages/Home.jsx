@@ -1,39 +1,57 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Post from "../components/Post";
+import { getCache, setCache } from "../utils/impressaCache";
 import "./Home.css";
 
+const DEFAULT_AVATAR =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300">
+      <rect width="300" height="300" fill="#E9E9E9"/>
+      <circle cx="150" cy="115" r="55" fill="#C2C2C2"/>
+      <path d="M150 188c-68 0-122 42-122 95v17h244v-17c0-53-54-95-122-95z" fill="#C2C2C2"/>
+    </svg>`
+  );
+
+const shufflePosts = (items) => {
+  const shuffled = [...items];
+
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const randomIndex = Math.floor(Math.random() * (i + 1));
+
+    [shuffled[i], shuffled[randomIndex]] = [
+      shuffled[randomIndex],
+      shuffled[i],
+    ];
+  }
+
+  return shuffled;
+};
+
 function Home() {
-  const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const token = localStorage.getItem("token");
+
+  const homeCacheKey = token ? `home_posts_${token}` : "home_posts";
+
+  // ==========================================
+  // CACHE-FIRST INITIAL STATE
+  // ==========================================
+
+  const initialCachedPosts = getCache(homeCacheKey);
+
+  const hadCacheRef = useRef(
+    Array.isArray(initialCachedPosts) && initialCachedPosts.length > 0
+  );
+
+  const [posts, setPosts] = useState(() => initialCachedPosts || []);
+  const [loading, setLoading] = useState(!hadCacheRef.current);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
 
   const [touchStartY, setTouchStartY] = useState(null);
   const [pullDistance, setPullDistance] = useState(0);
 
-  // ==========================================
-  // RANDOMIZE FEED ORDER
-  // ==========================================
-
-  const shufflePosts = (items) => {
-    const shuffled = [...items];
-
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const randomIndex = Math.floor(
-        Math.random() * (i + 1)
-      );
-
-      [
-        shuffled[i],
-        shuffled[randomIndex],
-      ] = [
-        shuffled[randomIndex],
-        shuffled[i],
-      ];
-    }
-
-    return shuffled;
-  };
+  const requestIdRef = useRef(0);
 
   // ==========================================
   // FETCH POSTS
@@ -41,178 +59,120 @@ function Home() {
 
   const fetchPosts = useCallback(
     async (isRefresh = false) => {
+      const requestId = ++requestIdRef.current;
+
       try {
         if (isRefresh) {
           setRefreshing(true);
-        } else {
+        } else if (!hadCacheRef.current) {
           setLoading(true);
         }
 
         setError("");
 
-        const token =
-          localStorage.getItem("token");
+        const currentToken = localStorage.getItem("token");
 
-        if (!token) {
-          console.error(
-            "No login token found."
-          );
-
-          setError(
-            "Please sign in again."
-          );
+        if (!currentToken) {
+          if (requestId === requestIdRef.current) {
+            setError("Please sign in again.");
+          }
 
           return;
         }
 
-       const API_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000";
+        const API_URL =
+          import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-        console.log(
-          "Impressa Home API:",
-          `${API_URL}/api/posts`
-        );
+        const response = await fetch(`${API_URL}/api/posts`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${currentToken}`,
+          },
+        });
 
-        const response = await fetch(
-          `${API_URL}/api/posts`,
-          {
-            method: "GET",
+        const data = await response.json();
 
-            headers: {
-              Authorization:
-                `Bearer ${token}`,
-            },
-          }
-        );
-
-        const data =
-          await response.json();
-
-        console.log(
-          "Impressa Home response:",
-          data
-        );
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
 
         if (!response.ok) {
-          console.error(
-            "Failed to fetch posts:",
-            data
-          );
+          console.error("Failed to fetch posts:", data);
 
-          setError(
-            data.message ||
-              "Failed to load posts."
-          );
+          setError(data.message || "Failed to load posts.");
 
           return;
         }
 
-        const formattedPosts =
-          (data.posts || []).map(
-            (post) => ({
-              id: post._id,
+        const formattedPosts = (data.posts || []).map((post) => ({
+          id: post._id,
 
-              username:
-                post.author?.username ||
-                "unknown",
+          username: post.author?.username || "unknown",
 
-              profileImage:
-                post.author?.profilePicture ||
-                "https://i.pravatar.cc/150",
+          profileImage: post.author?.profilePicture || DEFAULT_AVATAR,
 
-              time: new Date(
-                post.createdAt
-              ).toLocaleDateString(),
+          time: new Date(post.createdAt).toLocaleDateString(),
 
-              media:
-                post.media || [],
+          media: post.media || [],
 
-              music:
-                post.music || {
-                  id: null,
-                  title: "",
-                  artist: "",
-                  audioUrl: "",
-                },
+          music: post.music || {
+            id: null,
+            title: "",
+            artist: "",
+            audioUrl: "",
+          },
 
-              caption:
-                post.caption || "",
+          caption: post.caption || "",
 
-              commentsCount:
-                post.commentsCount || 0,
+          commentsCount: post.commentsCount || 0,
 
-              impressions:
-                post.impressionsCount || 0,
-            })
-          );
+          impressions: post.impressionsCount || 0,
+        }));
 
-        // ==========================================
-        // NEW RANDOM FEED ORDER
-        // ==========================================
+        const randomizedPosts = shufflePosts(formattedPosts);
 
-        const randomizedPosts =
-          shufflePosts(formattedPosts);
+        hadCacheRef.current = true;
 
         setPosts(randomizedPosts);
+        setCache(homeCacheKey, randomizedPosts);
+      } catch (fetchError) {
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
 
-      } catch (error) {
-        console.error(
-          "Fetch posts error:",
-          error
-        );
+        console.error("Fetch posts error:", fetchError);
 
-        setError(
-          "Cannot connect to Impressa server."
-        );
-
+        if (!getCache(homeCacheKey)) {
+          setError("Cannot connect to Impressa server.");
+        }
       } finally {
-        setLoading(false);
-        setRefreshing(false);
+        if (requestId === requestIdRef.current) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     },
-    []
+    [homeCacheKey]
   );
 
   // ==========================================
-  // INITIAL HOME LOAD
-  // + NAVBAR HOME REFRESH
+  // INITIAL LOAD + NAVBAR HOME REFRESH
   // ==========================================
 
   useEffect(() => {
-    // Always start Home at the top
-    window.scrollTo({
-      top: 0,
-      behavior: "instant",
-    });
+    window.scrollTo({ top: 0, behavior: "instant" });
 
-    // Initial feed
     fetchPosts();
 
-    // ------------------------------------------
-    // Listen for Home icon refresh
-    // ------------------------------------------
-
     const handleHomeRefresh = () => {
-      // Go to top
-      window.scrollTo({
-        top: 0,
-        behavior: "instant",
-      });
-
-      // Fetch latest posts
+      window.scrollTo({ top: 0, behavior: "instant" });
       fetchPosts(true);
     };
 
-    window.addEventListener(
-      "impressa-home-refresh",
-      handleHomeRefresh
-    );
+    window.addEventListener("impressa-home-refresh", handleHomeRefresh);
 
     return () => {
-      window.removeEventListener(
-        "impressa-home-refresh",
-        handleHomeRefresh
-      );
+      window.removeEventListener("impressa-home-refresh", handleHomeRefresh);
     };
   }, [fetchPosts]);
 
@@ -221,37 +181,20 @@ function Home() {
   // ==========================================
 
   const handleTouchStart = (event) => {
-    if (
-      window.scrollY <= 0 &&
-      !loading &&
-      !refreshing
-    ) {
-      setTouchStartY(
-        event.touches[0].clientY
-      );
+    if (window.scrollY <= 0 && !loading && !refreshing) {
+      setTouchStartY(event.touches[0].clientY);
     }
   };
 
   const handleTouchMove = (event) => {
-    if (
-      touchStartY === null ||
-      window.scrollY > 0 ||
-      loading ||
-      refreshing
-    ) {
+    if (touchStartY === null || window.scrollY > 0 || loading || refreshing) {
       return;
     }
 
-    const currentY =
-      event.touches[0].clientY;
-
-    const distance =
-      currentY - touchStartY;
+    const distance = event.touches[0].clientY - touchStartY;
 
     if (distance > 0) {
-      setPullDistance(
-        Math.min(distance * 0.5, 100)
-      );
+      setPullDistance(Math.min(distance * 0.5, 100));
     }
   };
 
@@ -260,21 +203,20 @@ function Home() {
       return;
     }
 
-    const shouldRefresh =
-      pullDistance >= 60;
+    const shouldRefresh = pullDistance >= 60;
 
     setTouchStartY(null);
     setPullDistance(0);
 
     if (shouldRefresh) {
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
+      window.scrollTo({ top: 0, behavior: "smooth" });
 
       await fetchPosts(true);
     }
   };
+
+  const showSkeleton = !error && loading && posts.length === 0;
+  const showEmpty = !error && !loading && posts.length === 0;
 
   return (
     <main
@@ -283,39 +225,12 @@ function Home() {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* ==========================================
-          PULL TO REFRESH INDICATOR
-      ========================================== */}
-
-      {(pullDistance > 0 ||
-        refreshing) && (
+      {(pullDistance > 0 || refreshing) && (
         <div
+          className="pull-indicator"
           style={{
-            height:
-              refreshing
-                ? "50px"
-                : `${pullDistance}px`,
-
-            display: "flex",
-
-            alignItems:
-              "center",
-
-            justifyContent:
-              "center",
-
-            overflow: "hidden",
-
-            transition:
-              refreshing
-                ? "height 0.2s ease"
-                : "none",
-
-            fontSize: "14px",
-
-            color: "#ff6a00",
-
-            fontWeight: "600",
+            height: refreshing ? "48px" : `${pullDistance}px`,
+            transition: refreshing ? "height 0.2s ease" : "none",
           }}
         >
           {refreshing
@@ -327,53 +242,61 @@ function Home() {
       )}
 
       <div className="home-container">
-
         <header className="home-header">
-
-          <h1>
-            home
-          </h1>
-
-          <p>
-            Discover impressions
-          </p>
-
+          <div>
+            <h1>home</h1>
+            <p>Discover impressions</p>
+          </div>
         </header>
 
         <section className="home-feed">
+          {error && (
+            <div className="home-state">
+              <div className="home-state-icon">!</div>
 
-          {loading && (
-            <p>
-              Loading posts...
-            </p>
+              <h3>Something went wrong</h3>
+
+              <p>{error}</p>
+
+              <button type="button" onClick={() => fetchPosts(true)}>
+                Try again
+              </button>
+            </div>
           )}
 
-          {!loading &&
-            error && (
-              <p>
-                {error}
-              </p>
-            )}
+          {showSkeleton &&
+            [0, 1, 2].map((key) => (
+              <div className="feed-skeleton" key={key}>
+                <div className="feed-skeleton-head">
+                  <span className="sk sk-avatar" />
+                  <span className="sk sk-line sk-w40" />
+                </div>
 
-          {!loading &&
-            !error &&
-            posts.length === 0 && (
-              <p>
-                No posts yet.
-              </p>
-            )}
+                <span className="sk sk-media" />
 
-          {!loading &&
-            !error &&
-            posts.map((post) => (
-              <Post
-                key={post.id}
-                post={post}
-              />
+                <div className="feed-skeleton-foot">
+                  <span className="sk sk-line sk-w70" />
+                  <span className="sk sk-line sk-w50" />
+                </div>
+              </div>
             ))}
 
-        </section>
+          {showEmpty && (
+            <div className="home-state">
+              <div className="home-state-icon">i</div>
 
+              <h3>Nothing here yet</h3>
+
+              <p>New impressions will show up here as people post.</p>
+
+              <button type="button" onClick={() => fetchPosts(true)}>
+                Refresh
+              </button>
+            </div>
+          )}
+
+          {!error && posts.map((post) => <Post key={post.id} post={post} />)}
+        </section>
       </div>
     </main>
   );

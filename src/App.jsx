@@ -20,6 +20,13 @@ import Help from "./pages/Help";
 import AccountCenter from "./pages/AccountCenter";
 import EditProfile from "./pages/EditProfile";
 import SharedPost from "./pages/SharedPost";
+import BlockedAccounts from "./pages/BlockedAccounts";
+import CommunityGuidelines from "./pages/CommunityGuidelines";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import AccountDeletionInfo from "./pages/AccountDeletionInfo";
+
+import "./styles/safety.css";
+import "./styles/dark.css";
 
 
 // ==========================================
@@ -60,6 +67,28 @@ function App() {
         <Route
           path="/create-account"
           element={<CreateAccount />}
+        />
+
+
+        {/* ==========================================
+            PUBLIC PAGES (no login needed)
+            Required by Google Play:
+            public Privacy Policy + account deletion page
+        ========================================== */}
+
+        <Route
+          path="/privacy-policy"
+          element={<PrivacyPolicy />}
+        />
+
+        <Route
+          path="/delete-account-info"
+          element={<AccountDeletionInfo />}
+        />
+
+                <Route
+          path="/community-guidelines"
+          element={<CommunityGuidelines />}
         />
 
 
@@ -161,6 +190,22 @@ function App() {
                   <Route
                     path="/privacy"
                     element={<Privacy />}
+                  />
+
+
+                  {/* BLOCKED ACCOUNTS */}
+
+                  <Route
+                    path="/blocked-accounts"
+                    element={<BlockedAccounts />}
+                  />
+
+
+                  {/* COMMUNITY GUIDELINES */}
+
+                  <Route
+                    path="/community-guidelines"
+                    element={<CommunityGuidelines />}
                   />
 
 

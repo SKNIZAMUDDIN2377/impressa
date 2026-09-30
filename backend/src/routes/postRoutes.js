@@ -4,6 +4,7 @@ const {
   createPost,
   getPosts,
   getPostById,
+  deletePost,
 } = require("../controllers/postController");
 
 const {
@@ -47,6 +48,16 @@ router.post(
   authMiddleware,
   upload.array("media", 10),
   createPost
+);
+
+// ==========================================
+// DELETE POST (owner only)
+// ==========================================
+
+router.delete(
+  "/:postId",
+  authMiddleware,
+  deletePost
 );
 
 // ==========================================

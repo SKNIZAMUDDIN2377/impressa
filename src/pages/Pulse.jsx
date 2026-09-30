@@ -1,13 +1,11 @@
 import React, {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
+import { getCache, setCache } from "../utils/impressaCache";
 import "./Pulse.css";
-
-/* =====================================================
-   DAILY CHALLENGES
-===================================================== */
 
 const challenges = [
   "Capture the Sky",
@@ -55,10 +53,6 @@ const challengeDescriptions = [
   "Take the best picture you can today.",
 ];
 
-/* =====================================================
-   DAILY CHALLENGE FALLBACK
-===================================================== */
-
 function getDailyChallenge() {
   const startDate =
     new Date("2026-01-01T00:00:00");
@@ -81,43 +75,59 @@ function getDailyChallenge() {
   );
 }
 
-/* =====================================================
-   PULSE
-===================================================== */
-
 function Pulse() {
+  const token = localStorage.getItem("token");
+
+  const pulseCacheKey = token
+    ? `pulse_data_${token}`
+    : "pulse_data";
+
+  const initialCache = getCache(pulseCacheKey);
+
+  const hadCacheRef = useRef(
+    Boolean(initialCache)
+  );
+
+  const requestIdRef = useRef(0);
+
   const [challengeIndex, setChallengeIndex] =
-    useState(getDailyChallenge());
+    useState(
+      initialCache?.challengeIndex ??
+        getDailyChallenge()
+    );
 
   const [challengeTitle, setChallengeTitle] =
-    useState("");
+    useState(initialCache?.challengeTitle || "");
 
   const [challengeDescription, setChallengeDescription] =
-    useState("");
+    useState(initialCache?.challengeDescription || "");
 
   const [myImage, setMyImage] =
-    useState(null);
+    useState(initialCache?.myImage ?? null);
 
   const [myPulseId, setMyPulseId] =
-    useState(null);
+    useState(initialCache?.myPulseId ?? null);
 
   const [followers, setFollowers] =
-    useState([]);
+    useState(initialCache?.followers || []);
 
   const [likedPosts, setLikedPosts] =
     useState([]);
 
   const [streak, setStreak] =
-    useState(0);
+    useState(initialCache?.streak ?? 0);
 
   const [completedToday, setCompletedToday] =
-    useState(false);
+    useState(initialCache?.completedToday ?? false);
 
   const [showReward, setShowReward] =
     useState(false);
 
   const [isLoading, setIsLoading] =
-    useState(true);
+    useState(!hadCacheRef.current);
+
+  const [isRefreshing, setIsRefreshing] =
+    useState(false);
 
   const [isUploading, setIsUploading] =
     useState(false);
@@ -128,29 +138,30 @@ function Pulse() {
   const [error, setError] =
     useState("");
 
-  /* =================================================
-     API
-  ================================================= */
-
  const API_URL =
   import.meta.env.VITE_API_URL || "http://localhost:5000";
 
   const getToken = () =>
     localStorage.getItem("token");
 
-  /* =================================================
-     FETCH PULSE
-  ================================================= */
-
   const fetchPulse = async () => {
+    const requestId = ++requestIdRef.current;
+
     try {
-      setIsLoading(true);
+      if (hadCacheRef.current) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
+
       setError("");
 
       const token = getToken();
 
       if (!token) {
-        setError("Please sign in to use Pulse.");
+        if (requestId === requestIdRef.current) {
+          setError("Please sign in to use Pulse.");
+        }
         return;
       }
 
@@ -169,6 +180,10 @@ function Pulse() {
       const data =
         await response.json();
 
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
       if (!response.ok) {
         throw new Error(
           data.message ||
@@ -176,88 +191,83 @@ function Pulse() {
         );
       }
 
-      /* ------------------------------------------
-         CHALLENGE
-      ------------------------------------------ */
+      let nextChallengeIndex = challengeIndex;
+      let nextChallengeTitle = challengeTitle;
+      let nextChallengeDescription = challengeDescription;
 
       if (data.challenge) {
-        setChallengeIndex(
-          data.challenge.index
-        );
+        nextChallengeIndex = data.challenge.index;
+        nextChallengeTitle = data.challenge.title;
+        nextChallengeDescription = data.challenge.description;
 
-        setChallengeTitle(
-          data.challenge.title
-        );
-
-        setChallengeDescription(
-          data.challenge.description
-        );
+        setChallengeIndex(nextChallengeIndex);
+        setChallengeTitle(nextChallengeTitle);
+        setChallengeDescription(nextChallengeDescription);
       }
 
-      /* ------------------------------------------
-         STREAK
-      ------------------------------------------ */
+      const nextStreak = Number(data.streak) || 0;
+      const nextCompletedToday = Boolean(data.completedToday);
 
-      setStreak(
-        Number(data.streak) || 0
-      );
+      setStreak(nextStreak);
+      setCompletedToday(nextCompletedToday);
 
-      setCompletedToday(
-        Boolean(data.completedToday)
-      );
-
-      /* ------------------------------------------
-         MY PULSE
-      ------------------------------------------ */
+      let nextMyPulseId = null;
+      let nextMyImage = null;
 
       if (data.myPulse) {
-        setMyPulseId(
-          data.myPulse.id
-        );
-
-        setMyImage(
-          data.myPulse.image
-        );
-      } else {
-        setMyPulseId(null);
-        setMyImage(null);
+        nextMyPulseId = data.myPulse.id;
+        nextMyImage = data.myPulse.image;
       }
 
-      /* ------------------------------------------
-         FOLLOWER PULSES
-      ------------------------------------------ */
+      setMyPulseId(nextMyPulseId);
+      setMyImage(nextMyImage);
 
-      setFollowers(
-        Array.isArray(data.followerPulses)
-          ? data.followerPulses
-          : []
-      );
+      const nextFollowers = Array.isArray(data.followerPulses)
+        ? data.followerPulses
+        : [];
+
+      setFollowers(nextFollowers);
+
+      hadCacheRef.current = true;
+
+      setCache(pulseCacheKey, {
+        challengeIndex: nextChallengeIndex,
+        challengeTitle: nextChallengeTitle,
+        challengeDescription: nextChallengeDescription,
+        streak: nextStreak,
+        completedToday: nextCompletedToday,
+        myPulseId: nextMyPulseId,
+        myImage: nextMyImage,
+        followers: nextFollowers,
+      });
     } catch (err) {
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
       console.error(
         "Fetch Pulse error:",
         err
       );
 
-      setError(
-        err.message ||
-          "Unable to connect to Impressa server."
-      );
+      if (!getCache(pulseCacheKey)) {
+        setError(
+          err.message ||
+            "Unable to connect to Impressa server."
+        );
+      }
     } finally {
-      setIsLoading(false);
+      if (requestId === requestIdRef.current) {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
     }
   };
 
-  /* =================================================
-     LOAD PULSE
-  ================================================= */
-
   useEffect(() => {
     fetchPulse();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  /* =================================================
-     DAILY CHALLENGE CHECK
-  ================================================= */
 
   useEffect(() => {
     const updateChallenge = () => {
@@ -276,10 +286,6 @@ function Pulse() {
       clearInterval(timer);
   }, []);
 
-  /* =================================================
-     STREAK CALCULATIONS
-  ================================================= */
-
   const streakProgress =
     Math.min(
       100,
@@ -292,6 +298,8 @@ function Pulse() {
       7 - streak
     );
 
+  // FIX: this was `index > Math.min(streak, 7)`, which inverted
+  // completed/incomplete days. Completed days must be index < streak.
   const streakDays =
     useMemo(
       () =>
@@ -303,10 +311,6 @@ function Pulse() {
         ),
       [streak]
     );
-
-  /* =================================================
-     FILE TO BASE64
-  ================================================= */
 
   const fileToBase64 = (
     file
@@ -333,10 +337,6 @@ function Pulse() {
       }
     );
   };
-
-  /* =================================================
-     UPLOAD
-  ================================================= */
 
   const handleUpload = async (
     event
@@ -372,18 +372,10 @@ function Pulse() {
       setIsUploading(true);
       setError("");
 
-      /* ------------------------------------------
-         CONVERT IMAGE
-      ------------------------------------------ */
-
       const image =
         await fileToBase64(
           file
         );
-
-      /* ------------------------------------------
-         CREATE PULSE
-      ------------------------------------------ */
 
       const response =
         await fetch(
@@ -415,10 +407,6 @@ function Pulse() {
         );
       }
 
-      /* ------------------------------------------
-         UPDATE MY PULSE
-      ------------------------------------------ */
-
       if (data.pulse) {
         setMyPulseId(
           data.pulse.id
@@ -428,10 +416,6 @@ function Pulse() {
           data.pulse.image
         );
       }
-
-      /* ------------------------------------------
-         UPDATE STREAK
-      ------------------------------------------ */
 
       if (
         data.streak !== undefined
@@ -464,10 +448,6 @@ function Pulse() {
         );
       }
 
-      /* ------------------------------------------
-         REFRESH PULSE DATA
-      ------------------------------------------ */
-
       await fetchPulse();
     } catch (err) {
       console.error(
@@ -485,10 +465,6 @@ function Pulse() {
       event.target.value = "";
     }
   };
-
-  /* =================================================
-     DELETE IMAGE
-  ================================================= */
 
   const deleteMyImage =
     async () => {
@@ -536,10 +512,6 @@ function Pulse() {
         setMyImage(null);
         setMyPulseId(null);
 
-        /*
-          Refresh backend state after deletion.
-        */
-
         await fetchPulse();
       } catch (err) {
         console.error(
@@ -556,10 +528,6 @@ function Pulse() {
       }
     };
 
-  /* =================================================
-     IMPRESS PULSE
-  ================================================= */
-
   const toggleLike =
     async (id) => {
       const token =
@@ -573,10 +541,6 @@ function Pulse() {
         return;
       }
 
-      /*
-        Find current follower pulse.
-      */
-
       const currentPulse =
         followers.find(
           (pulse) =>
@@ -586,10 +550,6 @@ function Pulse() {
       if (!currentPulse) {
         return;
       }
-
-      /*
-        Optimistic UI update.
-      */
 
       setLikedPosts(
         (previous) => {
@@ -633,14 +593,9 @@ function Pulse() {
           );
         }
 
-        /*
-          Keep the server as the
-          source of truth.
-        */
-
         setFollowers(
-          (previous) =>
-            previous.map(
+          (previous) => {
+            const updated = previous.map(
               (pulse) =>
                 pulse.id === id
                   ? {
@@ -651,7 +606,15 @@ function Pulse() {
                         data.impressionsCount,
                     }
                   : pulse
-            )
+            );
+
+            setCache(pulseCacheKey, {
+              ...(getCache(pulseCacheKey) || {}),
+              followers: updated,
+            });
+
+            return updated;
+          }
         );
 
         setLikedPosts(
@@ -680,10 +643,6 @@ function Pulse() {
           "Impress Pulse error:",
           err
         );
-
-        /*
-          Revert optimistic update.
-        */
 
         setLikedPosts(
           (previous) => {
@@ -714,45 +673,53 @@ function Pulse() {
       }
     };
 
-  /* =================================================
-     REWARD CLOSE
-  ================================================= */
-
   const closeReward = () => {
     setShowReward(false);
   };
 
-  /* =================================================
-     LOADING
-  ================================================= */
-
   if (isLoading) {
     return (
       <div className="pulse-page">
+
+        <header className="pulse-header">
+          <span className="pulse-small-title">
+            i-pulse
+          </span>
+
+          <div className="pulse-title-row">
+            <div>
+              <h1>Challenge</h1>
+              <p>
+                One challenge. One moment.
+                Every 24 hours.
+              </p>
+            </div>
+
+            <div className="pulse-fire">🔥</div>
+          </div>
+        </header>
+
+        <div className="pulse-skeleton streak-skeleton" />
+        <div className="pulse-skeleton challenge-skeleton" />
+        <div className="pulse-skeleton upload-skeleton" />
+
         <div
           style={{
-            textAlign: "center",
-            paddingTop: "100px",
-            color: "#999",
-            fontSize: "13px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "18px",
           }}
         >
-          Loading Pulse...
+          <div className="pulse-skeleton card-skeleton" />
+          <div className="pulse-skeleton card-skeleton" />
         </div>
+
       </div>
     );
   }
 
-  /* =================================================
-     RETURN
-  ================================================= */
-
   return (
     <div className="pulse-page">
-
-      {/* =============================================
-          HEADER
-      ============================================= */}
 
       <header className="pulse-header">
 
@@ -776,41 +743,23 @@ function Pulse() {
 
           </div>
 
-          <div className="pulse-fire">
-            🔥
+          <div className="pulse-fire-orbit">
+            <span className="pulse-fire-ring" />
+            <span className="pulse-fire-ring pulse-fire-ring-2" />
+            <div className="pulse-fire">🔥</div>
           </div>
 
         </div>
 
       </header>
 
-
-      {/* =============================================
-          ERROR
-      ============================================= */}
-
       {error && (
-        <div
-          style={{
-            marginBottom: "15px",
-            padding: "12px",
-            textAlign: "center",
-            color: "#d9534f",
-            fontSize: "12px",
-            borderRadius: "10px",
-            background: "#fff5f5",
-          }}
-        >
+        <div className="pulse-error-banner">
           {error}
         </div>
       )}
 
-
-      {/* =============================================
-          7 DAY STREAK
-      ============================================= */}
-
-      <section className="streak-card">
+      <section className="streak-card reveal" style={{ animationDelay: "0.05s" }}>
 
         <div className="streak-top">
 
@@ -836,9 +785,6 @@ function Pulse() {
 
         </div>
 
-
-        {/* DAY INDICATORS */}
-
         <div className="streak-days">
 
           {streakDays.map(
@@ -851,6 +797,7 @@ function Pulse() {
                     : "streak-day"
                 }
                 key={index}
+                style={{ animationDelay: `${index * 0.06}s` }}
               >
 
                 <div className="day-circle">
@@ -874,9 +821,6 @@ function Pulse() {
 
         </div>
 
-
-        {/* PROGRESS */}
-
         <div className="streak-progress">
 
           <div className="streak-progress-track">
@@ -899,9 +843,6 @@ function Pulse() {
           </span>
 
         </div>
-
-
-        {/* STREAK MESSAGE */}
 
         <div className="streak-message">
 
@@ -940,12 +881,7 @@ function Pulse() {
 
       </section>
 
-
-      {/* =============================================
-          TODAY'S CHALLENGE
-      ============================================= */}
-
-      <section className="today-challenge">
+      <section className="today-challenge reveal" style={{ animationDelay: "0.12s" }}>
 
         <div className="challenge-label">
           TODAY'S CHALLENGE
@@ -982,12 +918,7 @@ function Pulse() {
 
       </section>
 
-
-      {/* =============================================
-          MY PULSE
-      ============================================= */}
-
-      <section className="my-pulse-section">
+      <section className="my-pulse-section reveal" style={{ animationDelay: "0.18s" }}>
 
         <div className="section-heading">
 
@@ -1008,7 +939,6 @@ function Pulse() {
           </div>
 
         </div>
-
 
         {myImage ? (
 
@@ -1048,8 +978,11 @@ function Pulse() {
 
           <label className="empty-upload">
 
-            <div className="upload-icon">
-              📷
+            <div className="upload-icon-wrap">
+              <span className="upload-ping" />
+              <div className="upload-icon">
+                📷
+              </div>
             </div>
 
             <strong>
@@ -1089,12 +1022,7 @@ function Pulse() {
 
       </section>
 
-
-      {/* =============================================
-          YOUR PEOPLE
-      ============================================= */}
-
-      <section className="followers-section">
+      <section className="followers-section reveal" style={{ animationDelay: "0.24s" }}>
 
         <div className="section-title">
 
@@ -1116,26 +1044,18 @@ function Pulse() {
 
         </div>
 
-
         <div className="pulse-feed">
 
           {followers.length === 0 ? (
 
-            <div
-              style={{
-                textAlign: "center",
-                padding: "35px 15px",
-                color: "#999",
-                fontSize: "12px",
-              }}
-            >
+            <div className="pulse-feed-empty">
               No active Pulses from your followers yet.
             </div>
 
           ) : (
 
             followers.map(
-              (person) => {
+              (person, index) => {
 
                 const isLiked =
                   person.impressed ||
@@ -1148,7 +1068,22 @@ function Pulse() {
                   <article
                     className="pulse-card"
                     key={person.id}
+                    style={{ animationDelay: `${Math.min(index, 8) * 0.05}s` }}
                   >
+
+                    <div className="follower-image">
+
+                      <img
+                        src={
+                          person.image
+                        }
+                        alt={`${
+                          person.user
+                            ?.username
+                        }'s challenge`}
+                      />
+
+                    </div>
 
                     <div className="pulse-user">
 
@@ -1166,14 +1101,6 @@ function Pulse() {
                               person.user
                                 .username
                             }
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              objectFit:
-                                "cover",
-                              borderRadius:
-                                "50%",
-                            }}
                           />
 
                         ) : (
@@ -1191,22 +1118,6 @@ function Pulse() {
                       </strong>
 
                     </div>
-
-
-                    <div className="follower-image">
-
-                      <img
-                        src={
-                          person.image
-                        }
-                        alt={`${
-                          person.user
-                            ?.username
-                        }'s challenge`}
-                      />
-
-                    </div>
-
 
                     <div className="pulse-like-row">
 
@@ -1230,10 +1141,6 @@ function Pulse() {
 
                       </button>
 
-                      <span>
-                        Impress
-                      </span>
-
                     </div>
 
                   </article>
@@ -1247,11 +1154,6 @@ function Pulse() {
         </div>
 
       </section>
-
-
-      {/* =============================================
-          7 DAY REWARD
-      ============================================= */}
 
       {showReward && (
 
@@ -1268,7 +1170,6 @@ function Pulse() {
               ×
             </button>
 
-
             <div className="reward-burst">
 
               <span>✦</span>
@@ -1279,16 +1180,13 @@ function Pulse() {
 
             </div>
 
-
             <div className="reward-star">
               ★
             </div>
 
-
             <span className="reward-eyebrow">
               PULSE REWARD
             </span>
-
 
             <h2>
               7 DAYS.
@@ -1296,12 +1194,10 @@ function Pulse() {
               YOU DID IT.
             </h2>
 
-
             <p>
               You've completed a full
               seven-day Pulse streak.
             </p>
-
 
             <div className="reward-badge">
 
@@ -1312,7 +1208,6 @@ function Pulse() {
               </span>
 
             </div>
-
 
             <button
               className="reward-button"

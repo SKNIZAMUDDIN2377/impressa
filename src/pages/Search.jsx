@@ -1,12 +1,22 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  getCache,
+  setCache,
+} from "../utils/impressaCache";
 import "./Search.css";
 
-function Search() {
-  // ==========================================
-  // RESTORE SEARCH STATE
-  // ==========================================
+const DEFAULT_AVATAR =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300">
+      <rect width="300" height="300" fill="#E9E9E9"/>
+      <circle cx="150" cy="115" r="55" fill="#C2C2C2"/>
+      <path d="M150 188c-68 0-122 42-122 95v17h244v-17c0-53-54-95-122-95z" fill="#C2C2C2"/>
+    </svg>`
+  );
 
+function Search() {
   const savedSearchText =
     sessionStorage.getItem("impressa_search_text") || "";
 
@@ -21,23 +31,59 @@ function Search() {
     useState(savedSearchText);
 
   const [users, setUsers] =
-    useState([]);
+  useState(() => {
+    const cached =
+      getCache(
+        `search_${
+          localStorage.getItem("token") ||
+          "guest"
+        }_${savedSearchText
+          .trim()
+          .toLowerCase()}`
+      );
+
+    return cached?.users || [];
+  });
 
   const [following, setFollowing] =
     useState(savedFollowing);
 
-  const navigate = useNavigate();
+  // Mirrors `following` so async callbacks never read a stale
+  // closure, and so the cache can be updated right after a toggle.
+  const followingRef = useRef(following);
 
-  // ==========================================
-  // API URL
-  // ==========================================
+  // Tracks which search request is the "latest" one so an older,
+  // slower response can never overwrite state set by a newer search.
+  const searchRequestIdRef = useRef(0);
+
+  // Tracks user ids with an in-flight follow/unfollow request, so
+  // rapid double-clicks don't fire duplicate requests — and so a
+  // stale follow-status check can't undo a toggle the user just made.
+  const pendingFollowRef = useRef(new Set());
+
+  const navigate = useNavigate();
+  const token =
+  localStorage.getItem("token");
+
+const searchCacheKey = `search_${token || "guest"}_${searchText
+  .trim()
+  .toLowerCase()}`;
 
  const API_URL =
   import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-  // ==========================================
-  // SAVE SEARCH TEXT
-  // ==========================================
+  const updateFollowing = (updater) => {
+    setFollowing((previous) => {
+      const next =
+        typeof updater === "function"
+          ? updater(previous)
+          : updater;
+
+      followingRef.current = next;
+
+      return next;
+    });
+  };
 
   useEffect(() => {
     sessionStorage.setItem(
@@ -46,20 +92,12 @@ function Search() {
     );
   }, [searchText]);
 
-  // ==========================================
-  // SAVE FOLLOWING STATE
-  // ==========================================
-
   useEffect(() => {
     sessionStorage.setItem(
       "impressa_search_following",
       JSON.stringify(following)
     );
   }, [following]);
-
-  // ==========================================
-  // RESTORE SCROLL POSITION
-  // ==========================================
 
   useEffect(() => {
     const savedScroll =
@@ -106,6 +144,9 @@ function Search() {
     const controller =
       new AbortController();
 
+    const requestId =
+      ++searchRequestIdRef.current;
+
     const fetchUsers = async () => {
       try {
         const token =
@@ -134,66 +175,108 @@ function Search() {
           );
         }
 
+        if (
+          requestId !==
+          searchRequestIdRef.current
+        ) {
+          return;
+        }
+
         const fetchedUsers =
-          data.users || [];
+  data.users || [];
 
-        setUsers(fetchedUsers);
+// Show the list immediately — don't wait for follow-status
+// checks before the user sees any results.
+setUsers(fetchedUsers);
 
         // ==========================================
-        // GET REAL FOLLOW STATUS
+        // GET REAL FOLLOW STATUS — progressively
         // ==========================================
+        //
+        // Each check updates state as soon as IT resolves, instead
+        // of the whole batch waiting on Promise.all. This means
+        // follow buttons fill in one by one rather than the entire
+        // list staying in a stale/default state until every check
+        // is done.
+        //
 
-        const followingIds = [];
-
-        await Promise.all(
-          fetchedUsers.map(
-            async (user) => {
-              try {
-                const statusResponse =
-                  await fetch(
-                    `${API_URL}/api/follow/status/${encodeURIComponent(
-                      user.username
-                    )}`,
-                    {
-                      method: "GET",
-                      signal:
-                        controller.signal,
-                      headers: {
-                        Authorization:
-                          `Bearer ${token}`,
-                      },
-                    }
-                  );
-
-                const statusData =
-                  await statusResponse.json();
-
-                if (
-                  statusResponse.ok &&
-                  statusData.following === true
-                ) {
-                  followingIds.push(
-                    user.id
-                  );
-                }
-              } catch (error) {
-                if (
-                  error.name !==
-                  "AbortError"
-                ) {
-                  console.error(
-                    "Follow status error ❌",
-                    error
-                  );
-                }
-              }
+        fetchedUsers.forEach((user) => {
+          fetch(
+            `${API_URL}/api/follow/status/${encodeURIComponent(
+              user.username
+            )}`,
+            {
+              method: "GET",
+              signal: controller.signal,
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
             }
           )
-        );
+            .then((statusResponse) =>
+              statusResponse
+                .json()
+                .then((statusData) => ({
+                  ok: statusResponse.ok,
+                  statusData,
+                }))
+            )
+            .then(({ ok, statusData }) => {
+              // A newer search has replaced this one — drop it.
+              if (
+                requestId !==
+                searchRequestIdRef.current
+              ) {
+                return;
+              }
 
-        setFollowing(
-          followingIds
-        );
+              // Don't let a follow-status check overwrite a toggle
+              // the user already made for this user while the
+              // check was in flight.
+              if (pendingFollowRef.current.has(user.id)) {
+                return;
+              }
+
+              if (!ok) return;
+
+              updateFollowing((previous) => {
+                const isFollowing =
+                  previous.includes(user.id);
+
+                if (
+                  statusData.following === true &&
+                  !isFollowing
+                ) {
+                  return [...previous, user.id];
+                }
+
+                if (
+                  statusData.following !== true &&
+                  isFollowing
+                ) {
+                  return previous.filter(
+                    (userId) => userId !== user.id
+                  );
+                }
+
+                return previous;
+              });
+
+              setCache(searchCacheKey, {
+                users: fetchedUsers,
+                following: followingRef.current,
+              });
+            })
+            .catch((error) => {
+              if (error.name !== "AbortError") {
+                console.error(
+                  "Follow status error ❌",
+                  error
+                );
+              }
+            });
+        });
 
       } catch (error) {
         if (
@@ -203,13 +286,22 @@ function Search() {
           return;
         }
 
+        if (
+          requestId !==
+          searchRequestIdRef.current
+        ) {
+          return;
+        }
+
         console.error(
           "Search users error ❌",
           error
         );
 
-        setUsers([]);
-        setFollowing([]);
+       if (!getCache(searchCacheKey)) {
+  setUsers([]);
+  updateFollowing([]);
+}
       }
     };
 
@@ -237,14 +329,16 @@ function Search() {
       return;
     }
 
+    if (pendingFollowRef.current.has(user.id)) {
+      return;
+    }
+
+    pendingFollowRef.current.add(user.id);
+
     const isCurrentlyFollowing =
-      following.includes(user.id);
+      followingRef.current.includes(user.id);
 
-    // ==========================================
-    // UPDATE UI IMMEDIATELY
-    // ==========================================
-
-    setFollowing((previous) => {
+    updateFollowing((previous) => {
       if (isCurrentlyFollowing) {
         return previous.filter(
           (userId) =>
@@ -280,11 +374,7 @@ function Search() {
         await response.json();
 
       if (!response.ok) {
-        // ==========================================
-        // ROLLBACK IF BACKEND FAILS
-        // ==========================================
-
-        setFollowing((previous) => {
+        updateFollowing((previous) => {
           if (isCurrentlyFollowing) {
             return [
               ...previous,
@@ -306,17 +396,20 @@ function Search() {
         return;
       }
 
+      const cached = getCache(searchCacheKey);
+
+      setCache(searchCacheKey, {
+        users: cached?.users || users,
+        following: followingRef.current,
+      });
+
     } catch (error) {
       console.error(
         "Follow connection error ❌",
         error
       );
 
-      // ==========================================
-      // ROLLBACK IF SERVER CONNECTION FAILS
-      // ==========================================
-
-      setFollowing((previous) => {
+      updateFollowing((previous) => {
         if (isCurrentlyFollowing) {
           return [
             ...previous,
@@ -329,15 +422,19 @@ function Search() {
             userId !== user.id
         );
       });
+    } finally {
+      // Release the lock slightly after the state settles, so a
+      // follow-status check already in flight for this user (fired
+      // just before the click) doesn't land right after release
+      // and immediately re-overwrite what the user just set.
+      setTimeout(() => {
+        pendingFollowRef.current.delete(user.id);
+      }, 400);
     }
   };
 
   return (
     <main className="search-page">
-
-      {/* =====================================
-          HEADER
-      ===================================== */}
 
       <header className="search-header">
 
@@ -353,11 +450,6 @@ function Search() {
         </p>
 
       </header>
-
-
-      {/* =====================================
-          SEARCH BAR
-      ===================================== */}
 
       <div className="search-box">
 
@@ -391,11 +483,6 @@ function Search() {
 
       </div>
 
-
-      {/* =====================================
-          SEARCH RESULT INFO
-      ===================================== */}
-
       <div className="search-result-heading">
 
         <h2>
@@ -409,11 +496,6 @@ function Search() {
         </span>
 
       </div>
-
-
-      {/* =====================================
-          USERS
-      ===================================== */}
 
       <section className="users-list">
 
@@ -438,7 +520,7 @@ function Search() {
 
         ) : (
 
-          users.map((user) => {
+          users.map((user, index) => {
 
             const isFollowing =
               following.includes(
@@ -449,6 +531,9 @@ function Search() {
               <article
                 className="user-card"
                 key={user.id}
+                style={{
+                  animationDelay: `${Math.min(index, 10) * 0.04}s`,
+                }}
                 onClick={() =>
                   navigate(
                     `/profile/${user.username}`
@@ -456,15 +541,13 @@ function Search() {
                 }
               >
 
-                {/* PROFILE */}
-
                 <div className="user-main">
 
                   <img
                     className="user-avatar"
                     src={
                       user.image ||
-                      "https://i.pravatar.cc/150"
+                      DEFAULT_AVATAR
                     }
                     alt={user.username}
                   />
@@ -475,9 +558,7 @@ function Search() {
                       {user.name}
 
                       {user.isOfficial === true && (
-                        <span className="official-badge">
-                          ●
-                        </span>
+                        <span className="official-badge" title="Official Impressa account" />
                       )}
                     </h3>
 
@@ -492,9 +573,6 @@ function Search() {
                   </div>
 
                 </div>
-
-
-                {/* FOLLOW */}
 
                 <button
                   className={

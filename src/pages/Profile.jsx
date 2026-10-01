@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   useNavigate,
   useParams,
@@ -13,6 +13,9 @@ import { getStoredTheme, setTheme } from "../utils/theme";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+// Set to false if you ever want the grid to load original images
+const USE_CLOUDINARY_THUMBS = true;
 
 // ==========================================
 // DEFAULT PROFILE PICTURE
@@ -29,6 +32,12 @@ const DEFAULT_PROFILE_PIC =
     </svg>`
   );
 
+const POST_PLACEHOLDER =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300"><rect width="300" height="300" fill="#F4EEE8"/></svg>`
+  );
+
 // ==========================================
 // CROP SETTINGS
 // ==========================================
@@ -37,45 +46,387 @@ const CROP_OUTPUT_SIZE = 512;
 const CROP_MAX_ZOOM = 3;
 
 // ==========================================
-// PROFILE CACHE
+// STORED USER (parsed once per change, not every render)
 // ==========================================
 
-const getCachedProfile = (username) => {
-  try {
-    if (!username) return null;
+let storedUserRaw = null;
+let storedUserParsed = null;
 
-    return JSON.parse(
-      localStorage.getItem(
-        `impressa_profile_${username.toLowerCase()}`
-      ) || "null"
-    );
+const getStoredUser = () => {
+  try {
+    const raw = localStorage.getItem("user");
+
+    if (raw !== storedUserRaw) {
+      storedUserRaw = raw;
+      storedUserParsed = raw ? JSON.parse(raw) : null;
+    }
+
+    return storedUserParsed;
   } catch (error) {
-    console.error("Profile cache read error:", error);
     return null;
   }
 };
 
-const getCachedPosts = (username) => {
-  try {
-    if (!username) return [];
+// ==========================================
+// SAFE PROFILE CACHE
+// - never throws (storage can be full or blocked)
+// - keeps only the 10 most recently viewed profiles
+// - posts are cached as thumbnails only
+// ==========================================
 
-    return JSON.parse(
-      localStorage.getItem(
-        `impressa_profile_posts_${username.toLowerCase()}`
-      ) || "[]"
-    );
+const CACHE_VERSION_KEY = "impressa_pcache_version";
+const CACHE_INDEX_KEY = "impressa_pcache_index";
+const CACHE_MAX_PROFILES = 10;
+const CACHE_MAX_ITEM_CHARS = 300000;
+
+const profileKey = (name) => `impressa_profile_${name}`;
+const postsKey = (name) => `impressa_profile_posts_${name}`;
+
+// One-time cleanup of the old, oversized cache entries that
+// were filling localStorage.
+const runLegacyCachePurge = () => {
+  try {
+    if (localStorage.getItem(CACHE_VERSION_KEY) === "2") return;
+
+    const doomed = [];
+
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+
+      if (key && key.startsWith("impressa_profile_")) {
+        doomed.push(key);
+      }
+    }
+
+    doomed.forEach((key) => localStorage.removeItem(key));
+
+    localStorage.setItem(CACHE_VERSION_KEY, "2");
   } catch (error) {
-    console.error("Profile posts cache read error:", error);
-    return [];
+    // ignore
   }
 };
 
+runLegacyCachePurge();
+
+const safeGet = (key, fallback) => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch (error) {
+    return fallback;
+  }
+};
+
+const readCacheIndex = () => {
+  const value = safeGet(CACHE_INDEX_KEY, []);
+  return Array.isArray(value) ? value : [];
+};
+
+const removeProfileCache = (name) => {
+  if (!name) return;
+
+  const key = String(name).toLowerCase();
+
+  try {
+    localStorage.removeItem(profileKey(key));
+    localStorage.removeItem(postsKey(key));
+    localStorage.removeItem(`impressa_profile_posts_page_${key}`);
+  } catch (error) {
+    // ignore
+  }
+};
+
+const touchCacheIndex = (name) => {
+  const key = String(name).toLowerCase();
+
+  let index = readCacheIndex().filter((entry) => entry !== key);
+
+  index.unshift(key);
+
+  const evicted = index.slice(CACHE_MAX_PROFILES);
+
+  index = index.slice(0, CACHE_MAX_PROFILES);
+
+  evicted.forEach(removeProfileCache);
+
+  try {
+    localStorage.setItem(CACHE_INDEX_KEY, JSON.stringify(index));
+  } catch (error) {
+    // ignore
+  }
+};
+
+const safeWrite = (key, value) => {
+  let text;
+
+  try {
+    text = JSON.stringify(value);
+  } catch (error) {
+    return false;
+  }
+
+  if (text.length > CACHE_MAX_ITEM_CHARS) return false;
+
+  try {
+    localStorage.setItem(key, text);
+    return true;
+  } catch (error) {
+    // Storage is full: drop the older half of cached profiles and retry once
+    try {
+      const index = readCacheIndex();
+      const keep = index.slice(0, Math.floor(index.length / 2));
+
+      index.slice(keep.length).forEach(removeProfileCache);
+
+      localStorage.setItem(CACHE_INDEX_KEY, JSON.stringify(keep));
+      localStorage.setItem(key, text);
+
+      return true;
+    } catch (retryError) {
+      return false;
+    }
+  }
+};
+
+const compactPost = (post) => ({
+  _id: post?._id,
+  media:
+    Array.isArray(post?.media) && post.media.length > 0
+      ? [post.media[0]]
+      : [],
+});
+
+const getCachedProfile = (username) => {
+  if (!username) return null;
+
+  return safeGet(profileKey(username.toLowerCase()), null);
+};
+
+const getCachedPosts = (username) => {
+  if (!username) return [];
+
+  const posts = safeGet(postsKey(username.toLowerCase()), []);
+
+  return Array.isArray(posts) ? posts.map(compactPost) : [];
+};
+
+const cacheProfile = (username, user) => {
+  if (!username || !user) return;
+
+  const key = username.toLowerCase();
+
+  if (safeWrite(profileKey(key), user)) {
+    touchCacheIndex(key);
+  }
+};
+
+const cachePosts = (username, posts) => {
+  if (!username) return;
+
+  const key = username.toLowerCase();
+
+  if (safeWrite(postsKey(key), posts.map(compactPost))) {
+    touchCacheIndex(key);
+  }
+};
+
+// ==========================================
+// NETWORK HELPERS
+// ==========================================
+
+const wait = (ms, signal) =>
+  new Promise((resolve, reject) => {
+    const timer = setTimeout(resolve, ms);
+
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        reject(Object.assign(new Error("aborted"), { code: "aborted" }));
+      },
+      { once: true }
+    );
+  });
+
+// fetch with timeout + safe JSON parsing.
+// Resolves { ok, status, data }. Rejects with error.code =
+// "timeout" | "network" | "aborted".
+const fetchJson = async (
+  url,
+  { headers = {}, signal, timeoutMs = 20000 } = {}
+) => {
+  const controller = new AbortController();
+
+  let timedOut = false;
+
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+
+  const onAbort = () => controller.abort();
+
+  if (signal) {
+    if (signal.aborted) {
+      controller.abort();
+    } else {
+      signal.addEventListener("abort", onAbort, { once: true });
+    }
+  }
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers,
+      signal: controller.signal,
+    });
+
+    const text = await response.text();
+
+    let data = {};
+
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch (parseError) {
+      data = {};
+    }
+
+    return { ok: response.ok, status: response.status, data };
+  } catch (error) {
+    if (timedOut) {
+      throw Object.assign(new Error("timeout"), { code: "timeout" });
+    }
+
+    if (signal?.aborted) {
+      throw Object.assign(new Error("aborted"), { code: "aborted" });
+    }
+
+    throw Object.assign(new Error("network"), { code: "network" });
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", onAbort);
+  }
+};
+
+// One automatic retry for network errors, timeouts and 5xx
+// (covers a sleeping / cold-starting server).
+const getWithRetry = async (url, headers, signal) => {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const result = await fetchJson(url, {
+        headers,
+        signal,
+        timeoutMs: attempt === 0 ? 15000 : 30000,
+      });
+
+      if (result.status >= 500 && attempt === 0) {
+        await wait(1200, signal);
+        continue;
+      }
+
+      return result;
+    } catch (error) {
+      if (error.code === "aborted" || attempt === 1) {
+        throw error;
+      }
+
+      await wait(1200, signal);
+    }
+  }
+
+  throw Object.assign(new Error("network"), { code: "network" });
+};
+
+// ==========================================
+// MEDIA HELPERS
+// ==========================================
+
+const resolveMediaUrl = (media) => {
+  let url =
+    typeof media === "string"
+      ? media
+      : media?.url || media?.path || media?.src;
+
+  if (!url) return "";
+
+  if (url.startsWith("/")) {
+    url = `${API_BASE_URL}${url}`;
+  }
+
+  if (url.startsWith("http://localhost:5000")) {
+    url = url.replace("http://localhost:5000", API_BASE_URL);
+  }
+
+  return url;
+};
+
+const isVideoMedia = (media, url) =>
+  media?.type === "video" ||
+  media?.resourceType === "video" ||
+  media?.resource_type === "video" ||
+  /\/video\/upload\//.test(url) ||
+  /\.(mp4|mov|webm|m4v)(\?|$)/i.test(url);
+
+// Small square thumbnail for the grid (Cloudinary only).
+// Original files are untouched.
+const getThumbUrl = (media) => {
+  const url = resolveMediaUrl(media);
+
+  if (!url) return POST_PLACEHOLDER;
+
+  if (
+    !USE_CLOUDINARY_THUMBS ||
+    !url.includes("res.cloudinary.com") ||
+    !url.includes("/upload/")
+  ) {
+    return url;
+  }
+
+  if (isVideoMedia(media, url)) {
+    return url
+      .replace(
+        "/upload/",
+        "/upload/so_0,w_400,h_400,c_fill,q_auto,f_jpg/"
+      )
+      .replace(/\.[a-z0-9]{2,5}(\?.*)?$/i, ".jpg");
+  }
+
+  return url.replace(
+    "/upload/",
+    "/upload/w_400,h_400,c_fill,q_auto,f_auto/"
+  );
+};
+
+
+// ==========================================
+// PROFILE (wrapper)
+// A fresh ProfileView is mounted for every different profile,
+// so state from User A can never leak into User B.
+// ==========================================
 
 function Profile() {
+  const { username: routeUsername } = useParams();
+
+  return (
+    <ProfileView
+      key={(routeUsername || "me").toLowerCase()}
+      routeUsername={routeUsername}
+    />
+  );
+}
+
+
+function ProfileView({ routeUsername }) {
 
   const navigate = useNavigate();
 
-  const { username: routeUsername } = useParams();
+  const goBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate("/", { replace: true });
+    }
+  };
 
 
   /*
@@ -83,9 +434,7 @@ function Profile() {
   PROFILE TYPE + BACKEND PROFILE DATA
   */
 
-  const storedUser = JSON.parse(
-    localStorage.getItem("user") || "null"
-  );
+  const storedUser = getStoredUser();
 
   const loggedInUsername =
     storedUser?.username || "";
@@ -98,149 +447,270 @@ function Profile() {
   const viewedUsername =
     routeUsername || loggedInUsername;
 
+  const cacheName = viewedUsername
+    ? viewedUsername.toLowerCase()
+    : "";
+
+  const initialRef = useRef(null);
+
+  if (initialRef.current === null) {
+    initialRef.current = {
+      profile: getCachedProfile(cacheName),
+      posts: getCachedPosts(cacheName),
+    };
+  }
+
+  const initialCache = initialRef.current;
+
   const [profileData, setProfileData] =
-    useState(() => getCachedProfile(viewedUsername));
+    useState(initialCache.profile);
 
   const [profilePosts, setProfilePosts] =
-    useState(() => getCachedPosts(viewedUsername));
+    useState(initialCache.posts);
 
   const [profileLoading, setProfileLoading] =
-    useState(() => !getCachedProfile(viewedUsername));
+    useState(!initialCache.profile);
 
   const [profileError, setProfileError] =
     useState("");
 
-  const profileRequestIdRef = useRef(0);
+  // "auth" | "retry" | "none"
+  const [profileErrorKind, setProfileErrorKind] =
+    useState("");
+
+  const [postsLoading, setPostsLoading] =
+    useState(initialCache.posts.length === 0);
+
+  const [postsError, setPostsError] =
+    useState(false);
+
+  const [reloadTick, setReloadTick] = useState(0);
+
+  const [slowLoad, setSlowLoad] = useState(false);
+
+  const [followed, setFollowed] = useState(
+    () =>
+      !isOwnProfile &&
+      initialCache.profile?.isFollowing === true
+  );
 
   useEffect(() => {
-    const cachedProfile = getCachedProfile(viewedUsername);
-    const cachedPosts = getCachedPosts(viewedUsername);
+    if (!profileLoading || profileData) {
+      setSlowLoad(false);
+      return undefined;
+    }
 
-    setProfileData(cachedProfile);
-    setProfilePosts(cachedPosts);
-    setProfileLoading(!cachedProfile);
-    setProfileError("");
-  }, [viewedUsername]);
+    const timer = setTimeout(() => setSlowLoad(true), 6000);
+
+    return () => clearTimeout(timer);
+  }, [profileLoading, profileData]);
+
+  // ----------------------------------------------------------
+  // LOAD PROFILE + POSTS (in parallel, cancellable)
+  // ----------------------------------------------------------
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      const requestId = ++profileRequestIdRef.current;
+    const token = localStorage.getItem("token");
+
+    if (isOwnProfile && !token) {
+      navigate("/signin", { replace: true });
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const { signal } = controller;
+
+    const headers = token
+      ? { Authorization: `Bearer ${token}` }
+      : {};
+
+    const hadCachedProfile = !!getCachedProfile(cacheName);
+
+    let postsSeq = 0;
+
+    const loadPosts = async (name) => {
+      const seq = ++postsSeq;
+
+      setPostsError(false);
 
       try {
-        setProfileError("");
+        const result = await getWithRetry(
+          `${API_BASE_URL}/api/profile/${encodeURIComponent(
+            name
+          )}/posts?compact=1`,
+          headers,
+          signal
+        );
 
-        const API_URL =
-          import.meta.env.VITE_API_URL || "http://localhost:5000";
+        if (signal.aborted || seq !== postsSeq) return;
 
-        const token = localStorage.getItem("token");
+        if (result.ok) {
+          const fresh = (result.data.posts || []).map(compactPost);
 
+          setProfilePosts(fresh);
+          cachePosts(cacheName, fresh);
+        } else if (result.status === 404) {
+          setProfilePosts([]);
+        } else {
+          setPostsError(true);
+        }
+      } catch (error) {
+        if (error.code === "aborted" || seq !== postsSeq) return;
+
+        console.error("Profile posts fetch error:", error);
+        setPostsError(true);
+      } finally {
+        if (!signal.aborted && seq === postsSeq) {
+          setPostsLoading(false);
+        }
+      }
+    };
+
+    const checkFollowStatusFallback = async () => {
+      if (!token) return;
+
+      try {
+        const result = await fetchJson(
+          `${API_BASE_URL}/api/follow/status/${encodeURIComponent(
+            viewedUsername
+          )}`,
+          { headers, signal, timeoutMs: 15000 }
+        );
+
+        if (signal.aborted) return;
+
+        if (result.ok) {
+          setFollowed(result.data.following === true);
+        }
+      } catch (error) {
+        // follow state is non-critical
+      }
+    };
+
+    const run = async () => {
+      setProfileError("");
+      setProfileErrorKind("");
+
+      // Start posts right away when the username is already known
+      const guessName = isOwnProfile
+        ? loggedInUsername
+        : viewedUsername;
+
+      if (guessName) {
+        loadPosts(guessName);
+      }
+
+      try {
         const profileUrl = isOwnProfile
-          ? `${API_URL}/api/profile/me`
-          : `${API_URL}/api/profile/${encodeURIComponent(
+          ? `${API_BASE_URL}/api/profile/me`
+          : `${API_BASE_URL}/api/profile/${encodeURIComponent(
               viewedUsername
             )}`;
 
-        const profileResponse = await fetch(profileUrl, {
-          method: "GET",
-          headers: token
-            ? { Authorization: `Bearer ${token}` }
-            : {},
-        });
+        const result = await getWithRetry(
+          profileUrl,
+          headers,
+          signal
+        );
 
-        const profileResult = await profileResponse.json();
+        if (signal.aborted) return;
 
-        if (!profileResponse.ok) {
+        if (!result.ok) {
           const loadError = new Error(
-            profileResult.message || "Failed to load profile"
+            result.data.message || "Failed to load profile"
           );
 
-          loadError.status = profileResponse.status;
+          loadError.status = result.status;
 
           throw loadError;
         }
 
-        if (requestId !== profileRequestIdRef.current) {
-          return;
-        }
+        const user = result.data.user;
 
-        setProfileData(profileResult.user);
+        setProfileData(user);
+        cacheProfile(cacheName, user);
 
-        localStorage.setItem(
-          `impressa_profile_${viewedUsername.toLowerCase()}`,
-          JSON.stringify(profileResult.user)
-        );
-
-        const postsResponse = await fetch(
-          `${API_URL}/api/profile/${encodeURIComponent(
-            profileResult.user.username
-          )}/posts`,
-          {
-            method: "GET",
-            headers: token
-              ? { Authorization: `Bearer ${token}` }
-              : {},
+        if (!isOwnProfile) {
+          if (typeof user.isFollowing === "boolean") {
+            setFollowed(user.isFollowing);
+          } else {
+            checkFollowStatusFallback();
           }
-        );
-
-        const postsResult = await postsResponse.json();
-
-        if (requestId !== profileRequestIdRef.current) {
-          return;
         }
 
-        if (postsResponse.ok) {
-          const freshPosts = postsResult.posts || [];
+        setProfileLoading(false);
 
-          setProfilePosts(freshPosts);
+        const actualName = user.username || guessName;
 
-          localStorage.setItem(
-            `impressa_profile_posts_${viewedUsername.toLowerCase()}`,
-            JSON.stringify(freshPosts)
-          );
-        } else {
-          setProfilePosts([]);
+        if (
+          actualName &&
+          (!guessName ||
+            actualName.toLowerCase() !== guessName.toLowerCase())
+        ) {
+          loadPosts(actualName);
         }
-
       } catch (error) {
-
-        if (requestId !== profileRequestIdRef.current) {
-          return;
-        }
+        if (error.code === "aborted" || signal.aborted) return;
 
         console.error("Profile fetch error:", error);
 
         if (error.status === 404) {
           // Deleted, not found, or blocked: never show a stale cached copy
-          const cacheKey = viewedUsername.toLowerCase();
+          postsSeq += 1;
 
-          localStorage.removeItem(`impressa_profile_${cacheKey}`);
-          localStorage.removeItem(`impressa_profile_posts_${cacheKey}`);
+          removeProfileCache(cacheName);
 
           setProfileData(null);
           setProfilePosts([]);
+          setPostsLoading(false);
           setProfileError("This profile isn't available.");
-        } else if (!getCachedProfile(viewedUsername)) {
+          setProfileErrorKind("none");
+        } else if (error.status === 401) {
+          setProfileData(null);
           setProfileError(
-            error.message || "Unable to load profile."
+            "Your session has expired. Please sign in again."
           );
-
-          setProfilePosts([]);
+          setProfileErrorKind("auth");
+        } else if (!hadCachedProfile) {
+          setProfileError(
+            error.code === "timeout"
+              ? "The server is taking too long to respond. Please try again."
+              : error.code === "network"
+              ? "Unable to reach Impressa server. Check your connection and try again."
+              : error.message || "Unable to load profile."
+          );
+          setProfileErrorKind("retry");
+          setPostsLoading(false);
         }
-
       } finally {
-
-        if (requestId === profileRequestIdRef.current) {
+        if (!signal.aborted) {
           setProfileLoading(false);
         }
-
       }
     };
 
-    if (viewedUsername || isOwnProfile) {
-      fetchProfile();
-    }
+    run();
 
-  }, [viewedUsername, isOwnProfile]);
+    return () => controller.abort();
+  }, [
+    viewedUsername,
+    isOwnProfile,
+    loggedInUsername,
+    reloadTick,
+  ]);
+
+  const retryProfile = () => {
+    setProfileLoading(true);
+    setProfileError("");
+    setProfileErrorKind("");
+    setReloadTick((tick) => tick + 1);
+  };
+
+  const reloadPosts = () => {
+    setPostsLoading(true);
+    setPostsError(false);
+    setReloadTick((tick) => tick + 1);
+  };
 
 
   const selectedUser = profileData
@@ -288,8 +758,6 @@ function Profile() {
 
   const [activeTab, setActiveTab] = useState("posts");
 
-  const [followed, setFollowed] = useState(false);
-
   const [connectionsOpen, setConnectionsOpen] = useState(false);
 
   const [connectionType, setConnectionType] = useState("followers");
@@ -300,55 +768,13 @@ function Profile() {
 
   const [connectionsError, setConnectionsError] = useState("");
 
-
-  useEffect(() => {
-    const checkFollowStatus = async () => {
-
-      if (isOwnProfile) {
-        setFollowed(false);
-        return;
-      }
-
-      try {
-        const token = localStorage.getItem("token");
-
-        if (!token) return;
-
-        const API_URL =
-          import.meta.env.VITE_API_URL || "http://localhost:5000";
-
-        const response = await fetch(
-          `${API_URL}/api/follow/status/${encodeURIComponent(
-            viewedUsername
-          )}`,
-          {
-            method: "GET",
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          console.error("Follow status error:", data);
-          return;
-        }
-
-        setFollowed(data.following === true);
-
-      } catch (error) {
-        console.error("Check follow status error:", error);
-      }
-    };
-
-    checkFollowStatus();
-
-  }, [viewedUsername, isOwnProfile]);
+  const connectionsSeqRef = useRef(0);
 
 
   /*
   ============================================================
   i-NOTES
+  Loaded only when the i-Notes tab is opened.
   */
 
   const [notes, setNotes] = useState([]);
@@ -357,57 +783,69 @@ function Profile() {
 
   const [notesLoading, setNotesLoading] = useState(false);
 
+  const notesLoadedRef = useRef(false);
+
   const pendingNoteDeletesRef = useRef(new Set());
 
   useEffect(() => {
-    const fetchNotes = async () => {
+    if (activeTab !== "notes" || notesLoadedRef.current) {
+      return undefined;
+    }
+
+    const token = localStorage.getItem("token");
+
+    if (!token) return undefined;
+
+    const controller = new AbortController();
+
+    const loadNotes = async () => {
+      setNotesLoading(true);
+
       try {
-        setNotesLoading(true);
-
-        const token = localStorage.getItem("token");
-
-        if (!token) return;
-
-        const API_URL =
-          import.meta.env.VITE_API_URL || "http://localhost:5000";
-
         const notesUrl = isOwnProfile
-          ? `${API_URL}/api/notes`
-          : `${API_URL}/api/notes/user/${encodeURIComponent(
+          ? `${API_BASE_URL}/api/notes`
+          : `${API_BASE_URL}/api/notes/user/${encodeURIComponent(
               viewedUsername
             )}`;
 
-        const response = await fetch(notesUrl, {
-          method: "GET",
+        const result = await fetchJson(notesUrl, {
           headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+          timeoutMs: 20000,
         });
 
-        const data = await response.json();
+        if (controller.signal.aborted) return;
 
-        if (!response.ok) {
+        if (!result.ok) {
           throw new Error(
-            data.message || "Unable to load i-Notes."
+            result.data.message || "Unable to load i-Notes."
           );
         }
 
         setNotes(
-          (data.notes || []).map((note) => ({
+          (result.data.notes || []).map((note) => ({
             id: note._id,
             text: note.text,
           }))
         );
+
+        notesLoadedRef.current = true;
       } catch (error) {
+        if (error.code === "aborted") return;
+
         console.error("Load i-Notes error:", error);
         setNotes([]);
       } finally {
-        setNotesLoading(false);
+        if (!controller.signal.aborted) {
+          setNotesLoading(false);
+        }
       }
     };
 
-    if (viewedUsername || isOwnProfile) {
-      fetchNotes();
-    }
-  }, [viewedUsername, isOwnProfile]);
+    loadNotes();
+
+    return () => controller.abort();
+  }, [activeTab, isOwnProfile, viewedUsername]);
 
 
   /*
@@ -634,33 +1072,14 @@ if (badges >= 15) {
   POSTS
   */
 
-  const posts = profilePosts.map((post) => {
-
-    const firstMedia = post.media?.[0];
-
-    let image =
-      typeof firstMedia === "string"
-        ? firstMedia
-        : firstMedia?.url ||
-          firstMedia?.path ||
-          firstMedia?.src;
-
-    if (image?.startsWith("/")) {
-      image = `${API_BASE_URL}${image}`;
-    }
-
-    if (image?.startsWith("http://localhost:5000")) {
-      image = image.replace(
-        "http://localhost:5000",
-        API_BASE_URL
-      );
-    }
-
-    return {
-      id: post._id,
-      image: image || "https://picsum.photos/500/500",
-    };
-  });
+  const posts = useMemo(
+    () =>
+      profilePosts.map((post) => ({
+        id: post._id,
+        image: getThumbUrl(post.media?.[0]),
+      })),
+    [profilePosts]
+  );
 
 
   /*
@@ -693,10 +1112,7 @@ if (badges >= 15) {
         return;
       }
 
-      const API_URL =
-        import.meta.env.VITE_API_URL || "http://localhost:5000";
-
-      const response = await fetch(`${API_URL}/api/notes`, {
+      const response = await fetch(`${API_BASE_URL}/api/notes`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -753,11 +1169,8 @@ if (badges >= 15) {
         return;
       }
 
-      const API_URL =
-        import.meta.env.VITE_API_URL || "http://localhost:5000";
-
       const response = await fetch(
-        `${API_URL}/api/notes/${noteId}`,
+        `${API_BASE_URL}/api/notes/${noteId}`,
         {
           method: "DELETE",
           headers: { Authorization: `Bearer ${token}` },
@@ -824,18 +1237,12 @@ if (badges >= 15) {
 
     setProfilePosts(updatedPosts);
 
-    localStorage.setItem(
-      `impressa_profile_posts_${viewedUsername.toLowerCase()}`,
-      JSON.stringify(updatedPosts)
-    );
+    cachePosts(cacheName, updatedPosts);
 
     const rollback = () => {
       setProfilePosts(previousPosts);
 
-      localStorage.setItem(
-        `impressa_profile_posts_${viewedUsername.toLowerCase()}`,
-        JSON.stringify(previousPosts)
-      );
+      cachePosts(cacheName, previousPosts);
     };
 
     try {
@@ -847,11 +1254,8 @@ if (badges >= 15) {
         return;
       }
 
-      const API_URL =
-        import.meta.env.VITE_API_URL || "http://localhost:5000";
-
       const response = await fetch(
-        `${API_URL}/api/posts/${postId}`,
+        `${API_BASE_URL}/api/posts/${postId}`,
         {
           method: "DELETE",
           headers: { Authorization: `Bearer ${token}` },
@@ -916,9 +1320,6 @@ if (badges >= 15) {
         return;
       }
 
-      const API_URL =
-        import.meta.env.VITE_API_URL || "http://localhost:5000";
-
       const updatedName = tempName.trim();
 
       const updatedUsername = tempUsername.trim().toLowerCase();
@@ -935,7 +1336,7 @@ if (badges >= 15) {
         return;
       }
 
-      const response = await fetch(`${API_URL}/api/profile/me`, {
+      const response = await fetch(`${API_BASE_URL}/api/profile/me`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -969,29 +1370,30 @@ if (badges >= 15) {
         data.user.profilePicture || DEFAULT_PROFILE_PIC
       );
 
-      const currentStoredUser = JSON.parse(
-        localStorage.getItem("user") || "null"
-      );
-
-      if (currentStoredUser) {
-        localStorage.setItem(
-          "user",
-          JSON.stringify({
-            ...currentStoredUser,
-            id: data.user.id,
-            name: data.user.name,
-            username: data.user.username,
-            bio: data.user.bio,
-            profilePicture: data.user.profilePicture,
-            badge: data.user.badge,
-          })
+      try {
+        const currentStoredUser = JSON.parse(
+          localStorage.getItem("user") || "null"
         );
+
+        if (currentStoredUser) {
+          localStorage.setItem(
+            "user",
+            JSON.stringify({
+              ...currentStoredUser,
+              id: data.user.id,
+              name: data.user.name,
+              username: data.user.username,
+              bio: data.user.bio,
+              profilePicture: data.user.profilePicture,
+              badge: data.user.badge,
+            })
+          );
+        }
+      } catch (storageError) {
+        console.error("Stored user update error:", storageError);
       }
 
-      localStorage.setItem(
-        `impressa_profile_${data.user.username.toLowerCase()}`,
-        JSON.stringify(data.user)
-      );
+      cacheProfile(data.user.username, data.user);
 
       setEditOpen(false);
 
@@ -1322,7 +1724,8 @@ if (badges >= 15) {
     setMenuOpen(false);
     setBlockConfirmOpen(true);
   };
-    const openPrivacyPolicy = () => {
+
+  const openPrivacyPolicy = () => {
     setMenuOpen(false);
     navigate("/privacy-policy");
   };
@@ -1336,13 +1739,7 @@ if (badges >= 15) {
       await blockUser(selectedUser.username);
 
       // Remove cached copies so the blocked profile can't reappear
-      const cacheKey = selectedUser.username.toLowerCase();
-
-      localStorage.removeItem(`impressa_profile_${cacheKey}`);
-      localStorage.removeItem(`impressa_profile_posts_${cacheKey}`);
-      localStorage.removeItem(
-        `impressa_profile_posts_page_${cacheKey}`
-      );
+      removeProfileCache(selectedUser.username);
 
       setBlockConfirmOpen(false);
 
@@ -1378,9 +1775,6 @@ if (badges >= 15) {
         return;
       }
 
-      const API_URL =
-        import.meta.env.VITE_API_URL || "http://localhost:5000";
-
       setFollowed(!oldFollowed);
 
       setProfileData((previous) => {
@@ -1397,7 +1791,7 @@ if (badges >= 15) {
       });
 
       const response = await fetch(
-        `${API_URL}/api/follow/${encodeURIComponent(
+        `${API_BASE_URL}/api/follow/${encodeURIComponent(
           viewedUsername
         )}`,
         {
@@ -1428,14 +1822,32 @@ if (badges >= 15) {
         return;
       }
 
-      setProfileData((previous) => {
-        if (!previous) return previous;
+      const updatedProfile = {
+        ...(profileData || {}),
+        followersCount:
+          typeof data.followersCount === "number"
+            ? data.followersCount
+            : Math.max(
+                0,
+                (profileData?.followersCount || 0) +
+                  (oldFollowed ? -1 : 1)
+              ),
+        isFollowing: !oldFollowed,
+      };
 
-        return {
-          ...previous,
-          followersCount: data.followersCount,
-        };
-      });
+      setProfileData((previous) =>
+        previous
+          ? {
+              ...previous,
+              followersCount: updatedProfile.followersCount,
+              isFollowing: updatedProfile.isFollowing,
+            }
+          : previous
+      );
+
+      if (profileData) {
+        cacheProfile(cacheName, updatedProfile);
+      }
 
     } catch (error) {
       console.error("Follow error:", error);
@@ -1468,6 +1880,8 @@ if (badges >= 15) {
 
   const openConnections = async (type) => {
 
+    const seq = ++connectionsSeqRef.current;
+
     setConnectionType(type);
     setConnectionsOpen(true);
     setConnections([]);
@@ -1478,28 +1892,27 @@ if (badges >= 15) {
 
       const token = localStorage.getItem("token");
 
-      const API_URL =
-        import.meta.env.VITE_API_URL || "http://localhost:5000";
-
-      const response = await fetch(
-        `${API_URL}/api/profile/${encodeURIComponent(
+      const result = await fetchJson(
+        `${API_BASE_URL}/api/profile/${encodeURIComponent(
           selectedUser.username
         )}/${type}`,
         {
-          method: "GET",
           headers: token
             ? { Authorization: `Bearer ${token}` }
             : {},
+          timeoutMs: 20000,
         }
       );
 
-      const data = await response.json();
+      if (seq !== connectionsSeqRef.current) return;
 
-      if (!response.ok) {
+      if (!result.ok) {
         throw new Error(
-          data.message || `Unable to load ${type}.`
+          result.data.message || `Unable to load ${type}.`
         );
       }
+
+      const data = result.data;
 
       const users =
         data.users ||
@@ -1512,15 +1925,21 @@ if (badges >= 15) {
 
     } catch (error) {
 
+      if (seq !== connectionsSeqRef.current) return;
+
       console.error(`Load ${type} error:`, error);
 
       setConnectionsError(
-        error.message || `Unable to load ${type}.`
+        error.code
+          ? "Unable to reach Impressa server. Please try again."
+          : error.message || `Unable to load ${type}.`
       );
 
     } finally {
 
-      setConnectionsLoading(false);
+      if (seq === connectionsSeqRef.current) {
+        setConnectionsLoading(false);
+      }
 
     }
   };
@@ -1534,9 +1953,11 @@ if (badges >= 15) {
   };
 
   const closeConnections = () => {
+    connectionsSeqRef.current += 1;
     setConnectionsOpen(false);
     setConnections([]);
     setConnectionsError("");
+    setConnectionsLoading(false);
   };
 
 
@@ -1639,6 +2060,19 @@ if (badges >= 15) {
             ))}
           </div>
 
+          {slowLoad && (
+            <p
+              style={{
+                marginTop: "16px",
+                textAlign: "center",
+                color: "#8a8a8a",
+                fontSize: "13px",
+              }}
+            >
+              Waking up the server… this can take a few seconds.
+            </p>
+          )}
+
           <style>
             {`
               @keyframes profileSkeletonShimmer {
@@ -1654,22 +2088,45 @@ if (badges >= 15) {
     );
   }
 
-  if (profileError) {
+  if (profileError && !profileData) {
 
     return (
       <div className="profile-page">
         <div className="profile-topbar">
           <button
             className="back-button"
-            onClick={() => navigate(-1)}
+            onClick={goBack}
             aria-label="Go back"
           >
             ←
           </button>
         </div>
 
-        <div className="profile-content">
+        <div
+          className="profile-content"
+          style={{ textAlign: "center" }}
+        >
           <p>{profileError}</p>
+
+          {profileErrorKind === "retry" && (
+            <button
+              type="button"
+              className="edit-profile-btn"
+              onClick={retryProfile}
+            >
+              Try again
+            </button>
+          )}
+
+          {profileErrorKind === "auth" && (
+            <button
+              type="button"
+              className="edit-profile-btn"
+              onClick={() => navigate("/signin", { replace: true })}
+            >
+              Sign in
+            </button>
+          )}
         </div>
       </div>
     );
@@ -1695,7 +2152,7 @@ if (badges >= 15) {
 
         <button
           className="back-button"
-          onClick={() => navigate(-1)}
+          onClick={goBack}
           aria-label="Go back"
         >
           ←
@@ -1755,10 +2212,11 @@ if (badges >= 15) {
               🚫 Blocked Accounts
             </button>
 
-                        <button onClick={openPrivacy}>
+            <button onClick={openPrivacy}>
               🔒 Privacy
             </button>
-                        <button onClick={openPrivacyPolicy}>
+
+            <button onClick={openPrivacyPolicy}>
               📄 Privacy Policy
             </button>
 
@@ -1911,6 +2369,8 @@ if (badges >= 15) {
                     <img
                       src={userProfilePicture}
                       alt={`${userName}'s profile`}
+                      loading="lazy"
+                      decoding="async"
                     />
 
                     <span className="connection-user-info">
@@ -1951,6 +2411,7 @@ if (badges >= 15) {
             src={profilePic}
             alt={`${name}'s profile`}
             className="profile-picture"
+            decoding="async"
           />
 
         </button>
@@ -2157,66 +2618,106 @@ if (badges >= 15) {
 
         {activeTab === "posts" && (
 
-          <div className="posts-grid">
+          <>
 
-            {posts.map((post) => (
+            <div className="posts-grid">
 
-              <div
-                className="post-card"
-                key={post.id}
-                role="button"
-                tabIndex={0}
-                onClick={openUserPosts}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    openUserPosts();
-                  }
-                }}
-                aria-label={`Open ${selectedUser.username}'s posts`}
-              >
+              {posts.map((post) => (
 
-                <img
-                  src={post.image}
-                  alt={`Post ${post.id}`}
-                />
+                <div
+                  className="post-card"
+                  key={post.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={openUserPosts}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      openUserPosts();
+                    }
+                  }}
+                  aria-label={`Open ${selectedUser.username}'s posts`}
+                >
 
-                {isOwnProfile && (
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      deletePost(post.id);
-                    }}
-                    aria-label="Delete post"
-                    title="Delete post"
-                    style={{
-                      position: "absolute",
-                      top: "6px",
-                      right: "6px",
-                      width: "30px",
-                      height: "30px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      border: "none",
-                      borderRadius: "50%",
-                      background: "rgba(0,0,0,0.55)",
-                      color: "#ffffff",
-                      fontSize: "13px",
-                      cursor: "pointer",
-                      zIndex: 2,
-                    }}
-                  >
-                    🗑
-                  </button>
-                )}
+                  <img
+                    src={post.image}
+                    alt={`Post ${post.id}`}
+                    loading="lazy"
+                    decoding="async"
+                  />
+
+                  {isOwnProfile && (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        deletePost(post.id);
+                      }}
+                      aria-label="Delete post"
+                      title="Delete post"
+                      style={{
+                        position: "absolute",
+                        top: "6px",
+                        right: "6px",
+                        width: "30px",
+                        height: "30px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        border: "none",
+                        borderRadius: "50%",
+                        background: "rgba(0,0,0,0.55)",
+                        color: "#ffffff",
+                        fontSize: "13px",
+                        cursor: "pointer",
+                        zIndex: 2,
+                      }}
+                    >
+                      🗑
+                    </button>
+                  )}
+
+                </div>
+
+              ))}
+
+              {postsLoading &&
+                posts.length === 0 &&
+                [0, 1, 2, 3, 4, 5].map((key) => (
+                  <div
+                    key={`post-skeleton-${key}`}
+                    className="post-card"
+                    style={{ cursor: "default" }}
+                    aria-hidden="true"
+                  />
+                ))}
+
+            </div>
+
+            {postsError && posts.length === 0 && (
+
+              <div className="empty-content">
+
+                <div>⚠</div>
+
+                <h3>Couldn't load posts</h3>
+
+                <p>Check your connection and try again.</p>
+
+                <button
+                  type="button"
+                  className="edit-profile-btn"
+                  style={{ marginTop: "16px" }}
+                  onClick={reloadPosts}
+                >
+                  Try again
+                </button>
 
               </div>
 
-            ))}
+            )}
 
-          </div>
+          </>
 
         )}
 

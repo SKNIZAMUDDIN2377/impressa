@@ -5,6 +5,7 @@ const {
   getPosts,
   getPostById,
   deletePost,
+  getAuthorAvatar,
 } = require("../controllers/postController");
 
 const {
@@ -18,6 +19,18 @@ const authMiddleware = require("../middleware/authMiddleware");
 const upload = require("../middleware/uploadMiddleware");
 
 const router = express.Router();
+
+// ==========================================
+// AUTHOR AVATAR (public, cacheable image)
+// <img> tags cannot send an Authorization header,
+// so this route has no authMiddleware.
+// Declared before "/:postId" on purpose.
+// ==========================================
+
+router.get(
+  "/author-avatar/:userId",
+  getAuthorAvatar
+);
 
 // ==========================================
 // GET ALL POSTS

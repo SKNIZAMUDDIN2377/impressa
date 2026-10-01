@@ -1,5 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
 
 import Action from "./Action";
 import ConfirmDialog from "./ConfirmDialog";
@@ -10,6 +19,9 @@ import "./Post.css";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+// Set to false to load the original Cloudinary files again
+const USE_CLOUDINARY_OPTIMIZATION = true;
 
 const DEFAULT_AVATAR =
   "data:image/svg+xml;utf8," +
@@ -35,6 +47,50 @@ function normalizeUrl(url) {
   return url;
 }
 
+/* ---------- Cloudinary delivery helpers ---------- */
+
+function isCloudinaryUpload(url) {
+  return (
+    typeof url === "string" &&
+    url.includes("res.cloudinary.com") &&
+    url.includes("/upload/")
+  );
+}
+
+// true when the URL already carries a transformation segment
+function hasTransformation(url) {
+  return /\/upload\/(?!v\d+\/)/.test(url);
+}
+
+function optimizeImageUrl(url) {
+  if (
+    !USE_CLOUDINARY_OPTIMIZATION ||
+    !isCloudinaryUpload(url) ||
+    hasTransformation(url)
+  ) {
+    return url;
+  }
+
+  return url.replace(
+    "/upload/",
+    "/upload/f_auto,q_auto,w_1280,c_limit/"
+  );
+}
+
+function getVideoPoster(url) {
+  if (
+    !USE_CLOUDINARY_OPTIMIZATION ||
+    !isCloudinaryUpload(url) ||
+    hasTransformation(url)
+  ) {
+    return undefined;
+  }
+
+  return url
+    .replace("/upload/", "/upload/so_0,q_auto,w_900,c_limit/")
+    .replace(/\.[a-zA-Z0-9]{2,5}(\?.*)?$/, ".jpg");
+}
+
 function getStoredUsername() {
   try {
     return (
@@ -44,6 +100,558 @@ function getStoredUsername() {
     return "";
   }
 }
+
+/* =========================================================
+   CAROUSEL: stable box shape
+   The post box takes the shape of the FIRST media item
+   (clamped between 4:5 portrait and 1.91:1 wide), so swiping
+   between photos and videos never changes the post height.
+========================================================= */
+
+const DEFAULT_RATIO = 4 / 5;
+const MIN_RATIO = 4 / 5;
+const MAX_RATIO = 1.91;
+
+const clampRatio = (ratio) =>
+  Math.min(MAX_RATIO, Math.max(MIN_RATIO, ratio));
+
+// Remembers measured media shapes so a revisit has no layout shift
+const RATIO_STORAGE_KEY = "impressa_media_ratios_v1";
+const RATIO_MAX_ENTRIES = 300;
+
+const ratioMemory = new Map();
+
+let ratiosLoaded = false;
+let ratioSaveTimer = null;
+
+function loadRatios() {
+  if (ratiosLoaded) return;
+
+  ratiosLoaded = true;
+
+  try {
+    const raw = JSON.parse(
+      localStorage.getItem(RATIO_STORAGE_KEY) || "{}"
+    );
+
+    Object.entries(raw).forEach(([key, value]) => {
+      if (typeof value === "number" && value > 0) {
+        ratioMemory.set(key, value);
+      }
+    });
+  } catch (error) {
+    // ignore
+  }
+}
+
+function ratioKey(url) {
+  return String(url || "").split("?")[0].slice(-90);
+}
+
+function getStoredRatio(url) {
+  loadRatios();
+
+  return ratioMemory.get(ratioKey(url)) || null;
+}
+
+function storeRatio(url, ratio) {
+  loadRatios();
+
+  const key = ratioKey(url);
+
+  ratioMemory.delete(key);
+  ratioMemory.set(key, Math.round(ratio * 1000) / 1000);
+
+  while (ratioMemory.size > RATIO_MAX_ENTRIES) {
+    ratioMemory.delete(ratioMemory.keys().next().value);
+  }
+
+  clearTimeout(ratioSaveTimer);
+
+  ratioSaveTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(
+        RATIO_STORAGE_KEY,
+        JSON.stringify(Object.fromEntries(ratioMemory))
+      );
+    } catch (error) {
+      // ignore
+    }
+  }, 1000);
+}
+
+function getInitialRatio(firstItem) {
+  if (!firstItem) return DEFAULT_RATIO;
+
+  const width = Number(firstItem.width);
+  const height = Number(firstItem.height);
+
+  if (width > 0 && height > 0) {
+    return clampRatio(width / height);
+  }
+
+  const stored = getStoredRatio(firstItem.url);
+
+  return stored ? clampRatio(stored) : DEFAULT_RATIO;
+}
+
+/* =========================================================
+   MEDIA CAROUSEL
+   - touch drag follows the finger (no React state per move)
+   - horizontal axis lock: vertical scrolling is never blocked
+   - only the current slide and its neighbours are mounted
+   - memoized: changing slides never re-renders the Post
+========================================================= */
+
+const AXIS_LOCK_PX = 8;
+const SWIPE_MIN_DISTANCE = 40;
+const SWIPE_FRACTION = 0.2;
+const SWIPE_VELOCITY = 0.45; // px per ms
+const EDGE_RESISTANCE = 0.3;
+const DOUBLE_TAP_MS = 300;
+const DOUBLE_TAP_DISTANCE = 40;
+const IMPRESSION_COOLDOWN_MS = 700;
+const VIDEO_CONTROLS_ZONE = 56;
+const SLIDE_TRANSITION = "transform 280ms cubic-bezier(0.22, 0.8, 0.3, 1)";
+
+const MediaCarousel = memo(function MediaCarousel({
+  items,
+  caption,
+  impressionAnimation,
+  priority,
+  onDoubleImpress,
+}) {
+  const count = items.length;
+
+  const [index, setIndex] = useState(0);
+
+  const [ratio, setRatio] = useState(() => getInitialRatio(items[0]));
+
+  const wrapperRef = useRef(null);
+  const trackRef = useRef(null);
+  const indexRef = useRef(0);
+  const mountedRef = useRef(false);
+  const gestureRef = useRef(null);
+  const lastTapRef = useRef({ t: 0, x: 0, y: 0 });
+  const lastImpressionRef = useRef(0);
+  const onDoubleImpressRef = useRef(onDoubleImpress);
+
+  indexRef.current = index;
+  onDoubleImpressRef.current = onDoubleImpress;
+
+  const firstUrl = items[0]?.url;
+
+  /* ---------- position the track (imperative, no re-render) ---------- */
+
+  const applyTransform = useCallback((slideIndex, dragPx, animate) => {
+    const track = trackRef.current;
+
+    if (!track) return;
+
+    track.style.transition = animate ? SLIDE_TRANSITION : "none";
+
+    track.style.transform = dragPx
+      ? `translate3d(calc(${-slideIndex * 100}% + ${dragPx}px), 0, 0)`
+      : `translate3d(${-slideIndex * 100}%, 0, 0)`;
+  }, []);
+
+  useLayoutEffect(() => {
+    applyTransform(index, 0, mountedRef.current);
+
+    mountedRef.current = true;
+  }, [index, applyTransform]);
+
+  /* ---------- keep index valid if the media list changes ---------- */
+
+  useEffect(() => {
+    if (index > count - 1) {
+      setIndex(Math.max(0, count - 1));
+    }
+  }, [count, index]);
+
+  useEffect(() => {
+    setRatio(getInitialRatio(items[0]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firstUrl]);
+
+  /* ---------- pause videos that are no longer on screen ---------- */
+
+  useEffect(() => {
+    const track = trackRef.current;
+
+    if (!track) return;
+
+    track.querySelectorAll("video").forEach((video) => {
+      const slide = video.closest("[data-slide]");
+
+      if (
+        slide &&
+        Number(slide.dataset.slide) !== index &&
+        !video.paused
+      ) {
+        video.pause();
+      }
+    });
+  }, [index]);
+
+  /* ---------- navigation ---------- */
+
+  const goTo = useCallback(
+    (next) => {
+      const clamped = Math.min(count - 1, Math.max(0, next));
+
+      if (clamped === indexRef.current) {
+        // snap back to the current slide
+        applyTransform(clamped, 0, true);
+        return;
+      }
+
+      setIndex(clamped);
+    },
+    [count, applyTransform]
+  );
+
+  const fireImpression = useCallback(() => {
+    const now = Date.now();
+
+    // guards against touch double-tap + native dblclick both firing
+    if (now - lastImpressionRef.current < IMPRESSION_COOLDOWN_MS) {
+      return;
+    }
+
+    lastImpressionRef.current = now;
+
+    onDoubleImpressRef.current?.();
+  }, []);
+
+  /* ---------- touch / pen gestures ---------- */
+
+  const handlePointerDown = (event) => {
+    // mouse users have arrows, dots and double-click
+    if (event.pointerType === "mouse") return;
+
+    if (gestureRef.current) return;
+
+    const target = event.target;
+
+    if (target.closest && target.closest("button")) return;
+
+    // leave the video's control bar alone
+    if (target.tagName === "VIDEO") {
+      const rect = target.getBoundingClientRect();
+
+      if (event.clientY > rect.bottom - VIDEO_CONTROLS_ZONE) return;
+    }
+
+    const wrapper = wrapperRef.current;
+
+    if (!wrapper) return;
+
+    gestureRef.current = {
+      id: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startT: performance.now(),
+      lastX: event.clientX,
+      lastT: performance.now(),
+      velocity: 0,
+      axis: null,
+      width: wrapper.clientWidth || 1,
+      dx: 0,
+    };
+  };
+
+  const handlePointerMove = (event) => {
+    const gesture = gestureRef.current;
+
+    if (!gesture || event.pointerId !== gesture.id) return;
+
+    const dx = event.clientX - gesture.startX;
+    const dy = event.clientY - gesture.startY;
+
+    if (gesture.axis === null) {
+      if (Math.abs(dx) < AXIS_LOCK_PX && Math.abs(dy) < AXIS_LOCK_PX) {
+        return;
+      }
+
+      gesture.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+
+      if (gesture.axis === "x" && count > 1) {
+        try {
+          wrapperRef.current?.setPointerCapture(event.pointerId);
+        } catch (error) {
+          // ignore
+        }
+
+        wrapperRef.current?.classList.add("is-dragging");
+      }
+    }
+
+    if (gesture.axis !== "x" || count <= 1) return;
+
+    const now = performance.now();
+
+    const dt = now - gesture.lastT;
+
+    if (dt > 0) {
+      const instant = (event.clientX - gesture.lastX) / dt;
+
+      gesture.velocity = gesture.velocity * 0.4 + instant * 0.6;
+    }
+
+    gesture.lastX = event.clientX;
+    gesture.lastT = now;
+    gesture.dx = dx;
+
+    const current = indexRef.current;
+
+    let offset = dx;
+
+    if ((current === 0 && dx > 0) || (current === count - 1 && dx < 0)) {
+      offset = dx * EDGE_RESISTANCE;
+    }
+
+    applyTransform(current, offset, false);
+  };
+
+  const finishGesture = (event, cancelled) => {
+    const gesture = gestureRef.current;
+
+    if (!gesture || event.pointerId !== gesture.id) return;
+
+    gestureRef.current = null;
+
+    const wrapper = wrapperRef.current;
+
+    wrapper?.classList.remove("is-dragging");
+
+    try {
+      wrapper?.releasePointerCapture?.(event.pointerId);
+    } catch (error) {
+      // ignore
+    }
+
+    // ----- horizontal swipe -----
+    if (gesture.axis === "x" && count > 1) {
+      const current = indexRef.current;
+
+      let next = current;
+
+      if (!cancelled) {
+        const dx = gesture.dx;
+
+        const velocity =
+          performance.now() - gesture.lastT < 100 ? gesture.velocity : 0;
+
+        const threshold = Math.max(
+          SWIPE_MIN_DISTANCE,
+          gesture.width * SWIPE_FRACTION
+        );
+
+        if (dx <= -threshold || (velocity <= -SWIPE_VELOCITY && dx < -10)) {
+          next = current + 1;
+        } else if (dx >= threshold || (velocity >= SWIPE_VELOCITY && dx > 10)) {
+          next = current - 1;
+        }
+      }
+
+      goTo(next);
+
+      return;
+    }
+
+    // ----- vertical scroll: the browser handles it -----
+    if (gesture.axis === "y" || cancelled) return;
+
+    // ----- tap: detect double tap -----
+    const now = Date.now();
+
+    const last = lastTapRef.current;
+
+    if (
+      now - last.t < DOUBLE_TAP_MS &&
+      Math.hypot(event.clientX - last.x, event.clientY - last.y) <
+        DOUBLE_TAP_DISTANCE
+    ) {
+      lastTapRef.current = { t: 0, x: 0, y: 0 };
+
+      fireImpression();
+    } else {
+      lastTapRef.current = {
+        t: now,
+        x: event.clientX,
+        y: event.clientY,
+      };
+    }
+  };
+
+  const handleKeyDown = (event) => {
+    // keys pressed on the arrow / dot buttons must keep their own behavior
+    if (event.target !== event.currentTarget) return;
+
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      fireImpression();
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      goTo(indexRef.current - 1);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      goTo(indexRef.current + 1);
+    }
+  };
+
+  /* ---------- measure the first item to set the box shape ---------- */
+
+  const handleFirstMeasured = (width, height) => {
+    if (!width || !height || !items[0]) return;
+
+    const natural = width / height;
+
+    storeRatio(items[0].url, natural);
+
+    const next = clampRatio(natural);
+
+    setRatio((current) =>
+      Math.abs(current - next) < 0.005 ? current : next
+    );
+  };
+
+  if (count === 0) return null;
+
+  return (
+    <div
+      ref={wrapperRef}
+      className="post-image-wrapper"
+      style={{ "--post-ratio": ratio }}
+      onDoubleClick={fireImpression}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={(event) => finishGesture(event, false)}
+      onPointerCancel={(event) => finishGesture(event, true)}
+      role="button"
+      tabIndex={0}
+      aria-label="Double tap or double click to give an impression. Swipe or use arrow keys for more media."
+      onKeyDown={handleKeyDown}
+    >
+      <div className="carousel-track" ref={trackRef}>
+        {items.map((item, slideIndex) => {
+          const isNear = Math.abs(slideIndex - index) <= 1;
+
+          return (
+            <div
+              className="carousel-slide"
+              key={`${slideIndex}-${item.url}`}
+              data-slide={slideIndex}
+              aria-hidden={slideIndex !== index}
+            >
+              {isNear && item.type === "video" && (
+                <video
+                  src={item.url}
+                  poster={item.poster}
+                  className="post-video"
+                  controls
+                  playsInline
+                  preload={slideIndex === index ? "metadata" : "none"}
+                  onClick={(event) => event.stopPropagation()}
+                  onLoadedMetadata={
+                    slideIndex === 0
+                      ? (event) =>
+                          handleFirstMeasured(
+                            event.currentTarget.videoWidth,
+                            event.currentTarget.videoHeight
+                          )
+                      : undefined
+                  }
+                />
+              )}
+
+              {isNear && item.type !== "video" && (
+                <img
+                  src={item.url}
+                  alt={`${caption || "Impressa post"} ${slideIndex + 1}`}
+                  className="post-image"
+                  draggable="false"
+                  loading={priority && slideIndex === 0 ? "eager" : "lazy"}
+                  fetchPriority={
+                    priority && slideIndex === 0 ? "high" : undefined
+                  }
+                  decoding="async"
+                  onLoad={
+                    slideIndex === 0
+                      ? (event) =>
+                          handleFirstMeasured(
+                            event.currentTarget.naturalWidth,
+                            event.currentTarget.naturalHeight
+                          )
+                      : undefined
+                  }
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {count > 1 && index > 0 && (
+        <button
+          type="button"
+          className="carousel-arrow carousel-prev"
+          onClick={(event) => {
+            event.stopPropagation();
+            goTo(index - 1);
+          }}
+          aria-label="Previous media"
+        >
+          ‹
+        </button>
+      )}
+
+      {count > 1 && index < count - 1 && (
+        <button
+          type="button"
+          className="carousel-arrow carousel-next"
+          onClick={(event) => {
+            event.stopPropagation();
+            goTo(index + 1);
+          }}
+          aria-label="Next media"
+        >
+          ›
+        </button>
+      )}
+
+      {count > 1 && (
+        <div className="carousel-dots" aria-label="Carousel position">
+          {items.map((_, dotIndex) => (
+            <button
+              type="button"
+              key={dotIndex}
+              className={`carousel-dot ${
+                dotIndex === index ? "active" : ""
+              }`}
+              onClick={(event) => {
+                event.stopPropagation();
+                goTo(dotIndex);
+              }}
+              aria-label={`Show media ${dotIndex + 1}`}
+            />
+          ))}
+        </div>
+      )}
+
+      <span
+        key={impressionAnimation}
+        className={`double-impression ${
+          impressionAnimation ? "show" : ""
+        }`}
+        aria-hidden="true"
+      >
+        i
+      </span>
+    </div>
+  );
+});
 
 /* =========================================================
    COMMENT BOX
@@ -149,39 +757,51 @@ function CommentBox({
    POST
 ========================================================= */
 
-function Post({ post }) {
-  const rawMediaItems = post.media?.length
-    ? post.media
-    : post.postImages?.length
-    ? post.postImages.map((url) => ({ url, type: "image" }))
-    : post.postImage
-    ? [{ url: post.postImage, type: "image" }]
-    : [];
+function Post({ post, priority = false }) {
+  const navigate = useNavigate();
 
-  const mediaItems = rawMediaItems.map((item) => {
-    if (typeof item === "string") {
-      return { url: normalizeUrl(item), type: "image" };
-    }
+  const mediaItems = useMemo(() => {
+    const rawMediaItems = post.media?.length
+      ? post.media
+      : post.postImages?.length
+      ? post.postImages.map((url) => ({ url, type: "image" }))
+      : post.postImage
+      ? [{ url: post.postImage, type: "image" }]
+      : [];
 
-    return {
-      ...item,
-      url: normalizeUrl(item?.url),
-      type: item?.type || "image",
-    };
-  });
+    return rawMediaItems
+      .map((item) => {
+        if (typeof item === "string") {
+          return {
+            url: optimizeImageUrl(normalizeUrl(item)),
+            type: "image",
+          };
+        }
+
+        const type = item?.type || "image";
+
+        const url = normalizeUrl(item?.url);
+
+        return {
+          ...item,
+          type,
+          url: type === "image" ? optimizeImageUrl(url) : url,
+          poster: type === "video" ? getVideoPoster(url) : undefined,
+        };
+      })
+      .filter((item) => Boolean(item.url));
+  }, [post.media, post.postImages, post.postImage]);
 
   const profileImageUrl =
     normalizeUrl(post.profileImage) || DEFAULT_AVATAR;
 
-  const currentUsername = getStoredUsername();
-
-  const [currentMedia, setCurrentMedia] = useState(0);
+  const currentUsername = useMemo(() => getStoredUsername(), []);
 
   const [impressions, setImpressions] = useState(
     post.impressions ?? post.impressionsCount ?? 0
   );
 
-  const [impressed, setImpressed] = useState(false);
+  const [impressed, setImpressed] = useState(post.impressed === true);
 
   const [impressionAnimation, setImpressionAnimation] = useState(0);
 
@@ -212,6 +832,22 @@ function Post({ post }) {
   const isOwnPost =
     currentUsername && post.username === currentUsername;
 
+  /* ---------- keep counts in sync when fresh feed data arrives ---------- */
+
+  useEffect(() => {
+    if (typeof post.impressed === "boolean") {
+      setImpressed(post.impressed);
+    }
+  }, [post.impressed]);
+
+  useEffect(() => {
+    setImpressions(post.impressions ?? post.impressionsCount ?? 0);
+  }, [post.impressions, post.impressionsCount]);
+
+  useEffect(() => {
+    setCommentsCount(post.commentsCount ?? 0);
+  }, [post.commentsCount]);
+
   /* ---------- close ⋮ menu when tapping outside ---------- */
 
   useEffect(() => {
@@ -230,9 +866,12 @@ function Post({ post }) {
     };
   }, [menuOpen]);
 
-  /* ---------- check if I already gave an impression ---------- */
+  /* ---------- check if I already gave an impression ----------
+     Skipped when the feed already told us (post.impressed). */
 
   useEffect(() => {
+    if (typeof post.impressed === "boolean") return;
+
     const checkUserImpression = async () => {
       try {
         const token = localStorage.getItem("token");
@@ -261,7 +900,7 @@ function Post({ post }) {
     };
 
     checkUserImpression();
-  }, [post.id]);
+  }, [post.id, post.impressed]);
 
   /* ---------- music ---------- */
 
@@ -401,6 +1040,16 @@ function Post({ post }) {
       impressionPendingRef.current = false;
     }
   }
+
+  // Stable function for the memoized carousel: always calls the latest
+  // giveImpression, so double-taps never use stale state.
+  const giveImpressionRef = useRef(giveImpression);
+
+  giveImpressionRef.current = giveImpression;
+
+  const handleDoubleImpress = useCallback(() => {
+    giveImpressionRef.current();
+  }, []);
 
   /* ---------- share ---------- */
 
@@ -619,68 +1268,15 @@ function Post({ post }) {
     }
   }
 
-  /* ---------- navigation ---------- */
+  /* ---------- navigation (no full page reload) ---------- */
 
   function goToProfile() {
-    window.location.assign(
-      `/profile/${encodeURIComponent(post.username)}`
-    );
-  }
-
-  /* ---------- carousel ---------- */
-
-  function previousMedia() {
-    if (mediaItems.length <= 1) return;
-
-    setCurrentMedia(
-      (value) => (value - 1 + mediaItems.length) % mediaItems.length
-    );
-  }
-
-  function nextMedia() {
-    if (mediaItems.length <= 1) return;
-
-    setCurrentMedia((value) => (value + 1) % mediaItems.length);
-  }
-
-  function handleTouchStart(event) {
-    if (mediaItems.length <= 1) return;
-
-    const touch = event.touches?.[0];
-
-    if (!touch) return;
-
-    event.currentTarget.dataset.startX = touch.clientX;
-  }
-
-  function handleTouchEnd(event) {
-    if (mediaItems.length <= 1) return;
-
-    const startX = Number(event.currentTarget.dataset.startX);
-    const touch = event.changedTouches?.[0];
-
-    if (!startX || !touch) return;
-
-    const difference = touch.clientX - startX;
-
-    if (Math.abs(difference) < 45) return;
-
-    if (difference > 0) {
-      previousMedia();
-    } else {
-      nextMedia();
-    }
-
-    event.currentTarget.dataset.startX = "";
+    navigate(`/profile/${encodeURIComponent(post.username)}`);
   }
 
   // The author was blocked from this post: remove it from the screen.
   // (Kept after every hook so React's hook order never changes.)
   if (hidden) return null;
-
-  const currentItem = mediaItems[currentMedia];
-  const currentUrl = currentItem?.url;
-  const currentType = currentItem?.type || "image";
 
   return (
     <article className="post" ref={postRef}>
@@ -695,6 +1291,8 @@ function Post({ post }) {
             src={profileImageUrl}
             alt={`${post.username} profile`}
             className="post-profile-image"
+            loading={priority ? "eager" : "lazy"}
+            decoding="async"
           />
 
           <span className="post-user-info">
@@ -730,99 +1328,14 @@ function Post({ post }) {
         )}
       </div>
 
-      {currentUrl && (
-        <div
-          className={`post-image-wrapper ${
-            post.orientation === "portrait" ? "portrait-post" : ""
-          }`}
-          onDoubleClick={giveImpression}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-          role="button"
-          tabIndex={0}
-          aria-label="Double tap or double click to give an impression"
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              giveImpression();
-            }
-          }}
-        >
-          {currentType === "image" && (
-            <img
-              src={currentUrl}
-              alt={`${post.caption || "Impressa post"} ${currentMedia + 1}`}
-              className="post-image"
-              draggable="false"
-            />
-          )}
-
-          {currentType === "video" && (
-            <video
-              src={currentUrl}
-              className="post-image"
-              controls
-              playsInline
-              preload="metadata"
-              onClick={(event) => event.stopPropagation()}
-            />
-          )}
-
-          {mediaItems.length > 1 && (
-            <>
-              <button
-                type="button"
-                className="carousel-arrow carousel-prev"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  previousMedia();
-                }}
-                aria-label="Previous media"
-              >
-                ‹
-              </button>
-
-              <button
-                type="button"
-                className="carousel-arrow carousel-next"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  nextMedia();
-                }}
-                aria-label="Next media"
-              >
-                ›
-              </button>
-
-              <div className="carousel-dots" aria-label="Carousel position">
-                {mediaItems.map((_, index) => (
-                  <button
-                    type="button"
-                    key={index}
-                    className={`carousel-dot ${
-                      index === currentMedia ? "active" : ""
-                    }`}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setCurrentMedia(index);
-                    }}
-                    aria-label={`Show media ${index + 1}`}
-                  />
-                ))}
-              </div>
-            </>
-          )}
-
-          <span
-            key={impressionAnimation}
-            className={`double-impression ${
-              impressionAnimation ? "show" : ""
-            }`}
-            aria-hidden="true"
-          >
-            i
-          </span>
-        </div>
+      {mediaItems.length > 0 && (
+        <MediaCarousel
+          items={mediaItems}
+          caption={post.caption}
+          impressionAnimation={impressionAnimation}
+          priority={priority}
+          onDoubleImpress={handleDoubleImpress}
+        />
       )}
 
       <Action
@@ -904,4 +1417,4 @@ function Post({ post }) {
   );
 }
 
-export default Post;
+export default memo(Post);

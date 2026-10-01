@@ -80,6 +80,19 @@
   font-weight: 700;
 }
 
+/* NOTICE (e.g. refresh failed but saved posts are shown) */
+
+.home-notice {
+  margin: 0 16px 10px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: #fff3ec;
+  color: #c24f00;
+  font-size: 13px;
+  font-weight: 650;
+  text-align: center;
+}
+
 /* STATES (empty / error) */
 
 .home-state {
@@ -136,6 +149,59 @@
 
 .home-state button:active {
   transform: scale(0.97);
+}
+
+/* SLOW SERVER HINT */
+
+.home-slow-note {
+  margin: 4px 16px 16px;
+  color: #8a8a8a;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* LOAD MORE / END OF FEED */
+
+.feed-more {
+  min-height: 64px;
+  padding: 18px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.feed-more button {
+  min-height: 42px;
+  padding: 0 20px;
+  border: 1.5px solid #ff6a00;
+  border-radius: 999px;
+  background: #fff7f1;
+  color: #ff6a00;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.feed-spinner {
+  width: 26px;
+  height: 26px;
+  border: 3px solid #ffe0cc;
+  border-top-color: #ff6a00;
+  border-radius: 50%;
+  animation: feedSpin 0.8s linear infinite;
+}
+
+.feed-end {
+  padding: 28px 16px 12px;
+  color: #b0a79f;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+
+@keyframes feedSpin {
+  to { transform: rotate(360deg); }
 }
 
 /* SKELETON */

@@ -11,6 +11,16 @@ dns.setServers(["8.8.8.8", "1.1.1.1"]);
 const express = require("express");
 const cors = require("cors");
 
+let compression = null;
+
+try {
+  compression = require("compression");
+} catch (error) {
+  console.warn(
+    "⚠️  'compression' is not installed. Run: npm install compression"
+  );
+}
+
 const connectDB = require("./config/database");
 
 const authRoutes = require("./routes/authRoutes");
@@ -28,9 +38,16 @@ const app = express();
 
 const PORT = process.env.PORT || 5000;
 
+// Correct client IPs / protocol when running behind a host's proxy
+app.set("trust proxy", 1);
+
 // ==========================================
 // MIDDLEWARE
 // ==========================================
+
+if (compression) {
+  app.use(compression());
+}
 
 app.use(
   express.json({
@@ -80,6 +97,17 @@ app.get("/api/health", (req, res) => {
   res.json({
     success: true,
     message: "Impressa backend is running 🚀",
+  });
+});
+
+// ==========================================
+// UNKNOWN API ROUTES (JSON instead of an HTML page)
+// ==========================================
+
+app.use("/api", (req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "Route not found",
   });
 });
 

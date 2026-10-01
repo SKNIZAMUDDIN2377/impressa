@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const crypto = require("crypto");
 const streamifier = require("streamifier");
 
 const cloudinary = require("../config/cloudinary");
@@ -60,6 +61,114 @@ const getCloudinaryPublicId = (url) => {
 
     return match ? match[1] : null;
   } catch (error) {
+    return null;
+  }
+};
+
+// ==========================================
+// FEED HELPERS
+// ==========================================
+
+const FEED_DEFAULT_LIMIT = 10;
+const FEED_MAX_LIMIT = 20;
+
+// Profile pictures saved as base64 data URLs are huge. Instead of
+// sending them inside every feed post, the feed sends a short URL
+// that the browser downloads once and caches.
+const parseInlineAvatar = (value) => {
+  if (typeof value !== "string" || !value.startsWith("data:")) {
+    return null;
+  }
+
+  const commaIndex = value.indexOf(",");
+
+  if (commaIndex === -1) return null;
+
+  const header = value.slice(0, commaIndex);
+
+  const match = header.match(
+    /^data:(image\/(?:jpeg|png|webp|gif));base64$/i
+  );
+
+  if (!match) return null;
+
+  return {
+    mime: match[1].toLowerCase(),
+    base64: value.slice(commaIndex + 1),
+  };
+};
+
+const getFeedAvatarUrl = (author) => {
+  const picture = author?.profilePicture;
+
+  if (!picture) return "";
+
+  if (typeof picture === "string" && picture.startsWith("data:")) {
+    if (!parseInlineAvatar(picture)) {
+      // Unsupported inline format: keep the original value
+      return picture;
+    }
+
+    const version = crypto
+      .createHash("md5")
+      .update(picture)
+      .digest("hex")
+      .slice(0, 10);
+
+    return `/api/posts/author-avatar/${author._id}?v=${version}`;
+  }
+
+  return picture;
+};
+
+const parseFeedCursor = (raw) => {
+  if (!raw || typeof raw !== "string") return null;
+
+  const [time, id] = raw.split("_");
+
+  const ms = Number(time);
+
+  if (!Number.isFinite(ms) || !mongoose.Types.ObjectId.isValid(id)) {
+    return null;
+  }
+
+  return { date: new Date(ms), id };
+};
+
+const makeFeedCursor = (post) =>
+  `${new Date(post.createdAt).getTime()}_${post._id}`;
+
+// Which of these posts has the current user already impressed?
+// Returns null when the Impression model's field names cannot be
+// determined, in which case the frontend falls back to its own check.
+const IMPRESSION_USER_FIELDS = [
+  "user",
+  "userId",
+  "impressedBy",
+  "author",
+  "giver",
+];
+
+const getImpressedPostIds = async (userId, postIds) => {
+  try {
+    if (!Impression.schema.path("post")) return null;
+
+    const userField = IMPRESSION_USER_FIELDS.find((field) =>
+      Impression.schema.path(field)
+    );
+
+    if (!userField || postIds.length === 0) return null;
+
+    const rows = await Impression.find({
+      post: { $in: postIds },
+      [userField]: userId,
+    })
+      .select("post")
+      .lean();
+
+    return new Set(rows.map((row) => String(row.post)));
+  } catch (error) {
+    console.error("Feed impression lookup error ❌", error);
     return null;
   }
 };
@@ -206,23 +315,106 @@ const createPost = async (req, res) => {
 // ==========================================
 // GET POSTS
 // ==========================================
+// With ?limit=N  -> paginated "feed" response (newest first):
+//   { posts, hasMore, nextCursor }  pass nextCursor back as ?cursor=
+// Without limit  -> original behavior (every post), unchanged.
 
 const getPosts = async (req, res) => {
   try {
     // Hide posts from users blocked in either direction
     const hidden = await getBlockedUserIds(req.user.userId);
 
-    const posts = await Post.find({ author: { $nin: hidden } })
+    const feedMode = req.query.limit !== undefined;
+
+    // ---------- original behavior ----------
+    if (!feedMode) {
+      const posts = await Post.find({ author: { $nin: hidden } })
+        .populate(
+          "author",
+          "name username profilePicture badge isOfficial"
+        )
+        .sort({ createdAt: -1 });
+
+      return res.status(200).json({
+        success: true,
+        count: posts.length,
+        posts,
+      });
+    }
+
+    // ---------- paginated feed ----------
+    const requestedLimit = parseInt(req.query.limit, 10);
+
+    const limit = Math.min(
+      FEED_MAX_LIMIT,
+      Math.max(
+        1,
+        Number.isFinite(requestedLimit)
+          ? requestedLimit
+          : FEED_DEFAULT_LIMIT
+      )
+    );
+
+    const filter = { author: { $nin: hidden } };
+
+    const cursor = parseFeedCursor(req.query.cursor);
+
+    if (cursor) {
+      filter.$or = [
+        { createdAt: { $lt: cursor.date } },
+        { createdAt: cursor.date, _id: { $lt: cursor.id } },
+      ];
+    }
+
+    const rows = await Post.find(filter)
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(limit + 1)
       .populate(
         "author",
         "name username profilePicture badge isOfficial"
       )
-      .sort({ createdAt: -1 });
+      .lean();
+
+    const hasMore = rows.length > limit;
+
+    const page = hasMore ? rows.slice(0, limit) : rows;
+
+    const impressedIds = await getImpressedPostIds(
+      req.user.userId,
+      page.map((post) => post._id)
+    );
+
+    const posts = page.map((post) => {
+      const item = {
+        ...post,
+        author: post.author
+          ? {
+              _id: post.author._id,
+              name: post.author.name,
+              username: post.author.username,
+              badge: post.author.badge,
+              isOfficial: post.author.isOfficial,
+              profilePicture: getFeedAvatarUrl(post.author),
+            }
+          : post.author,
+      };
+
+      if (impressedIds) {
+        item.impressed = impressedIds.has(String(post._id));
+      }
+
+      return item;
+    });
 
     res.status(200).json({
       success: true,
       count: posts.length,
       posts,
+      hasMore,
+      nextCursor:
+        hasMore && page.length > 0
+          ? makeFeedCursor(page[page.length - 1])
+          : null,
     });
   } catch (error) {
     console.error("Get posts error ❌", error);
@@ -231,6 +423,58 @@ const getPosts = async (req, res) => {
       success: false,
       message: "Server error while fetching posts",
     });
+  }
+};
+
+// ==========================================
+// AUTHOR AVATAR (public image endpoint)
+// ==========================================
+// Serves a base64-stored profile picture as a real image with
+// long-lived caching. The ?v= hash in the URL changes whenever the
+// picture changes, so the cache is always correct.
+
+const getAuthorAvatar = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(404).end();
+    }
+
+    const user = await User.findById(userId)
+      .select("profilePicture")
+      .lean();
+
+    const picture = user?.profilePicture;
+
+    if (!picture) {
+      return res.status(404).end();
+    }
+
+    const inline = parseInlineAvatar(picture);
+
+    if (!inline) {
+      if (/^https?:\/\//i.test(picture)) {
+        return res.redirect(302, picture);
+      }
+
+      return res.status(404).end();
+    }
+
+    const buffer = Buffer.from(inline.base64, "base64");
+
+    res.set({
+      "Content-Type": inline.mime,
+      "Cache-Control": "public, max-age=31536000, immutable",
+      "Cross-Origin-Resource-Policy": "cross-origin",
+      "X-Content-Type-Options": "nosniff",
+    });
+
+    return res.status(200).send(buffer);
+  } catch (error) {
+    console.error("Get author avatar error ❌", error);
+
+    return res.status(500).end();
   }
 };
 
@@ -363,4 +607,5 @@ module.exports = {
   getPosts,
   getPostById,
   deletePost,
+  getAuthorAvatar,
 };

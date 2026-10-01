@@ -1,7 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Post from "../components/Post";
 import { getCache, setCache } from "../utils/impressaCache";
 import "./Home.css";
+
+const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+// Posts per request
+const PAGE_SIZE = 10;
+
+// true  = random order inside each batch (your original behavior)
+// false = plain newest-first
+const SHUFFLE_FEED = true;
+
+const FEED_CACHE_PREFIX = "home_feed_v2_";
 
 const DEFAULT_AVATAR =
   "data:image/svg+xml;utf8," +
@@ -12,6 +25,187 @@ const DEFAULT_AVATAR =
       <path d="M150 188c-68 0-122 42-122 95v17h244v-17c0-53-54-95-122-95z" fill="#C2C2C2"/>
     </svg>`
   );
+
+// ==========================================
+// CACHE HELPERS
+// ==========================================
+
+// The old cache key contained the login token, so every login left an
+// orphaned copy of the feed behind. Remove those once.
+const purgeLegacyFeedCaches = () => {
+  try {
+    const doomed = [];
+
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+
+      if (key && key.includes("home_posts")) {
+        doomed.push(key);
+      }
+    }
+
+    doomed.forEach((key) => localStorage.removeItem(key));
+  } catch (error) {
+    // ignore
+  }
+};
+
+purgeLegacyFeedCaches();
+
+const getFeedCacheKey = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem("user") || "null");
+
+    const who = String(user?.username || user?.id || "me").toLowerCase();
+
+    return `${FEED_CACHE_PREFIX}${who}`;
+  } catch (error) {
+    return `${FEED_CACHE_PREFIX}me`;
+  }
+};
+
+const readCachedFeed = (key) => {
+  try {
+    const value = getCache(key);
+
+    return Array.isArray(value)
+      ? value.filter((post) => post && post.id)
+      : [];
+  } catch (error) {
+    return [];
+  }
+};
+
+const writeCachedFeed = (key, posts) => {
+  try {
+    setCache(key, posts);
+  } catch (error) {
+    // storage full or blocked: the feed still works without a cache
+  }
+};
+
+// ==========================================
+// NETWORK HELPERS
+// ==========================================
+
+const wait = (ms, signal) =>
+  new Promise((resolve, reject) => {
+    const timer = setTimeout(resolve, ms);
+
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        reject(Object.assign(new Error("aborted"), { code: "aborted" }));
+      },
+      { once: true }
+    );
+  });
+
+// fetch with timeout + safe JSON parsing.
+// Resolves { ok, status, data }. Rejects with error.code =
+// "timeout" | "network" | "aborted".
+const fetchJson = async (
+  url,
+  { headers = {}, signal, timeoutMs = 20000 } = {}
+) => {
+  const controller = new AbortController();
+
+  let timedOut = false;
+
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+
+  const onAbort = () => controller.abort();
+
+  if (signal) {
+    if (signal.aborted) {
+      controller.abort();
+    } else {
+      signal.addEventListener("abort", onAbort, { once: true });
+    }
+  }
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers,
+      signal: controller.signal,
+    });
+
+    const text = await response.text();
+
+    let data = {};
+
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch (parseError) {
+      data = {};
+    }
+
+    return { ok: response.ok, status: response.status, data };
+  } catch (error) {
+    if (timedOut) {
+      throw Object.assign(new Error("timeout"), { code: "timeout" });
+    }
+
+    if (signal?.aborted) {
+      throw Object.assign(new Error("aborted"), { code: "aborted" });
+    }
+
+    throw Object.assign(new Error("network"), { code: "network" });
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", onAbort);
+  }
+};
+
+// One automatic retry for network errors, timeouts and 5xx
+// (covers a sleeping / cold-starting server).
+const getWithRetry = async (url, headers, signal) => {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const result = await fetchJson(url, {
+        headers,
+        signal,
+        timeoutMs: attempt === 0 ? 20000 : 35000,
+      });
+
+      if (result.status >= 500 && attempt === 0) {
+        await wait(1200, signal);
+        continue;
+      }
+
+      return result;
+    } catch (error) {
+      if (error.code === "aborted" || attempt === 1) {
+        throw error;
+      }
+
+      await wait(1200, signal);
+    }
+  }
+
+  throw Object.assign(new Error("network"), { code: "network" });
+};
+
+const describeError = (error) => {
+  if (error.code === "timeout") {
+    return "The server is taking too long to respond. Please try again.";
+  }
+
+  if (error.code === "network") {
+    return "Cannot connect to Impressa server.";
+  }
+
+  return error.message || "Failed to load posts.";
+};
+
+// ==========================================
+// FEED HELPERS
+// ==========================================
 
 const shufflePosts = (items) => {
   const shuffled = [...items];
@@ -28,122 +222,204 @@ const shufflePosts = (items) => {
   return shuffled;
 };
 
-function Home() {
-  const token = localStorage.getItem("token");
+const orderBatch = (items) =>
+  SHUFFLE_FEED ? shufflePosts(items) : items;
 
-  const homeCacheKey = token ? `home_posts_${token}` : "home_posts";
+const formatPost = (post) => ({
+  id: post._id,
+
+  username: post.author?.username || "unknown",
+
+  profileImage: post.author?.profilePicture || DEFAULT_AVATAR,
+
+  time: new Date(post.createdAt).toLocaleDateString(),
+
+  media: post.media || [],
+
+  music: post.music || {
+    id: null,
+    title: "",
+    artist: "",
+    audioUrl: "",
+  },
+
+  caption: post.caption || "",
+
+  commentsCount: post.commentsCount || 0,
+
+  impressions: post.impressionsCount || 0,
+
+  ...(typeof post.impressed === "boolean"
+    ? { impressed: post.impressed }
+    : {}),
+});
+
+// Updates posts you are already looking at without reordering them.
+// Posts that no longer exist disappear, brand-new posts go on top.
+const mergeFeed = (existing, fresh) => {
+  const freshById = new Map(fresh.map((post) => [post.id, post]));
+
+  const kept = existing
+    .filter((post) => freshById.has(post.id))
+    .map((post) => freshById.get(post.id));
+
+  const keptIds = new Set(kept.map((post) => post.id));
+
+  const added = fresh.filter((post) => !keptIds.has(post.id));
+
+  return [...added, ...kept];
+};
+
+function Home() {
+  const navigate = useNavigate();
+
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
 
   // ==========================================
   // CACHE-FIRST INITIAL STATE
   // ==========================================
 
-  const initialCachedPosts = getCache(homeCacheKey);
+  const cacheKeyRef = useRef(null);
 
-  const hadCacheRef = useRef(
-    Array.isArray(initialCachedPosts) && initialCachedPosts.length > 0
-  );
+  if (cacheKeyRef.current === null) {
+    cacheKeyRef.current = getFeedCacheKey();
+  }
 
-  const [posts, setPosts] = useState(() => initialCachedPosts || []);
+  const cacheKey = cacheKeyRef.current;
+
+  const initialPostsRef = useRef(null);
+
+  if (initialPostsRef.current === null) {
+    initialPostsRef.current = readCachedFeed(cacheKey);
+  }
+
+  const hadCacheRef = useRef(initialPostsRef.current.length > 0);
+
+  const [posts, setPosts] = useState(initialPostsRef.current);
   const [loading, setLoading] = useState(!hadCacheRef.current);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [moreError, setMoreError] = useState(false);
   const [error, setError] = useState("");
-
-  const [touchStartY, setTouchStartY] = useState(null);
+  const [notice, setNotice] = useState("");
+  const [slowLoad, setSlowLoad] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
 
+  const postsRef = useRef(posts);
+  postsRef.current = posts;
+
   const requestIdRef = useRef(0);
+  const abortRef = useRef(null);
+  const moreAbortRef = useRef(null);
+  const cursorRef = useRef(null);
+  const hasMoreRef = useRef(false);
+  const loadingMoreRef = useRef(false);
+  const sentinelRef = useRef(null);
+
+  const touchRef = useRef({ x: null, y: null, axis: null });
+  const pullRef = useRef(0);
+
+  const applyHasMore = (value) => {
+    hasMoreRef.current = value;
+    setHasMore(value);
+  };
+
+  const handleSessionExpired = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+
+    navigateRef.current("/signin", { replace: true });
+  };
 
   // ==========================================
-  // FETCH POSTS
+  // FETCH FIRST PAGE
   // ==========================================
 
-  const fetchPosts = useCallback(
+  const fetchFirstPage = useCallback(
     async (isRefresh = false) => {
       const requestId = ++requestIdRef.current;
 
+      abortRef.current?.abort();
+      moreAbortRef.current?.abort();
+
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
+
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        navigateRef.current("/signin", { replace: true });
+        return;
+      }
+
+      if (isRefresh) {
+        setRefreshing(true);
+      } else if (!hadCacheRef.current) {
+        setLoading(true);
+      }
+
+      setError("");
+
       try {
-        if (isRefresh) {
-          setRefreshing(true);
-        } else if (!hadCacheRef.current) {
-          setLoading(true);
-        }
+        const result = await getWithRetry(
+          `${API_URL}/api/posts?limit=${PAGE_SIZE}`,
+          { Authorization: `Bearer ${token}` },
+          controller.signal
+        );
 
-        setError("");
+        if (requestId !== requestIdRef.current) return;
 
-        const currentToken = localStorage.getItem("token");
-
-        if (!currentToken) {
-          if (requestId === requestIdRef.current) {
-            setError("Please sign in again.");
-          }
-
+        if (result.status === 401) {
+          handleSessionExpired();
           return;
         }
 
-        const API_URL =
-          import.meta.env.VITE_API_URL || "http://localhost:5000";
-
-        const response = await fetch(`${API_URL}/api/posts`, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${currentToken}`,
-          },
-        });
-
-        const data = await response.json();
-
-        if (requestId !== requestIdRef.current) {
-          return;
+        if (!result.ok) {
+          throw new Error(
+            result.data.message || "Failed to load posts."
+          );
         }
 
-        if (!response.ok) {
-          console.error("Failed to fetch posts:", data);
+        const fresh = (result.data.posts || []).map(formatPost);
 
-          setError(data.message || "Failed to load posts.");
+        const cursor = result.data.nextCursor || null;
 
-          return;
-        }
+        const current = postsRef.current;
 
-        const formattedPosts = (data.posts || []).map((post) => ({
-          id: post._id,
-
-          username: post.author?.username || "unknown",
-
-          profileImage: post.author?.profilePicture || DEFAULT_AVATAR,
-
-          time: new Date(post.createdAt).toLocaleDateString(),
-
-          media: post.media || [],
-
-          music: post.music || {
-            id: null,
-            title: "",
-            artist: "",
-            audioUrl: "",
-          },
-
-          caption: post.caption || "",
-
-          commentsCount: post.commentsCount || 0,
-
-          impressions: post.impressionsCount || 0,
-        }));
-
-        const randomizedPosts = shufflePosts(formattedPosts);
+        const next =
+          !isRefresh && hadCacheRef.current && current.length > 0
+            ? mergeFeed(current, fresh)
+            : orderBatch(fresh);
 
         hadCacheRef.current = true;
 
-        setPosts(randomizedPosts);
-        setCache(homeCacheKey, randomizedPosts);
+        cursorRef.current = cursor;
+
+        applyHasMore(result.data.hasMore === true && !!cursor);
+
+        setMoreError(false);
+        setPosts(next);
+
+        writeCachedFeed(cacheKey, next.slice(0, PAGE_SIZE));
       } catch (fetchError) {
-        if (requestId !== requestIdRef.current) {
+        if (
+          fetchError.code === "aborted" ||
+          requestId !== requestIdRef.current
+        ) {
           return;
         }
 
         console.error("Fetch posts error:", fetchError);
 
-        if (!getCache(homeCacheKey)) {
-          setError("Cannot connect to Impressa server.");
+        if (postsRef.current.length === 0) {
+          setError(describeError(fetchError));
+        } else if (isRefresh) {
+          setNotice("Couldn't refresh. Showing saved posts.");
         }
       } finally {
         if (requestId === requestIdRef.current) {
@@ -152,8 +428,96 @@ function Home() {
         }
       }
     },
-    [homeCacheKey]
+    [cacheKey]
   );
+
+  // ==========================================
+  // FETCH NEXT PAGE (infinite scroll)
+  // ==========================================
+
+  const fetchMore = useCallback(async () => {
+    if (
+      loadingMoreRef.current ||
+      !hasMoreRef.current ||
+      !cursorRef.current
+    ) {
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+
+    if (!token) return;
+
+    const requestId = requestIdRef.current;
+
+    loadingMoreRef.current = true;
+
+    setLoadingMore(true);
+    setMoreError(false);
+
+    const controller = new AbortController();
+    moreAbortRef.current = controller;
+
+    try {
+      const result = await getWithRetry(
+        `${API_URL}/api/posts?limit=${PAGE_SIZE}&cursor=${encodeURIComponent(
+          cursorRef.current
+        )}`,
+        { Authorization: `Bearer ${token}` },
+        controller.signal
+      );
+
+      if (requestId !== requestIdRef.current) return;
+
+      if (result.status === 401) {
+        handleSessionExpired();
+        return;
+      }
+
+      if (!result.ok) {
+        throw new Error(
+          result.data.message || "Failed to load more posts."
+        );
+      }
+
+      const incoming = (result.data.posts || []).map(formatPost);
+
+      const cursor = result.data.nextCursor || null;
+
+      cursorRef.current = cursor;
+
+      applyHasMore(result.data.hasMore === true && !!cursor);
+
+      setPosts((previous) => {
+        const seen = new Set(previous.map((post) => post.id));
+
+        const additions = orderBatch(incoming).filter(
+          (post) => !seen.has(post.id)
+        );
+
+        return additions.length > 0
+          ? [...previous, ...additions]
+          : previous;
+      });
+    } catch (moreFetchError) {
+      if (
+        moreFetchError.code === "aborted" ||
+        requestId !== requestIdRef.current
+      ) {
+        return;
+      }
+
+      console.error("Fetch more posts error:", moreFetchError);
+
+      setMoreError(true);
+    } finally {
+      loadingMoreRef.current = false;
+
+      if (requestId === requestIdRef.current) {
+        setLoadingMore(false);
+      }
+    }
+  }, []);
 
   // ==========================================
   // INITIAL LOAD + NAVBAR HOME REFRESH
@@ -162,56 +526,142 @@ function Home() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
 
-    fetchPosts();
+    fetchFirstPage(false);
 
     const handleHomeRefresh = () => {
       window.scrollTo({ top: 0, behavior: "instant" });
-      fetchPosts(true);
+      fetchFirstPage(true);
     };
 
     window.addEventListener("impressa-home-refresh", handleHomeRefresh);
 
     return () => {
-      window.removeEventListener("impressa-home-refresh", handleHomeRefresh);
+      window.removeEventListener(
+        "impressa-home-refresh",
+        handleHomeRefresh
+      );
+
+      abortRef.current?.abort();
+      moreAbortRef.current?.abort();
     };
-  }, [fetchPosts]);
+  }, [fetchFirstPage]);
+
+  // ==========================================
+  // INFINITE SCROLL SENTINEL
+  // ==========================================
+
+  useEffect(() => {
+    if (!hasMore || moreError) return undefined;
+
+    const element = sentinelRef.current;
+
+    if (!element) return undefined;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          fetchMore();
+        }
+      },
+      { rootMargin: "800px 0px" }
+    );
+
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, [hasMore, moreError, posts.length, fetchMore]);
+
+  // ==========================================
+  // "WAKING UP THE SERVER" HINT + NOTICE TIMER
+  // ==========================================
+
+  useEffect(() => {
+    if (!loading || posts.length > 0) {
+      setSlowLoad(false);
+      return undefined;
+    }
+
+    const timer = setTimeout(() => setSlowLoad(true), 6000);
+
+    return () => clearTimeout(timer);
+  }, [loading, posts.length]);
+
+  useEffect(() => {
+    if (!notice) return undefined;
+
+    const timer = setTimeout(() => setNotice(""), 4000);
+
+    return () => clearTimeout(timer);
+  }, [notice]);
 
   // ==========================================
   // PULL TO REFRESH
+  // (ignores horizontal swipes, e.g. on a carousel)
   // ==========================================
 
   const handleTouchStart = (event) => {
     if (window.scrollY <= 0 && !loading && !refreshing) {
-      setTouchStartY(event.touches[0].clientY);
+      const touch = event.touches[0];
+
+      touchRef.current = {
+        x: touch.clientX,
+        y: touch.clientY,
+        axis: null,
+      };
     }
   };
 
   const handleTouchMove = (event) => {
-    if (touchStartY === null || window.scrollY > 0 || loading || refreshing) {
+    const state = touchRef.current;
+
+    if (
+      state.y === null ||
+      window.scrollY > 0 ||
+      loading ||
+      refreshing
+    ) {
       return;
     }
 
-    const distance = event.touches[0].clientY - touchStartY;
+    const touch = event.touches[0];
 
-    if (distance > 0) {
-      setPullDistance(Math.min(distance * 0.5, 100));
+    const deltaY = touch.clientY - state.y;
+    const deltaX = touch.clientX - state.x;
+
+    if (state.axis === null) {
+      if (Math.abs(deltaX) + Math.abs(deltaY) < 8) return;
+
+      state.axis = Math.abs(deltaX) > Math.abs(deltaY) ? "x" : "y";
+    }
+
+    if (state.axis === "x") return;
+
+    if (deltaY > 0) {
+      const distance = Math.min(deltaY * 0.5, 100);
+
+      pullRef.current = distance;
+
+      setPullDistance(Math.round(distance));
     }
   };
 
   const handleTouchEnd = async () => {
-    if (touchStartY === null) {
+    if (touchRef.current.y === null) {
       return;
     }
 
-    const shouldRefresh = pullDistance >= 60;
+    const shouldRefresh = pullRef.current >= 60;
 
-    setTouchStartY(null);
+    touchRef.current = { x: null, y: null, axis: null };
+
+    pullRef.current = 0;
+
     setPullDistance(0);
 
     if (shouldRefresh) {
       window.scrollTo({ top: 0, behavior: "smooth" });
 
-      await fetchPosts(true);
+      await fetchFirstPage(true);
     }
   };
 
@@ -224,6 +674,7 @@ function Home() {
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
     >
       {(pullDistance > 0 || refreshing) && (
         <div
@@ -249,8 +700,10 @@ function Home() {
           </div>
         </header>
 
+        {notice && <div className="home-notice">{notice}</div>}
+
         <section className="home-feed">
-          {error && (
+          {error && posts.length === 0 && (
             <div className="home-state">
               <div className="home-state-icon">!</div>
 
@@ -258,7 +711,7 @@ function Home() {
 
               <p>{error}</p>
 
-              <button type="button" onClick={() => fetchPosts(true)}>
+              <button type="button" onClick={() => fetchFirstPage(true)}>
                 Try again
               </button>
             </div>
@@ -281,6 +734,12 @@ function Home() {
               </div>
             ))}
 
+          {showSkeleton && slowLoad && (
+            <p className="home-slow-note">
+              Waking up the server… this can take a few seconds.
+            </p>
+          )}
+
           {showEmpty && (
             <div className="home-state">
               <div className="home-state-icon">i</div>
@@ -289,13 +748,31 @@ function Home() {
 
               <p>New impressions will show up here as people post.</p>
 
-              <button type="button" onClick={() => fetchPosts(true)}>
+              <button type="button" onClick={() => fetchFirstPage(true)}>
                 Refresh
               </button>
             </div>
           )}
 
-          {!error && posts.map((post) => <Post key={post.id} post={post} />)}
+          {posts.map((post, index) => (
+            <Post key={post.id} post={post} priority={index === 0} />
+          ))}
+
+          {posts.length > 0 && hasMore && (
+            <div className="feed-more" ref={sentinelRef}>
+              {moreError ? (
+                <button type="button" onClick={fetchMore}>
+                  Couldn't load more · Tap to retry
+                </button>
+              ) : loadingMore ? (
+                <span className="feed-spinner" aria-label="Loading more" />
+              ) : null}
+            </div>
+          )}
+
+          {posts.length > 0 && !hasMore && !loading && (
+            <div className="feed-end">You're all caught up</div>
+          )}
         </section>
       </div>
     </main>

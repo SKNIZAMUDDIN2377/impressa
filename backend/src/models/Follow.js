@@ -26,12 +26,14 @@ followSchema.index(
 );
 
 // Prevent a user from following themselves
-followSchema.pre("validate", function (next) {
-  if (this.follower.equals(this.following)) {
-    return next(new Error("A user cannot follow themselves"));
+followSchema.pre("validate", function () {
+  if (
+    this.follower &&
+    this.following &&
+    this.follower.equals(this.following)
+  ) {
+    throw new Error("A user cannot follow themselves");
   }
-
-  next();
 });
 
 module.exports = mongoose.model("Follow", followSchema);

@@ -81,16 +81,18 @@ reportSchema.index({
   post: 1,
 });
 
-reportSchema.pre("validate", function (next) {
-  if (this.reporter.equals(this.reportedUser)) {
-    return next(new Error("You cannot report yourself"));
+reportSchema.pre("validate", function () {
+  if (
+    this.reporter &&
+    this.reportedUser &&
+    this.reporter.equals(this.reportedUser)
+  ) {
+    throw new Error("You cannot report yourself");
   }
 
   if (this.targetType === "post" && !this.post) {
-    return next(new Error("A post report requires a post"));
+    throw new Error("A post report requires a post");
   }
-
-  next();
 });
 
 reportSchema.statics.REASONS = REPORT_REASONS;

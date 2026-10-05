@@ -7,7 +7,7 @@ const Block = require("../models/Block");
  *   - users that have blocked userId
  *
  * Usage in queries:
- *   const hidden = await getBlockedUserIds(req.user._id);
+ *   const hidden = await getBlockedUserIds(req.user.userId);
  *   Post.find({ author: { $nin: hidden } })
  */
 const getBlockedUserIds = async (userId) => {

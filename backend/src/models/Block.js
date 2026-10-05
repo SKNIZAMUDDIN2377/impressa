@@ -29,12 +29,10 @@ blockSchema.index({ blocker: 1, blocked: 1 }, { unique: true });
 blockSchema.index({ blocked: 1 });
 
 // Prevent a user from blocking themselves
-blockSchema.pre("validate", function (next) {
-  if (this.blocker.equals(this.blocked)) {
-    return next(new Error("A user cannot block themselves"));
+blockSchema.pre("validate", function () {
+  if (this.blocker && this.blocked && this.blocker.equals(this.blocked)) {
+    throw new Error("A user cannot block themselves");
   }
-
-  next();
 });
 
 module.exports = mongoose.model("Block", blockSchema);

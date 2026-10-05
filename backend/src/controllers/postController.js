@@ -13,8 +13,11 @@ const {
   isBlockedBetween,
 } = require("../utils/blockUtils");
 
+const UPLOAD_FOLDER = "impressa/posts";
+const MAX_MEDIA_PER_POST = 10;
+
 // ==========================================
-// UPLOAD FILE TO CLOUDINARY
+// UPLOAD FILE TO CLOUDINARY (legacy multipart path)
 // ==========================================
 
 const uploadToCloudinary = (file) => {
@@ -27,7 +30,7 @@ const uploadToCloudinary = (file) => {
 
     const uploadStream = cloudinary.uploader.upload_stream(
       {
-        folder: "impressa/posts",
+        folder: UPLOAD_FOLDER,
         resource_type: resourceType,
       },
       (error, result) => {
@@ -62,6 +65,138 @@ const getCloudinaryPublicId = (url) => {
     return match ? match[1] : null;
   } catch (error) {
     return null;
+  }
+};
+
+// ==========================================
+// CREATE-POST HELPERS
+// ==========================================
+
+// Music arrives as a JSON string (multipart) or an object (JSON body)
+const parseMusic = (raw) => {
+  if (raw === undefined || raw === null || raw === "") {
+    return { music: null };
+  }
+
+  let value = raw;
+
+  if (typeof raw === "string") {
+    try {
+      value = JSON.parse(raw);
+    } catch (error) {
+      return { error: true };
+    }
+  }
+
+  if (!value || typeof value !== "object") {
+    return { music: null };
+  }
+
+  const idNumber = Number(value.id);
+
+  return {
+    music: {
+      id: Number.isFinite(idNumber) ? idNumber : null,
+      title: String(value.title || "").slice(0, 120),
+      artist: String(value.artist || "").slice(0, 120),
+      audioUrl: String(value.audioUrl || "").slice(0, 500),
+    },
+  };
+};
+
+// Validates media that the browser already uploaded to Cloudinary.
+// Only URLs on OUR Cloudinary account, inside our post folder, are accepted.
+const normalizeClientMedia = (rawList) => {
+  if (
+    !Array.isArray(rawList) ||
+    rawList.length === 0 ||
+    rawList.length > MAX_MEDIA_PER_POST
+  ) {
+    return null;
+  }
+
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+
+  if (!cloudName) return null;
+
+  const prefix = `https://res.cloudinary.com/${cloudName}/`;
+
+  const result = [];
+
+  for (const item of rawList) {
+    const url = typeof item?.url === "string" ? item.url : "";
+
+    const type =
+      item?.type === "video"
+        ? "video"
+        : item?.type === "image"
+        ? "image"
+        : null;
+
+    if (
+      !type ||
+      !url.startsWith(prefix) ||
+      !url.includes(`/${type}/upload/`) ||
+      !url.includes(`/${UPLOAD_FOLDER}/`)
+    ) {
+      return null;
+    }
+
+    const entry = { url, type };
+
+    const width = Number(item.width);
+    const height = Number(item.height);
+
+    if (width > 0 && height > 0 && width <= 20000 && height <= 20000) {
+      entry.width = Math.round(width);
+      entry.height = Math.round(height);
+    }
+
+    result.push(entry);
+  }
+
+  return result;
+};
+
+// ==========================================
+// UPLOAD SIGNATURE (browser uploads straight to Cloudinary)
+// ==========================================
+
+const getUploadSignature = async (req, res) => {
+  try {
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+    const apiKey = process.env.CLOUDINARY_API_KEY;
+    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+    if (!cloudName || !apiKey || !apiSecret) {
+      return res.status(500).json({
+        success: false,
+        message: "Media uploads are not configured on the server",
+      });
+    }
+
+    const timestamp = Math.round(Date.now() / 1000);
+
+    const signature = cloudinary.utils.api_sign_request(
+      { timestamp, folder: UPLOAD_FOLDER },
+      apiSecret
+    );
+
+    res.status(200).json({
+      success: true,
+      cloudName,
+      apiKey,
+      timestamp,
+      folder: UPLOAD_FOLDER,
+      signature,
+    });
+  } catch (error) {
+    console.error("Upload signature error ❌", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error while preparing upload",
+    });
   }
 };
 
@@ -176,37 +311,48 @@ const getImpressedPostIds = async (userId, postIds) => {
 // ==========================================
 // CREATE POST
 // ==========================================
+// Two ways in:
+//  1) JSON body { media: [{url,type,width,height}], caption, music }
+//     media was already uploaded by the browser straight to Cloudinary
+//  2) multipart files (legacy path, still supported)
 
 const createPost = async (req, res) => {
   try {
-    // Check whether media files were uploaded
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Please upload an image or video",
-      });
-    }
+    const hasFiles = Array.isArray(req.files) && req.files.length > 0;
 
-    const { caption } = req.body;
+    let clientMedia = null;
 
-    let music = null;
+    if (!hasFiles) {
+      clientMedia = normalizeClientMedia(req.body?.media);
 
-    if (req.body.music) {
-      try {
-        music = JSON.parse(req.body.music);
-      } catch (error) {
+      if (!clientMedia) {
         return res.status(400).json({
           success: false,
-          message: "Invalid music data",
+          message: "Please upload an image or video",
         });
       }
     }
+
+    const caption = String(req.body?.caption || "").slice(0, 500);
+
+    const parsedMusic = parseMusic(req.body?.music);
+
+    if (parsedMusic.error) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid music data",
+      });
+    }
+
+    const music = parsedMusic.music;
 
     // ==========================================
     // CHECK OFFICIAL ACCOUNT
     // ==========================================
 
-    const author = await User.findById(req.user.userId);
+    const author = await User.findById(req.user.userId)
+      .select("_id isOfficial")
+      .lean();
 
     if (!author) {
       return res.status(404).json({
@@ -236,26 +382,27 @@ const createPost = async (req, res) => {
     }
 
     // ==========================================
-    // UPLOAD EVERY MEDIA FILE TO CLOUDINARY
+    // MEDIA
     // ==========================================
 
-    const uploadedMedia = await Promise.all(
-      req.files.map(async (file) => {
-        const cloudinaryResult =
-          await uploadToCloudinary(file);
+    let uploadedMedia = clientMedia;
 
-        const mediaType = file.mimetype.startsWith(
-          "video/"
-        )
-          ? "video"
-          : "image";
+    if (hasFiles) {
+      uploadedMedia = await Promise.all(
+        req.files.map(async (file) => {
+          const cloudinaryResult = await uploadToCloudinary(file);
 
-        return {
-          url: cloudinaryResult.secure_url,
-          type: mediaType,
-        };
-      })
-    );
+          return {
+            url: cloudinaryResult.secure_url,
+            type: file.mimetype.startsWith("video/")
+              ? "video"
+              : "image",
+            width: cloudinaryResult.width,
+            height: cloudinaryResult.height,
+          };
+        })
+      );
+    }
 
     // ==========================================
     // CREATE POST IN MONGODB
@@ -268,7 +415,7 @@ const createPost = async (req, res) => {
 
       music: music,
 
-      caption: caption || "",
+      caption: caption,
 
       impressionsCount: initialImpressions,
 
@@ -287,10 +434,6 @@ const createPost = async (req, res) => {
       "author",
       "name username profilePicture badge isOfficial"
     );
-
-    // ==========================================
-    // SEND RESPONSE
-    // ==========================================
 
     res.status(201).json({
       success: true,
@@ -608,4 +751,5 @@ module.exports = {
   getPostById,
   deletePost,
   getAuthorAvatar,
+  getUploadSignature,
 };

@@ -6,6 +6,7 @@ const {
   getPostById,
   deletePost,
   getAuthorAvatar,
+  getUploadSignature,
 } = require("../controllers/postController");
 
 const {
@@ -33,6 +34,16 @@ router.get(
 );
 
 // ==========================================
+// UPLOAD SIGNATURE (direct browser -> Cloudinary uploads)
+// ==========================================
+
+router.post(
+  "/upload-signature",
+  authMiddleware,
+  getUploadSignature
+);
+
+// ==========================================
 // GET ALL POSTS
 // ==========================================
 
@@ -54,6 +65,7 @@ router.get(
 
 // ==========================================
 // CREATE POST
+// JSON body (media already on Cloudinary) or multipart files
 // ==========================================
 
 router.post(

@@ -21,6 +21,16 @@ const postSchema = new mongoose.Schema(
           enum: ["image", "video"],
           required: true,
         },
+
+        // Pixel size of the uploaded file. Lets the feed reserve the
+        // right amount of space before the media has loaded.
+        width: {
+          type: Number,
+        },
+
+        height: {
+          type: Number,
+        },
       },
     ],
 
@@ -75,5 +85,9 @@ const postSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+// Home feed (newest first, cursor pagination) and profile grids
+postSchema.index({ createdAt: -1, _id: -1 });
+postSchema.index({ author: 1, createdAt: -1 });
 
 module.exports = mongoose.model("Post", postSchema);

@@ -1,14 +1,26 @@
-import { useEffect, useRef, useState } from "react";
-import "./CreatePost.css";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-const filters = [
-  { name: "Original", value: "none" },
-  { name: "Warm", value: "sepia(0.18) saturate(1.2)" },
-  { name: "Bright", value: "brightness(1.15) contrast(1.05)" },
-  { name: "Classic", value: "grayscale(0.7) contrast(1.12)" },
-  { name: "Vivid", value: "saturate(1.55) contrast(1.08)" },
-  { name: "Soft", value: "brightness(1.08) saturate(0.8)" },
-];
+import PostEditor from "../components/PostEditor";
+import {
+  DEFAULT_EDIT,
+  loadImage,
+  renderEditedBlob,
+} from "../utils/imageEditing";
+import {
+  createPostRequest,
+  fetchUploadSignature,
+  runPool,
+  uploadWithRetry,
+  warmUpServer,
+} from "../utils/cloudinaryUpload";
+
+import "./CreatePost.css";
+import "./CreatePostUpload.css";
+
+const MAX_MEDIA = 10;
+const MAX_VIDEO_MB = 100;
+const UPLOAD_CONCURRENCY = 3;
 
 const musicLibrary = [
   {
@@ -59,7 +71,44 @@ const moods = [
   { id: "peaceful", emoji: "🌿", name: "Peaceful" },
 ];
 
+const IMAGE_EXTENSIONS = [
+  "jpg",
+  "jpeg",
+  "png",
+  "gif",
+  "webp",
+  "heic",
+  "heif",
+  "avif",
+  "bmp",
+];
+
+const VIDEO_EXTENSIONS = ["mp4", "mov", "webm", "m4v", "avi"];
+
+const getMediaType = (file) => {
+  const mimeType = (file.type || "").toLowerCase();
+  const extension = file.name.split(".").pop().toLowerCase();
+
+  if (mimeType.startsWith("video/") || VIDEO_EXTENSIONS.includes(extension)) {
+    return "video";
+  }
+
+  if (mimeType.startsWith("image/") || IMAGE_EXTENSIONS.includes(extension)) {
+    return "image";
+  }
+
+  return null;
+};
+
+const makeId = () =>
+  `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+const abortError = () =>
+  Object.assign(new Error("Cancelled"), { name: "AbortError" });
+
 function CreatePost() {
+  const navigate = useNavigate();
+
   const fileInputRef = useRef(null);
   const audioRef = useRef(null);
 
@@ -67,17 +116,23 @@ function CreatePost() {
 
   const mediaRef = useRef(media);
 
-  useEffect(() => {
-    mediaRef.current = media;
-  }, [media]);
+  mediaRef.current = media;
+
+  // processed (cropped / compressed) images, keyed by media id
+  const preparedRef = useRef(new Map());
+
+  // finished Cloudinary uploads, keyed by "id:version" (survives retries)
+  const uploadedRef = useRef(new Map());
+
+  const queueRef = useRef(Promise.resolve());
+  const abortRef = useRef(null);
+  const isPostingRef = useRef(false);
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [caption, setCaption] = useState("");
+  const [notice, setNotice] = useState("");
 
   const [editingIndex, setEditingIndex] = useState(null);
-  const [selectedFilter, setSelectedFilter] = useState("none");
-  const [rotation, setRotation] = useState(0);
-  const [cropMode, setCropMode] = useState(false);
 
   const [showMusicLibrary, setShowMusicLibrary] = useState(false);
   const [musicSearch, setMusicSearch] = useState("");
@@ -87,6 +142,93 @@ function CreatePost() {
   const [selectedMood, setSelectedMood] = useState(null);
 
   const [isPosting, setIsPosting] = useState(false);
+  const [stage, setStage] = useState("idle");
+  const [progress, setProgress] = useState(0);
+  const [postError, setPostError] = useState("");
+
+  /* ---------- wake the Render server while the user is composing ---------- */
+
+  useEffect(() => {
+    warmUpServer();
+  }, []);
+
+  /* ---------- background image preparation ---------- */
+
+  const applyPreview = useCallback((item, result) => {
+    const current = mediaRef.current.find(
+      (entry) => entry.id === item.id
+    );
+
+    if (!current || current.version !== item.version) return;
+
+    const previewUrl = URL.createObjectURL(result.blob);
+
+    setMedia((previous) =>
+      previous.map((entry) => {
+        if (entry.id !== item.id || entry.version !== item.version) {
+          return entry;
+        }
+
+        if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl);
+
+        return { ...entry, previewUrl };
+      })
+    );
+  }, []);
+
+  // Photos are processed one at a time so phones never freeze
+  const enqueue = (task) => {
+    const run = queueRef.current.then(() => task());
+
+    queueRef.current = run.catch(() => {});
+
+    return run;
+  };
+
+  const renderItem = async (item) => {
+    try {
+      const image = await loadImage(item.url);
+
+      return await renderEditedBlob(image, item.edit || DEFAULT_EDIT);
+    } catch (error) {
+      console.error(
+        "Image processing failed, the original will be uploaded:",
+        error
+      );
+
+      return null;
+    }
+  };
+
+  const prepare = useCallback(
+    (item) => {
+      if (item.type !== "image" || item.skipProcessing) {
+        return Promise.resolve(null);
+      }
+
+      const cached = preparedRef.current.get(item.id);
+
+      if (cached && cached.version === item.version) {
+        return cached.promise;
+      }
+
+      const promise = enqueue(() => renderItem(item));
+
+      preparedRef.current.set(item.id, {
+        version: item.version,
+        promise,
+      });
+
+      promise.then((result) => {
+        if (result) applyPreview(item, result);
+      });
+
+      return promise;
+    },
+    [applyPreview]
+  );
+
+  /* ---------- picking files ---------- */
 
   const openFilePicker = () => {
     fileInputRef.current?.click();
@@ -95,120 +237,110 @@ function CreatePost() {
   const handleFiles = (event) => {
     const files = Array.from(event.target.files || []);
 
-    const getMediaType = (file) => {
-      const mimeType = (file.type || "").toLowerCase();
-      const extension = file.name.split(".").pop().toLowerCase();
+    event.target.value = "";
 
-      const imageExtensions = [
-        "jpg",
-        "jpeg",
-        "png",
-        "gif",
-        "webp",
-        "heic",
-        "heif",
-        "avif",
-        "bmp",
-      ];
+    const room = MAX_MEDIA - mediaRef.current.length;
 
-      const videoExtensions = ["mp4", "mov", "webm", "m4v", "avi"];
+    const accepted = [];
+    const messages = [];
 
-      if (
-        mimeType.startsWith("video/") ||
-        videoExtensions.includes(extension)
-      ) {
-        return "video";
+    for (const file of files) {
+      const mediaType = getMediaType(file);
+
+      if (!mediaType) {
+        messages.push(`${file.name} isn't a supported photo or video.`);
+        continue;
       }
 
       if (
-        mimeType.startsWith("image/") ||
-        imageExtensions.includes(extension)
+        mediaType === "video" &&
+        file.size > MAX_VIDEO_MB * 1024 * 1024
       ) {
-        return "image";
+        messages.push(
+          `${file.name} is larger than ${MAX_VIDEO_MB} MB.`
+        );
+        continue;
       }
 
-      return null;
-    };
+      if (accepted.length >= room) {
+        messages.push(`A post can have up to ${MAX_MEDIA} photos or videos.`);
+        break;
+      }
 
-    const validFiles = files
-      .map((file) => ({
-        file,
-        mediaType: getMediaType(file),
-      }))
-      .filter(({ mediaType }) => mediaType !== null);
+      accepted.push({ file, mediaType });
+    }
 
-    const newMedia = validFiles.map(({ file, mediaType }) => ({
-      id: `${file.name}-${file.lastModified}-${Math.random()}`,
+    setNotice(messages.join(" "));
+
+    if (accepted.length === 0) return;
+
+    const newMedia = accepted.map(({ file, mediaType }) => ({
+      id: makeId(),
       file,
       type: mediaType,
       url: URL.createObjectURL(file),
-      filter: "none",
-      rotation: 0,
-      crop: false,
+      previewUrl: null,
+      edit: null,
+      version: 0,
+      // animated GIFs are uploaded untouched
+      skipProcessing: file.type === "image/gif",
     }));
 
-    setMedia((previousMedia) => {
-      const updatedMedia = [...previousMedia, ...newMedia];
+    if (mediaRef.current.length === 0) {
+      setActiveIndex(0);
+    }
 
-      if (previousMedia.length === 0) {
-        setActiveIndex(0);
-      }
+    setMedia((previous) => [...previous, ...newMedia]);
 
-      return updatedMedia;
-    });
+    // start optimizing right away, while the user writes the caption
+    newMedia.forEach(prepare);
+  };
 
-    event.target.value = "";
+  const revokeItem = (item) => {
+    URL.revokeObjectURL(item.url);
+
+    if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
   };
 
   const removeMedia = (id) => {
-    setMedia((previousMedia) => {
-      const itemToRemove = previousMedia.find((item) => item.id === id);
+    const item = mediaRef.current.find((entry) => entry.id === id);
 
-      if (itemToRemove) {
-        URL.revokeObjectURL(itemToRemove.url);
-      }
+    if (item) {
+      revokeItem(item);
+      preparedRef.current.delete(id);
+    }
 
-      return previousMedia.filter((item) => item.id !== id);
-    });
+    const nextLength = mediaRef.current.length - 1;
 
-    setActiveIndex((currentIndex) => {
-      if (currentIndex >= media.length - 1) {
-        return Math.max(0, media.length - 2);
-      }
+    setMedia((previous) => previous.filter((entry) => entry.id !== id));
 
-      return currentIndex;
-    });
+    setActiveIndex((current) =>
+      Math.min(current, Math.max(0, nextLength - 1))
+    );
 
     setEditingIndex(null);
   };
 
   const moveMedia = (index, direction) => {
-    setMedia((previousMedia) => {
-      const updatedMedia = [...previousMedia];
-      const targetIndex = index + direction;
+    setMedia((previous) => {
+      const updated = [...previous];
+      const target = index + direction;
 
-      if (targetIndex < 0 || targetIndex >= updatedMedia.length) {
-        return previousMedia;
+      if (target < 0 || target >= updated.length) {
+        return previous;
       }
 
-      [updatedMedia[index], updatedMedia[targetIndex]] = [
-        updatedMedia[targetIndex],
-        updatedMedia[index],
-      ];
+      [updated[index], updated[target]] = [updated[target], updated[index]];
 
-      return updatedMedia;
+      return updated;
     });
 
-    setActiveIndex((currentIndex) => {
-      if (currentIndex === index) {
-        return index + direction;
-      }
+    setActiveIndex((current) => {
+      if (current === index) return index + direction;
 
-      if (currentIndex === index + direction) {
-        return index;
-      }
+      if (current === index + direction) return index;
 
-      return currentIndex;
+      return current;
     });
   };
 
@@ -224,65 +356,49 @@ function CreatePost() {
     }
   };
 
+  /* ---------- editor ---------- */
+
+  const canEdit = (item) =>
+    item && item.type === "image" && !item.skipProcessing;
+
   const openEditor = (index) => {
-    const selectedMedia = media[index];
-
-    setEditingIndex(index);
-    setSelectedFilter(selectedMedia.filter || "none");
-    setRotation(selectedMedia.rotation || 0);
-    setCropMode(selectedMedia.crop || false);
+    if (canEdit(media[index])) setEditingIndex(index);
   };
 
-  const closeEditor = () => {
+  const closeEditor = useCallback(() => setEditingIndex(null), []);
+
+  const handleEditorSave = ({ edit, result }) => {
+    const item = media[editingIndex];
+
+    if (!item) {
+      setEditingIndex(null);
+      return;
+    }
+
+    const version = item.version + 1;
+
+    const previewUrl = URL.createObjectURL(result.blob);
+
+    // the edited image is already rendered: reuse it for the upload
+    preparedRef.current.set(item.id, {
+      version,
+      promise: Promise.resolve(result),
+    });
+
+    setMedia((previous) =>
+      previous.map((entry) => {
+        if (entry.id !== item.id) return entry;
+
+        if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl);
+
+        return { ...entry, edit, version, previewUrl };
+      })
+    );
+
     setEditingIndex(null);
-    setCropMode(false);
   };
 
-  const applyFilter = (filterValue) => {
-    setSelectedFilter(filterValue);
-
-    if (editingIndex === null) {
-      return;
-    }
-
-    setMedia((previousMedia) =>
-      previousMedia.map((item, index) =>
-        index === editingIndex ? { ...item, filter: filterValue } : item
-      )
-    );
-  };
-
-  const rotateImage = () => {
-    if (editingIndex === null) {
-      return;
-    }
-
-    const newRotation = rotation + 90;
-
-    setRotation(newRotation);
-
-    setMedia((previousMedia) =>
-      previousMedia.map((item, index) =>
-        index === editingIndex ? { ...item, rotation: newRotation } : item
-      )
-    );
-  };
-
-  const toggleCrop = () => {
-    if (editingIndex === null) {
-      return;
-    }
-
-    const newCropState = !cropMode;
-
-    setCropMode(newCropState);
-
-    setMedia((previousMedia) =>
-      previousMedia.map((item, index) =>
-        index === editingIndex ? { ...item, crop: newCropState } : item
-      )
-    );
-  };
+  /* ---------- music ---------- */
 
   const filteredMusic = musicLibrary.filter((track) => {
     const search = musicSearch.toLowerCase().trim();
@@ -345,13 +461,17 @@ function CreatePost() {
       });
   };
 
+  /* ---------- clear ---------- */
+
   const clearAll = () => {
-    media.forEach((item) => {
-      URL.revokeObjectURL(item.url);
-    });
+    mediaRef.current.forEach(revokeItem);
+
+    preparedRef.current.clear();
+    uploadedRef.current.clear();
 
     setMedia([]);
     setCaption("");
+    setNotice("");
     setActiveIndex(0);
     setEditingIndex(null);
     setSelectedMusic(null);
@@ -361,85 +481,224 @@ function CreatePost() {
     setSelectedMood(null);
   };
 
+  /* ---------- post ---------- */
+
   const handlePost = async () => {
-    if (media.length === 0) {
+    if (mediaRef.current.length === 0 || isPostingRef.current) {
       return;
     }
 
     const token = localStorage.getItem("token");
 
     if (!token) {
-      console.error("No login token found.");
+      navigate("/signin", { replace: true });
       return;
     }
 
+    const snapshot = mediaRef.current;
+
+    const controller = new AbortController();
+
+    abortRef.current = controller;
+
+    isPostingRef.current = true;
+
+    setPostError("");
     setIsPosting(true);
+    setStage("preparing");
+    setProgress(0);
 
     try {
-      const formData = new FormData();
+      // ask for the upload signature while the photos finish processing
+      const signaturePromise = fetchUploadSignature(
+        token,
+        controller.signal
+      );
 
-      media.forEach((item) => {
-        formData.append("media", item.file);
+      signaturePromise.catch(() => {});
+
+      const prepared = await Promise.all(
+        snapshot.map((item) => prepare(item))
+      );
+
+      const signature = await signaturePromise;
+
+      if (controller.signal.aborted) throw abortError();
+
+      const plans = snapshot.map((item, index) => {
+        const key = `${item.id}:${item.version}`;
+
+        const result = prepared[index];
+
+        const body = result ? result.blob : item.file;
+
+        return {
+          key,
+          item,
+          body,
+          size: body.size || 1,
+          filename: result
+            ? `impressa-${index + 1}.jpg`
+            : item.file.name,
+          resourceType: item.type === "video" ? "video" : "image",
+          done: uploadedRef.current.get(key) || null,
+        };
       });
 
-      formData.append("caption", caption.trim());
+      // ----- upload (3 at a time, with real progress) -----
 
-      if (selectedMusic) {
-        formData.append(
-          "music",
-          JSON.stringify({
-            id: selectedMusic.id,
-            title: selectedMusic.title,
-            artist: selectedMusic.artist,
-            audioUrl: selectedMusic.audioUrl || "",
-          })
+      setStage("uploading");
+
+      const total = plans.reduce((sum, plan) => sum + plan.size, 0) || 1;
+
+      const loaded = new Map(
+        plans.map((plan) => [plan.key, plan.done ? plan.size : 0])
+      );
+
+      let lastPercent = -1;
+
+      const report = () => {
+        let sum = 0;
+
+        loaded.forEach((value) => {
+          sum += value;
+        });
+
+        const percent = Math.min(100, Math.floor((sum / total) * 100));
+
+        if (percent !== lastPercent) {
+          lastPercent = percent;
+          setProgress(percent / 100);
+        }
+      };
+
+      report();
+
+      const tasks = plans
+        .filter((plan) => !plan.done)
+        .map((plan) => async () => {
+          const uploaded = await uploadWithRetry({
+            file: plan.body,
+            filename: plan.filename,
+            resourceType: plan.resourceType,
+            signature,
+            signal: controller.signal,
+            onProgress: (bytes) => {
+              loaded.set(plan.key, Math.min(bytes, plan.size));
+              report();
+            },
+          });
+
+          uploadedRef.current.set(plan.key, {
+            url: uploaded.url,
+            type: plan.item.type === "video" ? "video" : "image",
+            width: uploaded.width,
+            height: uploaded.height,
+          });
+
+          loaded.set(plan.key, plan.size);
+          report();
+        });
+
+      await runPool(tasks, UPLOAD_CONCURRENCY);
+
+      const mediaPayload = plans.map((plan) =>
+        uploadedRef.current.get(plan.key)
+      );
+
+      if (mediaPayload.some((entry) => !entry)) {
+        throw new Error(
+          "Some media did not upload. Please try again."
         );
       }
 
-      const API_URL =
-        import.meta.env.VITE_API_URL || "http://localhost:5000";
+      // ----- publish -----
 
-      const response = await fetch(`${API_URL}/api/posts`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
+      setStage("publishing");
+
+      await createPostRequest({
+        token,
+        media: mediaPayload,
+        caption: caption.trim(),
+        music: selectedMusic
+          ? {
+              id: selectedMusic.id,
+              title: selectedMusic.title,
+              artist: selectedMusic.artist,
+              audioUrl: selectedMusic.audioUrl || "",
+            }
+          : undefined,
+        signal: controller.signal,
       });
 
-      const data = await response.json();
+      // ----- done: tidy up and go to Home -----
 
-      if (!response.ok) {
-        console.error("Create post failed:", data);
-        return;
-      }
+      snapshot.forEach(revokeItem);
 
-      console.log("Impressa post created successfully:", data);
-
-      media.forEach((item) => {
-        URL.revokeObjectURL(item.url);
-      });
+      preparedRef.current.clear();
+      uploadedRef.current.clear();
 
       setMedia([]);
       setCaption("");
+      setNotice("");
       setActiveIndex(0);
       setSelectedMusic(null);
       setSelectedMood(null);
       setEditingIndex(null);
-    } catch (error) {
-      console.error("Create post error:", error);
-    } finally {
       setIsPosting(false);
+      setStage("idle");
+
+      navigate("/");
+    } catch (error) {
+      if (error.name === "AbortError") {
+        setIsPosting(false);
+        setStage("idle");
+        setProgress(0);
+        return;
+      }
+
+      console.error("Create post error:", error);
+
+      setPostError(
+        error.status === 401
+          ? "Your session has expired. Please sign in again."
+          : error.message || "Something went wrong. Please try again."
+      );
+
+      setStage("error");
+    } finally {
+      isPostingRef.current = false;
     }
   };
 
+  const cancelPosting = () => {
+    abortRef.current?.abort();
+  };
+
+  const dismissError = () => {
+    setIsPosting(false);
+    setStage("idle");
+    setPostError("");
+  };
+
+  /* ---------- cleanup on leaving the page ---------- */
+
   useEffect(() => {
     return () => {
-      mediaRef.current.forEach((item) => {
-        URL.revokeObjectURL(item.url);
-      });
+      abortRef.current?.abort();
+
+      mediaRef.current.forEach(revokeItem);
     };
   }, []);
+
+  const current = media[activeIndex];
+
+  const stageText =
+    stage === "preparing"
+      ? "Getting your media ready…"
+      : stage === "uploading"
+      ? `Uploading… ${Math.round(progress * 100)}%`
+      : "Publishing your post…";
 
   return (
     <main className="create-post-page">
@@ -489,25 +748,21 @@ function CreatePost() {
           <>
             <div className="carousel-section">
               <div className="carousel">
-                {media[activeIndex]?.type === "image" ? (
+                {current?.type === "image" ? (
                   <img
-                    src={media[activeIndex].url}
+                    src={current.previewUrl || current.url}
                     alt={`Post media ${activeIndex + 1}`}
-                    className={`carousel-media ${
-                      media[activeIndex].crop ? "cropped-media" : ""
-                    }`}
-                    style={{
-                      filter: media[activeIndex].filter,
-                      transform: `rotate(${media[activeIndex].rotation}deg)`,
-                    }}
+                    className="carousel-media"
                   />
                 ) : (
-                  <video
-                    src={media[activeIndex].url}
-                    className="carousel-media"
-                    controls
-                    playsInline
-                  />
+                  current && (
+                    <video
+                      src={current.url}
+                      className="carousel-media"
+                      controls
+                      playsInline
+                    />
+                  )
                 )}
 
                 <div className="carousel-counter">
@@ -536,13 +791,15 @@ function CreatePost() {
                   </button>
                 )}
 
-                <button
-                  type="button"
-                  className="edit-main-button"
-                  onClick={() => openEditor(activeIndex)}
-                >
-                  ✦ Edit
-                </button>
+                {canEdit(current) && (
+                  <button
+                    type="button"
+                    className="edit-main-button"
+                    onClick={() => openEditor(activeIndex)}
+                  >
+                    ✦ Edit
+                  </button>
+                )}
               </div>
 
               <div className="carousel-dots">
@@ -564,10 +821,13 @@ function CreatePost() {
               type="button"
               className="add-more-media"
               onClick={openFilePicker}
+              disabled={media.length >= MAX_MEDIA}
             >
               <span>＋</span>
               Add more media
             </button>
+
+            {notice && <div className="cp-notice">{notice}</div>}
 
             <div className="media-manager">
               <div className="section-heading">
@@ -591,12 +851,8 @@ function CreatePost() {
                     <div className="thumbnail-wrapper">
                       {item.type === "image" ? (
                         <img
-                          src={item.url}
+                          src={item.previewUrl || item.url}
                           alt={`Thumbnail ${index + 1}`}
-                          style={{
-                            filter: item.filter,
-                            transform: `rotate(${item.rotation}deg)`,
-                          }}
                         />
                       ) : (
                         <>
@@ -615,16 +871,18 @@ function CreatePost() {
                     </div>
 
                     <div className="media-actions">
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          openEditor(index);
-                        }}
-                        aria-label="Edit media"
-                      >
-                        ✦
-                      </button>
+                      {canEdit(item) && (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openEditor(index);
+                          }}
+                          aria-label="Edit media"
+                        >
+                          ✦
+                        </button>
+                      )}
 
                       <button
                         type="button"
@@ -805,10 +1063,11 @@ function CreatePost() {
             type="button"
             className="clear-btn"
             disabled={
-              media.length === 0 &&
-              !caption &&
-              !selectedMusic &&
-              !selectedMood
+              isPosting ||
+              (media.length === 0 &&
+                !caption &&
+                !selectedMusic &&
+                !selectedMood)
             }
             onClick={clearAll}
           >
@@ -908,99 +1167,84 @@ function CreatePost() {
       )}
 
       {editingIndex !== null && media[editingIndex] && (
-        <div className="editor-overlay">
-          <div className="editor-panel">
-            <div className="editor-header">
-              <div>
-                <span>IMPRESSA EDITOR</span>
-                <h2>Edit Media</h2>
-              </div>
+        <PostEditor
+          key={`${media[editingIndex].id}-${media[editingIndex].version}`}
+          item={media[editingIndex]}
+          onClose={closeEditor}
+          onSave={handleEditorSave}
+        />
+      )}
 
-              <button
-                type="button"
-                className="close-editor"
-                onClick={closeEditor}
-                aria-label="Close editor"
-              >
-                ×
-              </button>
-            </div>
+      {isPosting && (
+        <div
+          className="cp-upload-overlay"
+          role="alertdialog"
+          aria-live="polite"
+          aria-label="Posting"
+        >
+          <div className="cp-upload-card">
+            {stage === "error" ? (
+              <>
+                <div className="cp-upload-badge error">!</div>
 
-            <div className="editor-preview">
-              {media[editingIndex].type === "image" ? (
-                <img
-                  src={media[editingIndex].url}
-                  alt="Editing preview"
-                  className={cropMode ? "editor-crop-preview" : ""}
-                  style={{
-                    filter: selectedFilter,
-                    transform: `rotate(${rotation}deg)`,
-                  }}
-                />
-              ) : (
-                <video src={media[editingIndex].url} controls playsInline />
-              )}
-            </div>
+                <h3>Couldn't post</h3>
 
-            {media[editingIndex].type === "image" && (
-              <div className="editor-tools">
-                <button
-                  type="button"
-                  className={cropMode ? "tool active" : "tool"}
-                  onClick={toggleCrop}
+                <p>{postError}</p>
+
+                <div className="cp-upload-actions">
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={dismissError}
+                  >
+                    Close
+                  </button>
+
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={handlePost}
+                  >
+                    Try again
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="cp-upload-badge">i</div>
+
+                <h3>Posting to Impressa</h3>
+
+                <p>{stageText}</p>
+
+                <div
+                  className={`cp-progress ${
+                    stage === "uploading" ? "" : "indeterminate"
+                  }`}
                 >
-                  <span>□</span>
-                  Crop
-                </button>
-
-                <button type="button" className="tool" onClick={rotateImage}>
-                  <span>↻</span>
-                  Rotate
-                </button>
-              </div>
-            )}
-
-            {media[editingIndex].type === "image" && (
-              <div className="filter-section">
-                <div className="filter-title">
-                  <h3>Filters</h3>
-                  <span>Choose a look</span>
+                  <div
+                    className="cp-progress-bar"
+                    style={
+                      stage === "uploading"
+                        ? { width: `${Math.round(progress * 100)}%` }
+                        : undefined
+                    }
+                  />
                 </div>
 
-                <div className="filter-list">
-                  {filters.map((filter) => (
+                {stage !== "publishing" && (
+                  <div className="cp-upload-actions">
                     <button
                       type="button"
-                      key={filter.name}
-                      className={
-                        selectedFilter === filter.value
-                          ? "filter-item active"
-                          : "filter-item"
-                      }
-                      onClick={() => applyFilter(filter.value)}
+                      className="secondary"
+                      onClick={cancelPosting}
                     >
-                      <div className="filter-preview">
-                        <img
-                          src={media[editingIndex].url}
-                          alt={filter.name}
-                          style={{ filter: filter.value }}
-                        />
-                      </div>
-
-                      <span>{filter.name}</span>
+                      Cancel
                     </button>
-                  ))}
-                </div>
-              </div>
+                  </div>
+                )}
+              </>
             )}
-
-            <button
-              type="button"
-              className="done-editing"
-              onClick={closeEditor}
-            >
-              Done
-            </button>
           </div>
         </div>
       )}

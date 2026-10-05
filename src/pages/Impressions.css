@@ -1,669 +1,532 @@
 /* =========================================================
-   IMPRESSA — IMPRESSIONS
-   CLEAN / OFFICIAL / MOBILE FIRST
+   IMPRESSA — ACTIVITY (Impressions page)
+   Clean, readable, mobile first
    ========================================================= */
 
-.impression-page {
-  min-height: 100vh;
+.imp-page {
+  --orange: #ff6a00;
+  --orange-soft: #fff2e8;
+  --orange-line: #ffdcc0;
+  --ink: #171717;
+  --text: #333333;
+  --muted: #6b6b6b;
+  --faint: #8f8f8f;
+  --line: #eeeeee;
+  --surface: #f7f7f7;
+  --green: #2f9e5b;
+
   width: 100%;
   max-width: 640px;
+  min-height: 100vh;
   margin: 0 auto;
-  padding: 22px 18px 140px;
+  padding: 22px 16px 140px;
   box-sizing: border-box;
 
   background: #ffffff;
-  color: #171717;
-
+  color: var(--ink);
   font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
-
-/* =========================================================
-   HEADER
-   ========================================================= */
-
-.impression-header {
-  padding: 4px 0 22px;
+.imp-page *,
+.imp-page *::before,
+.imp-page *::after {
+  box-sizing: border-box;
 }
 
-.impression-title-row {
+.imp-page button {
+  font-family: inherit;
+}
+
+.imp-page :focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+}
+
+/* ---------- HEADER ---------- */
+
+.imp-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.imp-header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.8px;
+  line-height: 1.1;
+}
+
+.imp-header p {
+  margin: 6px 0 0;
+  max-width: 320px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.imp-read-all {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--orange-soft);
+  color: #c24f00;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.imp-read-all:active {
+  background: var(--orange-line);
+}
+
+/* ---------- ERROR ---------- */
+
+.imp-error {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid #f6c9c9;
+  border-radius: 12px;
+  background: #fff5f5;
+  color: #9b2c2c;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+/* ---------- SUMMARY ---------- */
+
+.imp-summary {
+  margin-bottom: 18px;
+  padding: 16px;
+  border: 1px solid var(--orange-line);
+  border-radius: 16px;
+  background: #fffaf5;
+}
+
+.imp-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.imp-stats strong {
+  display: block;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.imp-stats span {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.imp-progress {
+  margin-top: 16px;
+}
+
+.imp-progress-text {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: 10px;
+  margin-bottom: 7px;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
 }
 
-.impression-small-title,
-.section-kicker {
-  display: block;
-  margin-bottom: 4px;
-
-  color: #ff6a00;
-
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 2.4px;
-}
-
-.impression-header h1 {
-  margin: 0;
-
-  color: #171717;
-
-  font-size: 30px;
-  line-height: 1;
-  font-weight: 850;
-
-  letter-spacing: -1.1px;
-}
-
-.read-all-button {
+.imp-progress-text em {
   flex: 0 0 auto;
-
-  border: none;
-  border-radius: 20px;
-
-  padding: 8px 14px;
-
-  background: #fff2e8;
-
-  color: #ff6a00;
-
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid var(--orange-line);
+  color: #c24f00;
   font-size: 11px;
-  font-weight: 800;
-
-  cursor: pointer;
+  font-style: normal;
+  font-weight: 700;
 }
 
-
-/* =========================================================
-   SIGNAL SUMMARY
-   ========================================================= */
-
-.signal-strip {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-
-  margin-bottom: 22px;
-
-  border-radius: 16px;
-
+.imp-progress-bar {
+  height: 8px;
   overflow: hidden;
-
-  background: linear-gradient(150deg, #fff5ec, #ffffff 65%);
-  border: 1px solid #ffe0ca;
+  border-radius: 999px;
+  background: #ffe6d3;
 }
 
-.signal-strip > div {
-  min-width: 0;
-
-  padding: 15px 10px;
-
-  text-align: center;
-
-  border-right: 1px solid #ffe6d4;
-}
-
-.signal-strip > div:last-child {
-  border-right: 0;
-}
-
-.signal-strip strong {
+.imp-progress-bar span {
   display: block;
-
-  color: #1e1e1e;
-
-  font-size: 22px;
-  font-weight: 850;
-  letter-spacing: -0.6px;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--orange);
+  transition: width 0.4s ease;
 }
 
-.signal-strip span {
-  display: block;
-
-  margin-top: 4px;
-
-  color: #8a8a8a;
-
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.2px;
+.imp-hint {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid #ffe6d3;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
 }
 
+/* ---------- FILTERS ---------- */
 
-/* =========================================================
-   FILTERS
-   ========================================================= */
-
-.activity-filters {
+.imp-filters {
   display: flex;
-  gap: 6px;
-
-  margin: 0 0 16px;
-
-  padding: 4px;
-
-  border-radius: 12px;
-
-  background: #f5f5f5;
+  gap: 8px;
+  margin: 0 -16px 8px;
+  padding: 0 16px 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
-.activity-filters button {
-  flex: 1;
-
-  padding: 8px 0;
-
-  border: 0;
-  border-radius: 9px;
-
-  background: transparent;
-
-  color: #8a8a8a;
-
-  font-size: 11.5px;
-  font-weight: 700;
-
-  cursor: pointer;
-
-  transition: background 0.2s ease, color 0.2s ease;
+.imp-filters::-webkit-scrollbar {
+  display: none;
 }
 
-.activity-filters button.active {
+.imp-filters button {
+  flex: 0 0 auto;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
   background: #ffffff;
-
-  color: #1e1e1e;
-
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
-
-/* =========================================================
-   SECTIONS
-   ========================================================= */
-
-.activity-section {
-  margin-bottom: 6px;
+.imp-filters button.active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #ffffff;
 }
 
-.journey-section {
-  margin-top: 28px;
-  margin-bottom: 30px;
+/* ---------- GROUPS + LIST ---------- */
+
+.imp-group {
+  margin-top: 14px;
 }
 
-.section-heading {
-  margin-bottom: 11px;
-}
-
-.section-heading h2 {
-  margin: 0;
-
-  color: #1e1e1e;
-
-  font-size: 16px;
+.imp-group h2 {
+  margin: 0 0 4px;
+  padding: 0 4px;
+  color: var(--ink);
+  font-size: 15px;
   font-weight: 800;
-
-  letter-spacing: -0.3px;
+  letter-spacing: -0.2px;
 }
 
-
-/* =========================================================
-   NOTIFICATION LIST
-   ========================================================= */
-
-.notification-list {
-  display: flex;
-  flex-direction: column;
+.imp-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.notification-card {
-  position: relative;
-
-  display: flex;
-  align-items: flex-start;
-
-  gap: 12px;
-
-  padding: 12px 4px;
-
-  border-bottom: 1px solid #f2f2f2;
-
-  background: #ffffff;
-
-  cursor: pointer;
-
-  transition: background 0.15s ease;
+.imp-list li {
+  border-bottom: 1px solid var(--line);
 }
 
-.notification-card:last-child {
+.imp-list li:last-child {
   border-bottom: 0;
 }
 
-.notification-card:active {
-  background: #fafafa;
-}
-
-.notification-card.unread {
-  background: #fff9f4;
-}
-
-
-/* =========================================================
-   AVATAR + BADGE
-   ========================================================= */
-
-.notification-avatar-stack {
+.imp-card {
   position: relative;
-
-  flex: 0 0 44px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 13px 22px 13px 8px;
+  border-radius: 12px;
+  background: transparent;
+  cursor: default;
+  transition: background 0.15s ease;
 }
 
-.notification-avatar {
-  width: 44px;
-  height: 44px;
+.imp-card.clickable {
+  cursor: pointer;
+}
 
+.imp-card.clickable:hover {
+  background: var(--surface);
+}
+
+.imp-card.unread {
+  background: #fff8f2;
+}
+
+.imp-card.unread.clickable:hover {
+  background: #fff0e4;
+}
+
+/* ---------- AVATAR + TYPE BADGE ---------- */
+
+.imp-avatar-wrap {
+  position: relative;
+  flex: 0 0 46px;
+}
+
+.imp-avatar {
   display: block;
-
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
   object-fit: cover;
-
-  border-radius: 50%;
 }
 
-.notification-avatar-fallback {
+.imp-avatar-fallback {
   display: flex;
   align-items: center;
   justify-content: center;
-
-  background: #fff2e8;
-
-  color: #ff6a00;
-
-  font-family: Georgia, "Times New Roman", serif;
+  background: var(--orange-soft);
+  color: var(--orange);
   font-size: 18px;
-  font-weight: 700;
-}
-
-.notification-badge {
-  position: absolute;
-
-  right: -2px;
-  bottom: -2px;
-
-  width: 18px;
-  height: 18px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  border: 2px solid #ffffff;
-  border-radius: 50%;
-
-  background: #ff6a00;
-
-  color: #ffffff;
-
-  font-size: 9px;
   font-weight: 800;
 }
 
-.notification-badge.post_reach,
-.notification-badge.follow_accepted,
-.notification-badge.follow_accepted_self {
-  background: #4c9a63;
+.imp-badge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: var(--orange);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
 }
 
-.notification-badge.comment,
-.notification-badge.system,
-.notification-badge.note {
-  background: #8a8a8a;
+.imp-badge.follow,
+.imp-badge.follow_request,
+.imp-badge.follow_accepted,
+.imp-badge.follow_accepted_self {
+  background: var(--green);
 }
 
+.imp-badge.comment,
+.imp-badge.mention,
+.imp-badge.note,
+.imp-badge.system {
+  background: #7a7a7a;
+}
 
-/* =========================================================
-   NOTIFICATION CONTENT
-   ========================================================= */
+/* ---------- TEXT ---------- */
 
-.notification-content {
+.imp-body {
   flex: 1;
-
   min-width: 0;
 }
 
-.notification-content p {
+.imp-body p {
   margin: 0;
-
-  color: #333333;
-
-  font-size: 13px;
+  color: var(--text);
+  font-size: 14px;
   line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
-.notification-card.unread .notification-content p {
-  color: #171717;
-}
-
-.notification-content p strong {
-  color: #171717;
-
+.imp-body p strong {
+  color: var(--ink);
   font-weight: 800;
 }
 
-.notification-detail {
+.imp-card.unread .imp-body p {
+  color: var(--ink);
+}
+
+.imp-detail {
   display: block;
-
-  margin-top: 2px;
-
-  color: #999999;
-
-  font-size: 11px;
-  line-height: 1.4;
-
+  margin-top: 3px;
   overflow: hidden;
+  color: var(--faint);
+  font-size: 12.5px;
+  line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.notification-time {
+.imp-time {
   display: block;
-
   margin-top: 4px;
-
-  color: #b3b3b3;
-
-  font-size: 10.5px;
+  color: var(--faint);
+  font-size: 12px;
 }
 
-
-/* =========================================================
-   POST THUMBNAIL
-   ========================================================= */
-
-.notification-thumbnail {
+.imp-thumb {
+  flex: 0 0 46px;
   width: 46px;
   height: 46px;
-
-  flex: 0 0 46px;
-
-  object-fit: cover;
-
-  border-radius: 8px;
-
   margin-top: 2px;
+  border-radius: 8px;
+  object-fit: cover;
 }
 
-
-/* =========================================================
-   UNREAD DOT
-   ========================================================= */
-
-.unread-dot {
+.imp-dot {
   position: absolute;
-
-  right: 4px;
   top: 18px;
-
+  right: 8px;
   width: 8px;
   height: 8px;
-
   border-radius: 50%;
-
-  background: #ff6a00;
+  background: var(--orange);
 }
 
+/* ---------- EMPTY STATE ---------- */
 
-/* =========================================================
-   EMPTY STATE
-   ========================================================= */
-
-.empty-notifications {
-  padding: 60px 20px;
-
+.imp-empty {
+  padding: 36px 8px 8px;
   text-align: center;
 }
 
-.empty-mark {
-  width: 52px;
-  height: 52px;
-
-  margin: 0 auto 14px;
-
+.imp-empty-mark {
   display: flex;
   align-items: center;
   justify-content: center;
-
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 14px;
   border-radius: 50%;
-
-  background: #fff2e8;
-
-  font-size: 22px;
+  background: var(--orange-soft);
+  font-size: 24px;
 }
 
-.empty-notifications h3 {
+.imp-empty h2 {
   margin: 0 0 6px;
-
-  color: #1e1e1e;
-
-  font-size: 15px;
-  font-weight: 800;
-}
-
-.empty-notifications p {
-  max-width: 280px;
-
-  margin: 0 auto;
-
-  color: #999999;
-
-  font-size: 11.5px;
-  line-height: 1.55;
-}
-
-
-/* =========================================================
-   MOMENTUM / JOURNEY
-   ========================================================= */
-
-.momentum-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-}
-
-.momentum-item {
-  min-width: 0;
-
-  padding: 16px 12px;
-
-  border-radius: 14px;
-
-  background: #fafafa;
-  border: 1px solid #f0f0f0;
-}
-
-.momentum-number {
-  display: block;
-
-  margin-bottom: 6px;
-
-  color: #1e1e1e;
-
-  font-size: 22px;
-  font-weight: 850;
-
-  letter-spacing: -0.7px;
-}
-
-.momentum-item.highlight {
-  background: linear-gradient(150deg, #fff2e8, #fff8f3);
-  border-color: #ffdcc0;
-}
-
-.momentum-item.highlight .momentum-number {
-  color: #ff6a00;
-}
-
-.momentum-item strong {
-  display: block;
-
-  color: #6e6e6e;
-
-  font-size: 10.5px;
-  font-weight: 700;
-  line-height: 1.3;
-}
-
-
-/* =========================================================
-   GETTING STARTED
-   ========================================================= */
-
-.getting-started {
-  padding: 22px 0 0;
-
-  border-top: 1px solid #f2f2f2;
-}
-
-.getting-started-title {
-  margin-bottom: 16px;
-}
-
-.getting-started-title h2 {
-  margin: 0;
-
-  color: #1e1e1e;
-
   font-size: 17px;
   font-weight: 800;
-
-  letter-spacing: -0.3px;
 }
 
-.getting-started-title p {
-  margin: 5px 0 0;
-
-  color: #999999;
-
-  font-size: 11.5px;
+.imp-empty > p {
+  max-width: 300px;
+  margin: 0 auto;
+  color: var(--muted);
+  font-size: 13.5px;
   line-height: 1.5;
 }
 
-.start-items {
+.imp-steps {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+  text-align: left;
 }
 
-.start-item {
+.imp-steps li {
+  position: relative;
+  padding: 14px 14px 14px 52px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  counter-increment: step;
+}
+
+.imp-steps li::before {
+  content: counter(step);
+  position: absolute;
+  top: 14px;
+  left: 14px;
   display: flex;
   align-items: center;
-
-  gap: 14px;
-
-  padding: 14px;
-
-  border-radius: 14px;
-
-  background: #fafafa;
-  border: 1px solid #f0f0f0;
-}
-
-.start-number {
-  width: 30px;
-
-  flex: 0 0 30px;
-
-  color: #ff6a00;
-
-  font-size: 11px;
-  font-weight: 900;
-
-  letter-spacing: 0.5px;
-}
-
-.start-item strong {
-  display: block;
-
-  color: #2e2e2e;
-
-  font-size: 12.5px;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--orange);
+  color: #ffffff;
+  font-size: 13px;
   font-weight: 800;
 }
 
-.start-item p {
-  margin: 3px 0 0;
-
-  color: #999999;
-
-  font-size: 10.5px;
-  line-height: 1.4;
+.imp-steps strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
 }
 
+.imp-steps span {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
 
-/* =========================================================
-   LOADING SKELETON
-   ========================================================= */
+/* ---------- LOADING ---------- */
 
-.impression-skeleton {
+.imp-skeleton {
   border-radius: 14px;
-
   background: linear-gradient(100deg, #f5f5f5 8%, #ececec 18%, #f5f5f5 33%);
   background-size: 200% 100%;
-
-  animation: impressionSkeletonShimmer 1.4s ease-in-out infinite;
+  animation: impShimmer 1.4s ease-in-out infinite;
 }
 
-.stat-row-skeleton {
-  height: 78px;
-
+.imp-skeleton-stats {
+  height: 150px;
   margin-bottom: 16px;
 }
 
-.row-skeleton {
+.imp-skeleton-row {
   height: 64px;
+  margin-bottom: 10px;
 }
 
-@keyframes impressionSkeletonShimmer {
+@keyframes impShimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
 
-
-/* =========================================================
-   SMALL PHONES
-   ========================================================= */
+/* ---------- SMALL PHONES ---------- */
 
 @media (max-width: 380px) {
-
-  .impression-page {
-    padding: 18px 14px 120px;
+  .imp-page {
+    padding: 18px 12px 120px;
   }
 
-  .impression-header h1 {
+  .imp-filters {
+    margin: 0 -12px 8px;
+    padding: 0 12px 8px;
+  }
+
+  .imp-header h1 {
+    font-size: 25px;
+  }
+
+  .imp-stats strong {
     font-size: 26px;
   }
-
-  .signal-strip strong {
-    font-size: 19px;
-  }
-
-  .momentum-number {
-    font-size: 19px;
-  }
-
 }
 
-
-/* =========================================================
-   ACCESSIBILITY
-   ========================================================= */
+/* ---------- REDUCED MOTION ---------- */
 
 @media (prefers-reduced-motion: reduce) {
-
-  .impression-page *,
-  .impression-page *::before,
-  .impression-page *::after {
+  .imp-page *,
+  .imp-page *::before,
+  .imp-page *::after {
     animation: none !important;
     transition: none !important;
   }
-
 }

@@ -1,6 +1,6 @@
 /* =========================================================
    IMPRESSA — POST ACTIONS
-   Flat row · liked = dark "i", not liked = normal
+   Impression button = bold rounded "i" with an orange dot
 ========================================================= */
 
 .post-actions {
@@ -19,7 +19,7 @@
   padding: 0 10px 0 6px;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   border: none;
   outline: none;
   border-radius: 999px;
@@ -35,6 +35,12 @@
 .action-button:active,
 .impression-button:active {
   background: #f5f1ed;
+}
+
+.action-button:focus-visible,
+.impression-button:focus-visible {
+  outline: 2px solid #ff6a00;
+  outline-offset: 1px;
 }
 
 .action-button svg {
@@ -53,49 +59,292 @@
   padding: 0 8px;
 }
 
-/* ---------- the "i" impression button ---------- */
+/* =========================================================
+   IMPRESSION "i" — bold rounded letter, always-orange dot
+   Rest: grey outline stem + orange dot
+   Impressed: stem filled with glossy orange ink, glowing dot
+   Impress ≈ 1.2s : dot lifts, stem fills, dot lands (jelly,
+                    glow, sparkle, sparks)
+   Remove  ≈ 0.7s : ink drains, dot hops once (no burst)
+========================================================= */
 
-.impression-i {
-  position: relative;
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  border: 2px solid #ff6a00;
-  border-radius: 50%;
-  background: #ffffff;
-  color: #ff6a00;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 19px;
-  font-weight: 700;
-  line-height: 1;
-  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-}
-
-/* LIKED = dark */
-.impression-button.impressed .impression-i {
-  background: #181818;
-  border-color: #181818;
-  color: #ffffff;
-  box-shadow: 0 0 0 3px rgba(255, 106, 0, 0.35);
+.impression-button {
+  --imp-orange: #ff6a00;
+  --imp-grey: #4a4a4a;
+  --imp-glow: rgba(255, 106, 0, 0.5);
 }
 
 .impression-button.impressed {
   color: #181818;
 }
 
-.impression-i.is-active {
-  animation: impressionPop 0.4s ease-out;
+.imp-icon {
+  position: relative;
+  width: 30px;
+  height: 36px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  color: var(--imp-grey);
+  transition: transform 0.15s ease;
 }
 
-@keyframes impressionPop {
+.impression-button:active .imp-icon {
+  transform: scale(0.9);
+}
+
+.imp-glyph {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: filter 0.25s ease;
+}
+
+.imp-body {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+.imp-stem {
+  fill: none;
+}
+
+.imp-rise {
+  stroke: none;
+  transform: scaleY(0);
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+.imp-shine {
+  fill: #ffffff;
+  stroke: none;
+  opacity: 0;
+}
+
+.imp-dot {
+  fill: var(--imp-orange);
+  stroke: none;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+
+/* glow, sparkle and sparks stay invisible until an animation drives them */
+
+.imp-aura {
+  position: absolute;
+  left: 50%;
+  top: -16px;
+  width: 44px;
+  height: 44px;
+  margin-left: -22px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 106, 0, 0.45),
+    rgba(255, 106, 0, 0) 68%
+  );
+  opacity: 0;
+  transform: scale(0.3);
+  pointer-events: none;
+}
+
+.imp-star {
+  fill: #ffa25c;
+  stroke: none;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+
+.imp-drop {
+  fill: var(--imp-orange);
+  stroke: none;
+  opacity: 0;
+}
+
+.imp-drop:nth-of-type(even) {
+  fill: #ffa25c;
+}
+
+/* ----- impressed (resting) ----- */
+
+.imp-icon.on {
+  color: var(--imp-orange);
+}
+
+.imp-icon.on .imp-rise {
+  transform: scaleY(1);
+}
+
+.imp-icon.on .imp-shine {
+  opacity: 0.55;
+}
+
+.imp-icon.on .imp-glyph {
+  filter: drop-shadow(0 3px 5px var(--imp-glow));
+}
+
+/* =========================================================
+   IMPRESS — the dot lands at about 0.55s
+========================================================= */
+
+.imp-icon.play-on .imp-glyph {
+  animation: impColorOn 1.1s linear both;
+}
+
+.imp-icon.play-on .imp-rise {
+  animation: impRiseOn 0.6s 0.1s cubic-bezier(0.3, 0.8, 0.4, 1) both;
+}
+
+.imp-icon.play-on .imp-shine {
+  animation: impShine 0.4s 0.6s ease-out both;
+}
+
+.imp-icon.play-on .imp-dot {
+  animation: impDotOn 1.1s ease-out both;
+}
+
+.imp-icon.play-on .imp-body {
+  animation: impJelly 0.5s 0.54s ease-out both;
+}
+
+.imp-icon.play-on .imp-aura {
+  animation: impAura 0.8s 0.54s ease-out forwards;
+}
+
+.imp-icon.play-on .imp-star {
+  animation: impStar 0.55s 0.54s ease-out forwards;
+}
+
+.imp-icon.play-on .imp-drop {
+  animation: impDrop 0.6s 0.54s ease-out forwards;
+}
+
+@keyframes impColorOn {
+  0% { color: #4a4a4a; }
+  20%, 100% { color: #ff6a00; }
+}
+
+@keyframes impRiseOn {
+  0% { transform: scaleY(0); }
+  100% { transform: scaleY(1); }
+}
+
+@keyframes impShine {
+  0% { opacity: 0; }
+  100% { opacity: 0.55; }
+}
+
+@keyframes impDotOn {
+  0% { transform: translateY(0) scale(1); }
+  20%, 46% { transform: translateY(-8px) scale(1.3); }
+  54% { transform: translateY(0.5px) scale(1.25, 0.78); }
+  70% { transform: translateY(-1.2px) scale(0.95, 1.06); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+@keyframes impJelly {
   0% { transform: scale(1); }
-  35% { transform: scale(1.25); }
-  65% { transform: scale(0.94); }
+  30% { transform: scale(1.12, 0.9); }
+  60% { transform: scale(0.96, 1.05); }
   100% { transform: scale(1); }
+}
+
+@keyframes impAura {
+  0% { opacity: 0.9; transform: scale(0.3); }
+  100% { opacity: 0; transform: scale(1.5); }
+}
+
+@keyframes impStar {
+  0% { opacity: 1; transform: scale(0.2) rotate(0deg); }
+  100% { opacity: 0; transform: scale(1.5) rotate(90deg); }
+}
+
+@keyframes impDrop {
+  0% { opacity: 1; transform: translate(0, 0) scale(1); }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.3); }
+}
+
+/* =========================================================
+   REMOVE — about 0.7 seconds, calm
+========================================================= */
+
+.imp-icon.play-off .imp-glyph {
+  animation: impColorOff 0.5s linear both;
+}
+
+.imp-icon.play-off .imp-rise {
+  animation: impRiseOff 0.5s ease-in both;
+}
+
+.imp-icon.play-off .imp-shine {
+  animation: impShineOff 0.3s linear both;
+}
+
+.imp-icon.play-off .imp-dot {
+  animation: impDotOff 0.6s ease-out both;
+}
+
+@keyframes impColorOff {
+  0% { color: #ff6a00; }
+  100% { color: #4a4a4a; }
+}
+
+@keyframes impRiseOff {
+  0% { transform: scaleY(1); }
+  100% { transform: scaleY(0); }
+}
+
+@keyframes impShineOff {
+  0% { opacity: 0.55; }
+  100% { opacity: 0; }
+}
+
+@keyframes impDotOff {
+  0% { transform: translateY(0); }
+  35% { transform: translateY(-3px); }
+  100% { transform: translateY(0); }
+}
+
+/* =========================================================
+   COUNT ROLLS UP / DOWN
+========================================================= */
+
+.imp-count {
+  display: inline-block;
+  min-width: 1ch;
+  height: 20px;
+  line-height: 20px;
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+
+.imp-num {
+  display: inline-block;
+}
+
+.imp-num.up {
+  animation: impNumUp 0.4s 0.5s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+.imp-num.down {
+  animation: impNumDown 0.35s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+@keyframes impNumUp {
+  0% { transform: translateY(70%); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes impNumDown {
+  0% { transform: translateY(-70%); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
 }
 
 @media (max-width: 380px) {
@@ -109,13 +358,13 @@
     font-size: 13px;
   }
 
-  .impression-i {
-    width: 30px;
-    height: 30px;
-    font-size: 18px;
+  .imp-icon {
+    width: 28px;
+    height: 34px;
   }
 }
 
+/* Reduced motion: colours change, nothing moves */
 @media (prefers-reduced-motion: reduce) {
   .post-actions *,
   .post-actions *::before,

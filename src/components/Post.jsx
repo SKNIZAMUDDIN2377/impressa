@@ -1343,6 +1343,7 @@ function Post({ post, priority = false }) {
         impressions={impressions}
         impressed={impressed}
         onComment={toggleComments}
+         pulseKey={impressionAnimation}
         onImpression={giveImpression}
         onShare={sharePost}
       />

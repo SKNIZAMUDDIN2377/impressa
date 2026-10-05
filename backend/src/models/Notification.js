@@ -10,11 +10,12 @@ const notificationSchema = new mongoose.Schema(
       index: true,
     },
 
-    // User who caused the notification
+    // User who caused the notification.
+    // null = sent by Impressa itself (motivation / milestones)
     sender: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      default: null,
     },
 
     // Notification type
@@ -27,6 +28,8 @@ const notificationSchema = new mongoose.Schema(
         "follow_accepted",
         "pulse",
         "system",
+        "spark",
+        "milestone",
       ],
       required: true,
     },
@@ -52,6 +55,13 @@ const notificationSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // Only for Impressa's own messages. Together with `recipient` it is
+    // unique, so a message like "first impression" can only be sent once.
+    key: {
+      type: String,
+      default: undefined,
+    },
+
     // Read / unread
     read: {
       type: Boolean,
@@ -70,7 +80,13 @@ notificationSchema.index({
   createdAt: -1,
 });
 
-module.exports = mongoose.model(
-  "Notification",
-  notificationSchema
+// No duplicate motivation messages (ignored when `key` is not set)
+notificationSchema.index(
+  { recipient: 1, key: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { key: { $type: "string" } },
+  }
 );
+
+module.exports = mongoose.model("Notification", notificationSchema);

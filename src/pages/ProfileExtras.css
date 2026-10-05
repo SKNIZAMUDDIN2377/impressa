@@ -1,0 +1,304 @@
+/* =========================================================
+   IMPRESSA — PROFILE EXTRAS
+   star viewer · post delete button · tappable star
+========================================================= */
+
+/* ---------- tappable badge star ---------- */
+
+.badge-star[role="button"] {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease;
+}
+
+.badge-star[role="button"]:active {
+  transform: scale(0.94);
+}
+
+.badge-star[role="button"]:focus-visible {
+  outline: 2px solid #ff6a00;
+  outline-offset: 4px;
+}
+
+
+/* ---------- delete button on own posts ---------- */
+
+.post-delete-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+
+  width: 32px;
+  height: 32px;
+  padding: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 0;
+  border-radius: 50%;
+  background: rgba(24, 24, 24, 0.55);
+  color: #ffffff;
+
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.post-delete-btn svg {
+  width: 16px;
+  height: 16px;
+
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.post-delete-btn:active {
+  background: #d9453a;
+  transform: scale(0.92);
+}
+
+.post-delete-btn:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+
+/* ---------- star viewer ---------- */
+
+.star-viewer {
+  --tier: #8a8a8a;
+  --tier-soft: rgba(138, 138, 138, 0.35);
+  --tier-grad: linear-gradient(145deg, #cfcfcf, #8a8a8a);
+
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+
+  padding: 24px;
+  box-sizing: border-box;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  text-align: center;
+
+  background:
+    radial-gradient(60% 45% at 50% 40%, var(--tier-soft), rgba(10, 6, 2, 0.94) 72%),
+    rgba(10, 6, 2, 0.94);
+
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+
+  /* fades in, stays, fades out: the page closes it at the same moment */
+  animation: starViewerLife 4.6s linear both;
+}
+
+.star-viewer.bronze {
+  --tier: #cd7f32;
+  --tier-soft: rgba(205, 127, 50, 0.42);
+  --tier-grad: linear-gradient(145deg, #f0b27a, #a85f1a);
+}
+
+.star-viewer.silver {
+  --tier: #c3c9d0;
+  --tier-soft: rgba(195, 201, 208, 0.36);
+  --tier-grad: linear-gradient(145deg, #f2f5f8, #97a0aa);
+}
+
+.star-viewer.gold {
+  --tier: #f2b705;
+  --tier-soft: rgba(242, 183, 5, 0.4);
+  --tier-grad: linear-gradient(145deg, #ffe27a, #d69a00);
+}
+
+.star-viewer.legend {
+  --tier: #ff6a00;
+  --tier-soft: rgba(255, 106, 0, 0.5);
+  --tier-grad: linear-gradient(145deg, #ffb37a, #ff5a00);
+}
+
+.star-viewer.pro {
+  --tier: #ff3d6e;
+  --tier-soft: rgba(255, 106, 0, 0.55);
+  --tier-grad: linear-gradient(145deg, #ffd166, #ff3d6e);
+}
+
+.star-viewer-close {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+
+  width: 44px;
+  height: 44px;
+  padding: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  color: #222222;
+
+  font-size: 28px;
+  line-height: 1;
+
+  cursor: pointer;
+}
+
+.star-viewer-medal {
+  position: relative;
+
+  width: min(62vw, 260px);
+  height: min(62vw, 260px);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #3a3a3a, #161616);
+
+  box-shadow:
+    0 0 0 4px var(--tier),
+    0 0 70px var(--tier-soft),
+    0 24px 60px rgba(0, 0, 0, 0.5);
+
+  perspective: 700px;
+
+  animation: starViewerPop 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+/* rotating dashed ring + light spark */
+.star-viewer-orbit {
+  position: absolute;
+  inset: -16px;
+
+  border-radius: 50%;
+  border: 2px dashed var(--tier);
+  opacity: 0.6;
+
+  pointer-events: none;
+
+  animation: starViewerRing 8s linear infinite;
+}
+
+.star-viewer-orbit::after {
+  content: "";
+
+  position: absolute;
+  inset: -2px;
+
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0 88%, var(--tier) 100%);
+
+  -webkit-mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 3px),
+    #000 calc(100% - 2px)
+  );
+  mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 3px),
+    #000 calc(100% - 2px)
+  );
+}
+
+.star-viewer-star {
+  position: relative;
+  z-index: 2;
+
+  font-size: min(34vw, 150px);
+  line-height: 1;
+
+  background: var(--tier-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+
+  filter: drop-shadow(0 4px 18px var(--tier-soft));
+
+  transform-style: preserve-3d;
+  will-change: transform;
+
+  animation: starViewerSpin 1.5s linear infinite;
+}
+
+.star-viewer-name {
+  margin: 38px 0 6px;
+
+  font-size: 26px;
+  font-weight: 850;
+  letter-spacing: -0.6px;
+
+  background: var(--tier-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.star-viewer-sub {
+  margin: 0;
+
+  color: #d8cfc6;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.star-viewer-next {
+  max-width: 280px;
+  margin: 8px 0 0;
+
+  color: #9b9189;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+@keyframes starViewerLife {
+  0% { opacity: 0; }
+  6% { opacity: 1; }
+  92% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes starViewerPop {
+  0% { transform: scale(0.2); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes starViewerSpin {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(360deg); }
+}
+
+@keyframes starViewerRing {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .star-viewer-star,
+  .star-viewer-orbit {
+    animation: none !important;
+  }
+
+  .star-viewer-medal {
+    animation: none !important;
+  }
+}

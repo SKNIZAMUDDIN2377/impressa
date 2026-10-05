@@ -5,6 +5,7 @@ import {
 } from "react-router-dom";
 
 import "./Profile.css";
+import "./ProfileExtras.css";
 import BadgeAnimation from "../components/BadgeAnimation";
 import ConfirmDialog from "../components/ConfirmDialog";
 import ReportModal from "../components/ReportModal";
@@ -16,6 +17,10 @@ const API_BASE_URL =
 
 // Set to false if you ever want the grid to load original images
 const USE_CLOUDINARY_THUMBS = true;
+
+// How long the big star stays on screen (must match starViewerLife in
+// ProfileExtras.css)
+const STAR_VIEWER_MS = 4600;
 
 // ==========================================
 // DEFAULT PROFILE PICTURE
@@ -746,6 +751,43 @@ function ProfileView({ routeUsername }) {
 
   const [menuOpen, setMenuOpen] = useState(false);
 
+  const menuRef = useRef(null);
+
+  const menuButtonRef = useRef(null);
+
+  // Close the ☰ menu when tapping anywhere outside it, or pressing Esc.
+  // (Tapping the ☰ button itself toggles it, handled by its onClick.)
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+
+    const closeOnOutside = (event) => {
+      const target = event.target;
+
+      if (
+        menuRef.current?.contains(target) ||
+        menuButtonRef.current?.contains(target)
+      ) {
+        return;
+      }
+
+      setMenuOpen(false);
+    };
+
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", closeOnOutside);
+    document.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [menuOpen]);
+
   const [reportOpen, setReportOpen] = useState(false);
 
   const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
@@ -769,6 +811,38 @@ function ProfileView({ routeUsername }) {
   const [connectionsError, setConnectionsError] = useState("");
 
   const connectionsSeqRef = useRef(0);
+
+
+  /*
+  ============================================================
+  STAR VIEWER
+  Tapping the badge star shows a big spinning star for a few
+  seconds, then returns to the profile.
+  */
+
+  const [starViewerOpen, setStarViewerOpen] = useState(false);
+
+  useEffect(() => {
+    if (!starViewerOpen) return undefined;
+
+    const timer = setTimeout(
+      () => setStarViewerOpen(false),
+      STAR_VIEWER_MS
+    );
+
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") {
+        setStarViewerOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [starViewerOpen]);
 
 
   /*
@@ -1209,21 +1283,17 @@ if (badges >= 15) {
   ============================================================
   DELETE POST
   ============================================================
-  Calls DELETE /api/posts/:postId
+  Tapping the bin asks for confirmation in the app's own dialog,
+  then calls DELETE /api/posts/:postId. The post disappears right
+  away and comes back if the server refuses.
   */
 
   const pendingPostDeletesRef = useRef(new Set());
 
+  const [deleteTarget, setDeleteTarget] = useState(null);
+
   const deletePost = async (postId) => {
     if (pendingPostDeletesRef.current.has(postId)) {
-      return;
-    }
-
-    const confirmed = window.confirm(
-      "Delete this post? This cannot be undone."
-    );
-
-    if (!confirmed) {
       return;
     }
 
@@ -1286,6 +1356,20 @@ if (badges >= 15) {
       rollback();
     } finally {
       pendingPostDeletesRef.current.delete(postId);
+    }
+  };
+
+  const requestDeletePost = (postId) => {
+    setDeleteTarget(postId);
+  };
+
+  const confirmDeletePost = () => {
+    const postId = deleteTarget;
+
+    setDeleteTarget(null);
+
+    if (postId) {
+      deletePost(postId);
     }
   };
 
@@ -2159,16 +2243,18 @@ if (badges >= 15) {
         </button>
 
         <button
+          ref={menuButtonRef}
           className="menu-button"
-          onClick={() => setMenuOpen(!menuOpen)}
+          onClick={() => setMenuOpen((open) => !open)}
           aria-label="Profile menu"
+          aria-expanded={menuOpen}
         >
           ☰
         </button>
 
         {menuOpen && (
 
-          <div className="profile-menu">
+          <div className="profile-menu" ref={menuRef}>
 
             {!isOwnProfile && (
               <>
@@ -2527,7 +2613,19 @@ if (badges >= 15) {
 
         <div className={`badge-card ${currentStar.className}`}>
 
-          <div className={`badge-star ${currentStar.className}`}>
+          <div
+            className={`badge-star ${currentStar.className}`}
+            role="button"
+            tabIndex={0}
+            aria-label={`View ${currentStar.name}`}
+            onClick={() => setStarViewerOpen(true)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setStarViewerOpen(true);
+              }
+            }}
+          >
             <span>{currentStar.icon}</span>
           </div>
 
@@ -2649,31 +2747,22 @@ if (badges >= 15) {
                   {isOwnProfile && (
                     <button
                       type="button"
+                      className="post-delete-btn"
                       onClick={(event) => {
                         event.stopPropagation();
-                        deletePost(post.id);
+                        requestDeletePost(post.id);
                       }}
+                      onKeyDown={(event) => event.stopPropagation()}
                       aria-label="Delete post"
                       title="Delete post"
-                      style={{
-                        position: "absolute",
-                        top: "6px",
-                        right: "6px",
-                        width: "30px",
-                        height: "30px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        border: "none",
-                        borderRadius: "50%",
-                        background: "rgba(0,0,0,0.55)",
-                        color: "#ffffff",
-                        fontSize: "13px",
-                        cursor: "pointer",
-                        zIndex: 2,
-                      }}
                     >
-                      🗑
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 7h16" />
+                        <path d="M10 11v6" />
+                        <path d="M14 11v6" />
+                        <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
+                        <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                      </svg>
                     </button>
                   )}
 
@@ -2818,6 +2907,63 @@ if (badges >= 15) {
         )}
 
       </div>
+
+
+      {/* =====================================================
+          STAR VIEWER
+          Big spinning star; closes by itself after a few
+          seconds, or when tapped.
+      ===================================================== */}
+
+      {starViewerOpen && (
+
+        <div
+          className={`star-viewer ${currentStar.className}`}
+          onClick={() => setStarViewerOpen(false)}
+          role="dialog"
+          aria-label={currentStar.name}
+        >
+
+          <button
+            type="button"
+            className="star-viewer-close"
+            onClick={(event) => {
+              event.stopPropagation();
+              setStarViewerOpen(false);
+            }}
+            aria-label="Close star"
+          >
+            ×
+          </button>
+
+          <div className="star-viewer-medal">
+
+            <span className="star-viewer-orbit" aria-hidden="true" />
+
+            <span className="star-viewer-star" aria-hidden="true">
+              {currentStar.icon}
+            </span>
+
+          </div>
+
+          <h2 className="star-viewer-name">{currentStar.name}</h2>
+
+          <p className="star-viewer-sub">
+            {badges} {badges === 1 ? "badge" : "badges"} · {impressions}{" "}
+            impressions
+          </p>
+
+          <p className="star-viewer-next">
+            {nextStar
+              ? `${nextStar.min - badges} more ${
+                  nextStar.min - badges === 1 ? "badge" : "badges"
+                } to reach ${nextStar.name}`
+              : "Maximum star reached"}
+          </p>
+
+        </div>
+
+      )}
 
 
       {/* =====================================================
@@ -3066,8 +3212,18 @@ if (badges >= 15) {
 
 
       {/* =====================================================
-          BLOCK / REPORT DIALOGS
+          DELETE POST / BLOCK / REPORT DIALOGS
       ===================================================== */}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Delete this post?"
+        message="This permanently removes the post and Impressions you earned on this post still count toward your total and badges."
+        confirmLabel="Delete"
+        busy={false}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={confirmDeletePost}
+      />
 
       <ConfirmDialog
         open={blockConfirmOpen}

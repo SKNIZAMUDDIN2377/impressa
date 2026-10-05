@@ -1,5 +1,6 @@
 const Notification = require("../models/Notification");
 const { getBlockedUserIds } = require("../utils/blockUtils");
+const { maybeSendDailyNudge } = require("../utils/motivation");
 
 // ==========================================
 // GET MY NOTIFICATIONS
@@ -9,6 +10,7 @@ const getNotifications = async (req, res) => {
   try {
     // Users blocked in either direction (filtered, not deleted,
     // so unblocking restores the old notifications)
+        await maybeSendDailyNudge(req.user.userId);
     const hidden = await getBlockedUserIds(req.user.userId);
 
     const notifications = await Notification.find({

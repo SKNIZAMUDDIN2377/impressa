@@ -8,6 +8,7 @@ const User = require("../models/User");
 const Comment = require("../models/Comment");
 const Impression = require("../models/Impression");
 const Notification = require("../models/Notification");
+const { onPostCreated } = require("../utils/motivation");
 const {
   getBlockedUserIds,
   isBlockedBetween,
@@ -423,6 +424,7 @@ const createPost = async (req, res) => {
 
       sharesCount: 0,
     });
+        onPostCreated(req.user.userId);
 
     // ==========================================
     // GET POST WITH AUTHOR INFORMATION

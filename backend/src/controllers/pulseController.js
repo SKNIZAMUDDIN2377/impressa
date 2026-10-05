@@ -1,5 +1,6 @@
 const Pulse = require("../models/Pulse");
 const User = require("../models/User");
+const { onPulseCompleted } = require("../utils/motivation");
 const {
   getBlockedUserIds,
   isBlockedBetween,
@@ -280,6 +281,7 @@ const createPulse = async (req, res) => {
     }
 
     const streak = calculatePulseStreak(user.pulseCompletedDates);
+        onPulseCompleted(userId, streak);
 
     const populatedPulse = await Pulse.findById(pulse._id)
       .populate("user", "name username profilePicture badge")

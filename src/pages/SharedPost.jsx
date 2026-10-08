@@ -86,6 +86,7 @@ function SharedPost() {
 
           shares:
             backendPost.sharesCount || 0,
+                      isOfficial: backendPost.author?.isOfficial === true,
         });
 
         setLoading(false);

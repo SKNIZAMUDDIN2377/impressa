@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+
+import RecoveryCodeCard from "../components/RecoveryCodeCard";
+
 import "./AccountSettings.css";
 
 const API_URL =
@@ -56,6 +59,14 @@ function AccountSettings() {
   const [deletePassword, setDeletePassword] = useState("");
   const [deletingAccount, setDeletingAccount] = useState(false);
 
+  // ---------- Account recovery ----------
+
+  const [hasRecoveryCode, setHasRecoveryCode] = useState(null);
+  const [showRecoveryForm, setShowRecoveryForm] = useState(false);
+  const [recoveryPassword, setRecoveryPassword] = useState("");
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
+  const [newRecoveryCode, setNewRecoveryCode] = useState("");
+
   // ==========================================
   // LOAD ACCOUNT INFORMATION
   // ==========================================
@@ -99,6 +110,7 @@ function AccountSettings() {
         if (data.user) {
           setUsername(data.user.username || "");
           setPhone(data.user.phone || "");
+          setHasRecoveryCode(Boolean(data.user.hasRecoveryCode));
 
           localStorage.setItem(
             getCacheKey(),
@@ -207,6 +219,62 @@ function AccountSettings() {
       alert(error.message || "Unable to connect to Impressa server.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  // ==========================================
+  // CREATE / REPLACE RECOVERY CODE
+  // ==========================================
+
+  const handleIssueRecoveryCode = async (event) => {
+    event.preventDefault();
+
+    if (recoveryLoading) return;
+
+    if (!recoveryPassword) {
+      alert("Please enter your current password.");
+      return;
+    }
+
+    try {
+      setRecoveryLoading(true);
+
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        alert("Your session has expired. Please sign in again.");
+        navigate("/signin");
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/api/auth/recovery-code`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          currentPassword: recoveryPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Unable to create recovery code"
+        );
+      }
+
+      setNewRecoveryCode(data.recoveryCode);
+      setHasRecoveryCode(true);
+      setShowRecoveryForm(false);
+      setRecoveryPassword("");
+    } catch (error) {
+      console.error("Recovery code error ❌", error);
+      alert(error.message || "Unable to connect to Impressa server.");
+    } finally {
+      setRecoveryLoading(false);
     }
   };
 
@@ -482,6 +550,114 @@ function AccountSettings() {
               )}
             </button>
           </form>
+        </section>
+
+        {/* ==========================================
+            ACCOUNT RECOVERY
+        ========================================== */}
+
+        <section className="settings-section">
+          <div className="settings-section-title">
+            <span className="settings-section-icon orange-icon">🔑</span>
+
+            <div>
+              <h2>Account recovery</h2>
+              <p>Your way back in if you forget your password</p>
+            </div>
+          </div>
+
+          {newRecoveryCode ? (
+            <RecoveryCodeCard
+              code={newRecoveryCode}
+              actionLabel="Done"
+              confirmLabel="I've saved my recovery code"
+              onDone={() => setNewRecoveryCode("")}
+            />
+          ) : (
+            <>
+              <div className="settings-list">
+                <div className="settings-row">
+                  <div>
+                    <span className="settings-label">Recovery code</span>
+
+                    <span className="settings-value">
+                      {hasRecoveryCode === null
+                        ? loadingAccount
+                          ? "Loading..."
+                          : "Unavailable"
+                        : hasRecoveryCode
+                        ? "Set up"
+                        : "Not set up yet"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {!showRecoveryForm ? (
+                <button
+                  type="button"
+                  className="rc-primary-btn rc-settings-start"
+                  onClick={() => setShowRecoveryForm(true)}
+                  disabled={hasRecoveryCode === null}
+                >
+                  {hasRecoveryCode
+                    ? "Generate a new recovery code"
+                    : "Create my recovery code"}
+                </button>
+              ) : (
+                <form
+                  className="rc-settings-form"
+                  onSubmit={handleIssueRecoveryCode}
+                >
+                  <p className="rc-settings-note">
+                    {hasRecoveryCode
+                      ? "A new code replaces your current one. The old code will stop working."
+                      : "Without a recovery code, there's no way to get back in if you forget your password."}{" "}
+                    Confirm your password to continue.
+                  </p>
+
+                  <div className="settings-field">
+                    <label>Current password</label>
+
+                    <div className="settings-input">
+                      <input
+                        type="password"
+                        value={recoveryPassword}
+                        onChange={(event) =>
+                          setRecoveryPassword(event.target.value)
+                        }
+                        placeholder="Enter current password"
+                        autoComplete="current-password"
+                        disabled={recoveryLoading}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="rc-settings-actions">
+                    <button
+                      type="submit"
+                      className="rc-primary-btn"
+                      disabled={recoveryLoading || !recoveryPassword}
+                    >
+                      {recoveryLoading ? "Creating..." : "Show my recovery code"}
+                    </button>
+
+                    <button
+                      type="button"
+                      className="rc-ghost-btn"
+                      onClick={() => {
+                        setShowRecoveryForm(false);
+                        setRecoveryPassword("");
+                      }}
+                      disabled={recoveryLoading}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
+            </>
+          )}
         </section>
 
         <section className="settings-section">

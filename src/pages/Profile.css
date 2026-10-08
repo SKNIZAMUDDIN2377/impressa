@@ -1526,3 +1526,49 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* =========================================================
+   IMPRESSA CUSTOMIZE BUTTON (beside the ☰ menu button)
+========================================================= */
+
+/* margin-left:auto keeps it next to the ☰ button while the back
+   button stays on the left */
+.menu-button.customize-button {
+  margin-left: auto;
+  margin-right: 8px;
+}
+
+.menu-button.customize-button svg {
+  display: block;
+  stroke: #ff6a00;
+}
+
+
+/* =========================================================
+   i-NOTES LOADING SKELETON
+========================================================= */
+
+.notes-skeleton {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.note-skeleton {
+  height: 96px;
+  border-radius: 16px;
+  background: linear-gradient(
+    100deg,
+    var(--skeleton-a, #fff4eb) 8%,
+    var(--skeleton-b, #ffe9d8) 18%,
+    var(--skeleton-a, #fff4eb) 33%
+  );
+  background-size: 200% 100%;
+  animation: noteSkeletonShimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes noteSkeletonShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

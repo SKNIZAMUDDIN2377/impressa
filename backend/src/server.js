@@ -67,6 +67,10 @@ app.use("/api/profile", profileRoutes);
 
 app.use("/api/posts", postRoutes);
 
+// Comments live under a post: /api/posts/:postId/comments
+// (mounted after postRoutes; none of the paths overlap)
+app.use("/api/posts", commentRoutes);
+
 app.use("/api/follow", followRoutes);
 
 app.use("/api/pulse", pulseRoutes);
@@ -80,6 +84,7 @@ app.use(
   noteRoutes
 );
 
+// Kept for backward compatibility: /api/comments/:postId/comments
 app.use(
   "/api/comments",
   commentRoutes
@@ -108,6 +113,39 @@ app.use("/api", (req, res) => {
   res.status(404).json({
     success: false,
     message: "Route not found",
+  });
+});
+
+// ==========================================
+// GLOBAL ERROR HANDLER
+// Always answers with JSON so the app can show a message
+// instead of failing on an HTML error page.
+// ==========================================
+
+app.use((error, req, res, next) => {
+  if (res.headersSent) {
+    return next(error);
+  }
+
+  if (error.type === "entity.parse.failed") {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid request data",
+    });
+  }
+
+  if (error.type === "entity.too.large") {
+    return res.status(413).json({
+      success: false,
+      message: "That request is too large",
+    });
+  }
+
+  console.error("Unhandled server error ❌", error);
+
+  res.status(500).json({
+    success: false,
+    message: "Something went wrong on our side. Please try again.",
   });
 });
 

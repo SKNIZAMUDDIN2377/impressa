@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useNavigate,
   useParams,
@@ -53,6 +53,64 @@ const normalizeMediaItem = (item) => {
   }
 
   return item;
+};
+
+// ==========================================
+// AVATAR HELPERS
+// ==========================================
+//
+// Every post on this page belongs to the same person, so the profile
+// picture comes from that person's profile (the same source the Profile
+// page uses). An empty value makes the post show the neutral silhouette
+// instead of somebody else's photo.
+//
+
+const cleanAvatar = (value) => {
+  if (!value || typeof value !== "string") return "";
+
+  // An older version of this page saved a stock-photo placeholder
+  // in its cache. Never show it.
+  if (value.includes("i.pravatar.cc")) return "";
+
+  return value;
+};
+
+const getStoredUsername = () => {
+  try {
+    return (
+      JSON.parse(localStorage.getItem("user") || "null")?.username || ""
+    );
+  } catch (error) {
+    return "";
+  }
+};
+
+// Reads the profile copy that the Profile page already cached
+// (instant, no request). isOfficial is null while unknown.
+const getCachedProfileInfo = (username) => {
+  const empty = { profilePicture: "", isOfficial: null };
+
+  try {
+    if (!username) return empty;
+
+    const cached = JSON.parse(
+      localStorage.getItem(
+        `impressa_profile_${username.toLowerCase()}`
+      ) || "null"
+    );
+
+    if (!cached || typeof cached !== "object") return empty;
+
+    return {
+      profilePicture: cleanAvatar(cached.profilePicture),
+      isOfficial:
+        typeof cached.isOfficial === "boolean"
+          ? cached.isOfficial
+          : null,
+    };
+  } catch (error) {
+    return empty;
+  }
 };
 
 // ==========================================
@@ -128,7 +186,70 @@ function ProfilePosts() {
 
   const [error, setError] = useState("");
 
+  // Picture + verified flag of the profile whose posts are shown
+  const [profileInfo, setProfileInfo] = useState(() =>
+    getCachedProfileInfo(username)
+  );
+
   const requestIdRef = useRef(0);
+
+  // ==========================================
+  // LOAD THE PROFILE'S PICTURE + VERIFIED FLAG
+  // ==========================================
+
+  useEffect(() => {
+    if (!username) return undefined;
+
+    setProfileInfo(getCachedProfileInfo(username));
+
+    const controller = new AbortController();
+
+    const token = localStorage.getItem("token");
+
+    const isOwn =
+      getStoredUsername().toLowerCase() === username.toLowerCase();
+
+    const url = isOwn
+      ? `${API_BASE_URL}/api/profile/me`
+      : `${API_BASE_URL}/api/profile/${encodeURIComponent(username)}`;
+
+    const loadProfileInfo = async () => {
+      try {
+        const response = await fetch(url, {
+          method: "GET",
+          headers: token
+            ? { Authorization: `Bearer ${token}` }
+            : {},
+          signal: controller.signal,
+        });
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+
+        const user = data?.user;
+
+        if (!user) return;
+
+        setProfileInfo({
+          profilePicture: cleanAvatar(user.profilePicture),
+          isOfficial: user.isOfficial === true,
+        });
+      } catch (infoError) {
+        if (infoError.name !== "AbortError") {
+          console.error("Profile info error:", infoError);
+        }
+      }
+    };
+
+    loadProfileInfo();
+
+    return () => controller.abort();
+  }, [username]);
+
+  // ==========================================
+  // LOAD POSTS
+  // ==========================================
 
   useEffect(() => {
     const cachedForThisUser = getCachedProfilePosts(username);
@@ -191,9 +312,13 @@ function ProfilePosts() {
               post.author?.username ||
               username,
 
-            profileImage: normalizeMediaUrl(
-              post.author?.profilePicture
-            ) || "https://i.pravatar.cc/150",
+            // Empty when the server did not send one: the profile's own
+            // picture is applied when the posts are shown (see below).
+            profileImage: cleanAvatar(
+              normalizeMediaUrl(post.author?.profilePicture)
+            ),
+
+            isOfficial: post.author?.isOfficial === true,
 
             time: new Date(
               post.createdAt
@@ -254,6 +379,32 @@ function ProfilePosts() {
       setLoading(false);
     }
   }, [username]);
+
+  // ==========================================
+  // POSTS AS SHOWN: the profile's own picture + verified flag
+  // (kept out of the saved cache on purpose, so the cache stays small)
+  // ==========================================
+
+  const displayPosts = useMemo(
+    () =>
+      posts.map((post) => {
+        const picture =
+          profileInfo.profilePicture ||
+          cleanAvatar(post.profileImage);
+
+        return {
+          ...post,
+          profileImage: picture
+            ? normalizeMediaUrl(picture)
+            : "",
+          isOfficial:
+            typeof profileInfo.isOfficial === "boolean"
+              ? profileInfo.isOfficial
+              : post.isOfficial === true,
+        };
+      }),
+    [posts, profileInfo]
+  );
 
   useEffect(() => {
     if (
@@ -355,11 +506,11 @@ function ProfilePosts() {
         )}
 
 
-        {posts.length > 0 && (
+        {displayPosts.length > 0 && (
 
             <div className="profile-posts-list">
 
-              {posts.map((post) => (
+              {displayPosts.map((post) => (
                 <div
                   key={post.id}
                   id={`post-${post.id}`}

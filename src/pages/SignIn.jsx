@@ -199,11 +199,7 @@ function SignIn() {
                 <button
                   type="button"
                   className="signin-forgot"
-                  onClick={() => {
-                    alert(
-                      "Forgot password will be connected with the backend."
-                    );
-                  }}
+                  onClick={() => navigate("/forgot-password")}
                 >
                   Forgot password?
                 </button>

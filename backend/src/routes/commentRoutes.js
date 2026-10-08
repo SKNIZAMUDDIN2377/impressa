@@ -1,7 +1,5 @@
 const express = require("express");
 
-// ⚠️ Use the SAME auth middleware your other routes use
-// (for example the one used by your pulse or notes routes).
 const authMiddleware = require("../middleware/authMiddleware");
 
 const {
@@ -12,10 +10,19 @@ const {
 
 const router = express.Router();
 
-router.get("/:postId/comments", getComments);
-router.post("/:postId/comments", authMiddleware, addComment);
-router.delete("/:postId/comments/:commentId", authMiddleware, deleteComment);
+// Mounted at /api/posts in server.js, so these become:
+//   GET    /api/posts/:postId/comments
+//   POST   /api/posts/:postId/comments
+//   DELETE /api/posts/:postId/comments/:commentId
 
 router.get("/:postId/comments", authMiddleware, getComments);
+
+router.post("/:postId/comments", authMiddleware, addComment);
+
+router.delete(
+  "/:postId/comments/:commentId",
+  authMiddleware,
+  deleteComment
+);
 
 module.exports = router;

@@ -1,3 +1,5 @@
+const crypto = require("crypto");
+
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
@@ -12,14 +14,126 @@ const Block = require("../models/Block");
 const { deleteCloudinaryMedia } = require("../utils/cloudinaryCleanup");
 
 // ==========================================
+// CONSTANTS
+// ==========================================
+
+const BCRYPT_ROUNDS = 12;
+
+const USERNAME_REGEX = /^[a-z0-9._]{3,30}$/;
+const PHONE_REGEX = /^\d{10,15}$/;
+
+// Recovery code: 16 chars, no look-alikes (no 0/O, 1/I) → ~80 bits
+const RECOVERY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const RECOVERY_CODE_LENGTH = 16;
+
+const MAX_RECOVERY_ATTEMPTS = 5;
+const RECOVERY_LOCK_MINUTES = 30;
+const RESET_TOKEN_MINUTES = 10;
+
+// One message for every recovery failure (unknown user, no code,
+// wrong code, locked) so nothing reveals whether an account exists.
+const GENERIC_RECOVERY_ERROR =
+  "Invalid username or recovery code, or too many attempts. Please try again later.";
+
+const EXPIRED_RESET_MESSAGE =
+  "Your reset session has expired. Please start again.";
+
+// Used so unknown usernames take as long to answer as real ones
+const DUMMY_HASH = bcrypt.hashSync(
+  "impressa-dummy-recovery-value",
+  BCRYPT_ROUNDS
+);
+
+// ==========================================
+// HELPERS
+// ==========================================
+
+const asTrimmedString = (value) =>
+  typeof value === "string" ? value.trim() : "";
+
+// Same rules as Change Password, shared with register + reset
+const getPasswordError = (password) => {
+  if (password.length < 8 || password.length > 64) {
+    return "Password must be between 8 and 64 characters";
+  }
+
+  if (!/[A-Z]/.test(password)) {
+    return "Password must contain an uppercase letter";
+  }
+
+  if (!/[a-z]/.test(password)) {
+    return "Password must contain a lowercase letter";
+  }
+
+  if (!/[0-9]/.test(password)) {
+    return "Password must contain a number";
+  }
+
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    return "Password must contain a special character";
+  }
+
+  if (/\s/.test(password)) {
+    return "Password cannot contain spaces";
+  }
+
+  return "";
+};
+
+const createRecoveryCode = () => {
+  let raw = "";
+
+  for (let i = 0; i < RECOVERY_CODE_LENGTH; i += 1) {
+    raw += RECOVERY_ALPHABET[crypto.randomInt(RECOVERY_ALPHABET.length)];
+  }
+
+  return raw.match(/.{4}/g).join("-");
+};
+
+const normalizeRecoveryCode = (value) =>
+  String(value || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+
+// Reset tokens use a different secret from login tokens, so a reset
+// token can never be used as a login token (and vice versa).
+const getResetSecret = () => `${process.env.JWT_SECRET}:password-reset`;
+
+const registerFailedRecoveryAttempt = async (userId) => {
+  const updated = await User.findByIdAndUpdate(
+    userId,
+    { $inc: { recoveryAttempts: 1 } },
+    { new: true }
+  ).select("+recoveryAttempts");
+
+  if (updated && updated.recoveryAttempts >= MAX_RECOVERY_ATTEMPTS) {
+    await User.updateOne(
+      { _id: userId },
+      {
+        $set: {
+          recoveryAttempts: 0,
+          recoveryLockedUntil: new Date(
+            Date.now() + RECOVERY_LOCK_MINUTES * 60 * 1000
+          ),
+        },
+      }
+    );
+  }
+};
+
+// ==========================================
 // REGISTER / CREATE ACCOUNT
 // ==========================================
 
 const registerUser = async (req, res) => {
   try {
-    const { name, username, phone, password } = req.body;
+    const name = asTrimmedString(req.body.name);
+    const username = asTrimmedString(req.body.username).toLowerCase();
+    const phone = String(req.body.phone ?? "").trim();
+    const password =
+      typeof req.body.password === "string" ? req.body.password : "";
 
-    // 1. Check required fields
+    // 1. Required fields
     if (!name || !username || !phone || !password) {
       return res.status(400).json({
         success: false,
@@ -27,10 +141,41 @@ const registerUser = async (req, res) => {
       });
     }
 
-    // 2. Check whether username already exists
-    const existingUsername = await User.findOne({
-      username: username.toLowerCase(),
-    });
+    // 2. Validation (friendly messages instead of "Server Error")
+    if (name.length > 50) {
+      return res.status(400).json({
+        success: false,
+        message: "Name must be 50 characters or fewer",
+      });
+    }
+
+    if (!USERNAME_REGEX.test(username)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Username must be 3–30 characters and can only use letters, numbers, dots and underscores",
+      });
+    }
+
+    if (!PHONE_REGEX.test(phone)) {
+      return res.status(400).json({
+        success: false,
+        message: "Enter a valid phone number (10–15 digits)",
+      });
+    }
+
+    const passwordError = getPasswordError(password);
+
+    if (passwordError) {
+      return res.status(400).json({
+        success: false,
+        message: passwordError,
+      });
+    }
+
+    // 3. Username must be unique.
+    //    Phone numbers are NOT checked — many accounts may share one.
+    const existingUsername = await User.findOne({ username });
 
     if (existingUsername) {
       return res.status(409).json({
@@ -39,21 +184,31 @@ const registerUser = async (req, res) => {
       });
     }
 
-    // 4. Hash password
-    const hashedPassword = await bcrypt.hash(password, 12);
+    // 4. Hash password + create the recovery code
+    const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
+
+    const recoveryCode = createRecoveryCode();
+
+    const recoveryCodeHash = await bcrypt.hash(
+      normalizeRecoveryCode(recoveryCode),
+      BCRYPT_ROUNDS
+    );
 
     // 5. Create user
     const user = await User.create({
       name,
-      username: username.toLowerCase(),
+      username,
       phone,
       password: hashedPassword,
+      recoveryCodeHash,
+      recoveryCodeSet: true,
     });
 
-    // 6. Return safe user data
+    // 6. Return safe user data (+ recovery code, shown ONCE)
     res.status(201).json({
       success: true,
       message: "Impressa account created successfully 🎉",
+      recoveryCode,
       user: {
         id: user._id,
         name: user.name,
@@ -65,6 +220,38 @@ const registerUser = async (req, res) => {
       },
     });
   } catch (error) {
+    // Duplicate key (e.g. two people grabbing a username at the same time)
+    if (error && error.code === 11000) {
+      const duplicatedField = Object.keys(
+        error.keyPattern || error.keyValue || {}
+      )[0];
+
+      if (duplicatedField === "username") {
+        return res.status(409).json({
+          success: false,
+          message: "Username already exists",
+        });
+      }
+
+      console.error(
+        `Registration blocked by an unexpected unique index on "${duplicatedField}" ❌`,
+        error.message
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "We couldn't create your account right now. Please try again in a moment.",
+      });
+    }
+
+    if (error && error.name === "ValidationError") {
+      return res.status(400).json({
+        success: false,
+        message: "Please check your details and try again",
+      });
+    }
+
     console.error("Registration error ❌", error);
 
     res.status(500).json({
@@ -80,32 +267,28 @@ const registerUser = async (req, res) => {
 
 const loginUser = async (req, res) => {
   try {
-    const { username, phone, password } = req.body;
+    const username = asTrimmedString(req.body.username).toLowerCase();
+    const password =
+      typeof req.body.password === "string" ? req.body.password : "";
 
     // 1. Check required fields
-    if ((!username && !phone) || !password) {
+    // (Login by phone was removed: many accounts can share a phone
+    //  number, so a phone number can't identify one account.)
+    if (!username || !password) {
       return res.status(400).json({
         success: false,
-        message: "Username or phone and password are required",
+        message: "Username and password are required",
       });
     }
 
     // 2. Find user
-    let user;
-
-    if (username) {
-      user = await User.findOne({
-        username: username.toLowerCase(),
-      });
-    } else {
-      user = await User.findOne({ phone });
-    }
+    const user = await User.findOne({ username });
 
     // 3. Check if user exists
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: "Invalid username/phone or password",
+        message: "Invalid username or password",
       });
     }
 
@@ -118,15 +301,16 @@ const loginUser = async (req, res) => {
     if (!passwordMatch) {
       return res.status(401).json({
         success: false,
-        message: "Invalid username/phone or password",
+        message: "Invalid username or password",
       });
     }
 
-    // 5. Create JWT token
+    // 5. Create JWT token (tokenVersion lets a reset revoke old tokens)
     const token = jwt.sign(
       {
         userId: user._id,
         username: user.username,
+        tokenVersion: user.tokenVersion || 0,
       },
       process.env.JWT_SECRET,
       {
@@ -160,6 +344,274 @@ const loginUser = async (req, res) => {
 };
 
 // ==========================================
+// FORGOT PASSWORD — STEP 1
+// Verify username + recovery code → short-lived reset token
+// ==========================================
+
+const verifyRecoveryCode = async (req, res) => {
+  try {
+    const username = asTrimmedString(req.body.username).toLowerCase();
+    const code = normalizeRecoveryCode(req.body.recoveryCode);
+
+    // Malformed input says nothing about whether an account exists
+    if (!username || code.length !== RECOVERY_CODE_LENGTH) {
+      return res.status(400).json({
+        success: false,
+        message: "Enter your username and your 16-character recovery code.",
+      });
+    }
+
+    const user = await User.findOne({ username }).select(
+      "+recoveryCodeHash +recoveryAttempts +recoveryLockedUntil"
+    );
+
+    const hasCode = Boolean(user && user.recoveryCodeHash);
+
+    const isLocked = Boolean(
+      user &&
+        user.recoveryLockedUntil &&
+        user.recoveryLockedUntil > new Date()
+    );
+
+    // Always run one bcrypt compare so response time doesn't leak
+    // whether the account exists.
+    const codeMatches = await bcrypt.compare(
+      code,
+      hasCode ? user.recoveryCodeHash : DUMMY_HASH
+    );
+
+    if (!hasCode || isLocked || !codeMatches) {
+      if (hasCode && !isLocked) {
+        await registerFailedRecoveryAttempt(user._id);
+      }
+
+      return res.status(401).json({
+        success: false,
+        message: GENERIC_RECOVERY_ERROR,
+      });
+    }
+
+    if (user.recoveryAttempts || user.recoveryLockedUntil) {
+      await User.updateOne(
+        { _id: user._id },
+        { $set: { recoveryAttempts: 0, recoveryLockedUntil: null } }
+      );
+    }
+
+    const resetToken = jwt.sign(
+      {
+        purpose: "password-reset",
+        uid: String(user._id),
+        v: user.tokenVersion || 0,
+      },
+      getResetSecret(),
+      { expiresIn: `${RESET_TOKEN_MINUTES}m` }
+    );
+
+    res.status(200).json({
+      success: true,
+      resetToken,
+    });
+  } catch (error) {
+    console.error("Verify recovery code error ❌", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error. Please try again.",
+    });
+  }
+};
+
+// ==========================================
+// FORGOT PASSWORD — STEP 2
+// Reset token + new password → password changed
+// ==========================================
+
+const resetPasswordWithToken = async (req, res) => {
+  try {
+    const resetToken =
+      typeof req.body.resetToken === "string" ? req.body.resetToken : "";
+
+    const newPassword =
+      typeof req.body.newPassword === "string"
+        ? req.body.newPassword
+        : "";
+
+    if (!resetToken || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Reset session and new password are required",
+      });
+    }
+
+    const passwordError = getPasswordError(newPassword);
+
+    if (passwordError) {
+      return res.status(400).json({
+        success: false,
+        message: passwordError,
+      });
+    }
+
+    let decoded;
+
+    try {
+      decoded = jwt.verify(resetToken, getResetSecret());
+    } catch (error) {
+      return res.status(401).json({
+        success: false,
+        message: EXPIRED_RESET_MESSAGE,
+      });
+    }
+
+    if (
+      !decoded ||
+      decoded.purpose !== "password-reset" ||
+      !decoded.uid
+    ) {
+      return res.status(401).json({
+        success: false,
+        message: EXPIRED_RESET_MESSAGE,
+      });
+    }
+
+    // The recovery code is single-use: a fresh one replaces it
+    const newRecoveryCode = createRecoveryCode();
+
+    const [hashedPassword, recoveryCodeHash] = await Promise.all([
+      bcrypt.hash(newPassword, BCRYPT_ROUNDS),
+      bcrypt.hash(
+        normalizeRecoveryCode(newRecoveryCode),
+        BCRYPT_ROUNDS
+      ),
+    ]);
+
+    // Atomic + single-use: only succeeds while tokenVersion still
+    // matches the version stored in the reset token.
+    const expectedVersion = Number(decoded.v) || 0;
+
+    const versionFilter =
+      expectedVersion === 0
+        ? {
+            $or: [
+              { tokenVersion: 0 },
+              { tokenVersion: { $exists: false } },
+            ],
+          }
+        : { tokenVersion: expectedVersion };
+
+    const updated = await User.findOneAndUpdate(
+      { _id: decoded.uid, ...versionFilter },
+      {
+        $set: {
+          password: hashedPassword,
+          recoveryCodeHash,
+          recoveryCodeSet: true,
+          recoveryAttempts: 0,
+          recoveryLockedUntil: null,
+        },
+        // Invalidates every login token issued before this reset
+        $inc: { tokenVersion: 1 },
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(401).json({
+        success: false,
+        message: EXPIRED_RESET_MESSAGE,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Password reset successfully",
+      recoveryCode: newRecoveryCode,
+    });
+  } catch (error) {
+    console.error("Reset password error ❌", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error while resetting password",
+    });
+  }
+};
+
+// ==========================================
+// CREATE / REPLACE RECOVERY CODE (logged-in users)
+// ==========================================
+
+const issueRecoveryCode = async (req, res) => {
+  try {
+    const currentPassword =
+      typeof req.body.currentPassword === "string"
+        ? req.body.currentPassword
+        : "";
+
+    if (!currentPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password is required",
+      });
+    }
+
+    const user = await User.findById(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const passwordMatch = await bcrypt.compare(
+      currentPassword,
+      user.password
+    );
+
+    if (!passwordMatch) {
+      return res.status(401).json({
+        success: false,
+        message: "Current password is incorrect",
+      });
+    }
+
+    const recoveryCode = createRecoveryCode();
+
+    const recoveryCodeHash = await bcrypt.hash(
+      normalizeRecoveryCode(recoveryCode),
+      BCRYPT_ROUNDS
+    );
+
+    await User.updateOne(
+      { _id: user._id },
+      {
+        $set: {
+          recoveryCodeHash,
+          recoveryCodeSet: true,
+          recoveryAttempts: 0,
+          recoveryLockedUntil: null,
+        },
+      }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Recovery code created",
+      recoveryCode,
+    });
+  } catch (error) {
+    console.error("Issue recovery code error ❌", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error while creating recovery code",
+    });
+  }
+};
+
+// ==========================================
 // GET ACCOUNT SETTINGS
 // ==========================================
 
@@ -188,6 +640,7 @@ const getAccountSettings = async (req, res) => {
         badge: user.badge,
         privacy: user.privacy,
         notifications: user.notifications,
+        hasRecoveryCode: Boolean(user.recoveryCodeSet),
       },
     });
   } catch (error) {
@@ -274,7 +727,7 @@ const updateAccountSettings = async (req, res) => {
 };
 
 // ==========================================
-// CHANGE PASSWORD
+// CHANGE PASSWORD (logged-in users) — unchanged
 // ==========================================
 
 const changePassword = async (req, res) => {
@@ -392,7 +845,7 @@ const changePassword = async (req, res) => {
 };
 
 // ==========================================
-// DELETE ACCOUNT PERMANENTLY
+// DELETE ACCOUNT PERMANENTLY — unchanged
 // ==========================================
 
 const deleteAccount = async (req, res) => {
@@ -442,7 +895,7 @@ const deleteAccount = async (req, res) => {
     const userId = user._id;
 
     // Find the user's posts
-       const userPosts = await Post.find({ author: userId }).select("_id media");
+    const userPosts = await Post.find({ author: userId }).select("_id media");
     const userPostIds = userPosts.map((post) => post._id);
 
     // Posts owned by OTHER people that this user commented on.
@@ -468,7 +921,7 @@ const deleteAccount = async (req, res) => {
       $or: [{ user: userId }, { post: { $in: userPostIds } }],
     });
 
-        await Post.deleteMany({ author: userId });
+    await Post.deleteMany({ author: userId });
 
     // Remove the user's photos/videos from Cloudinary (best-effort)
     await deleteCloudinaryMedia(
@@ -549,6 +1002,9 @@ const deleteAccount = async (req, res) => {
 module.exports = {
   registerUser,
   loginUser,
+  verifyRecoveryCode,
+  resetPasswordWithToken,
+  issueRecoveryCode,
   getAccountSettings,
   updateAccountSettings,
   changePassword,

@@ -1,5 +1,9 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+
+import RecoveryCodeCard from "../components/RecoveryCodeCard";
+import { getPasswordHint } from "../utils/passwordRules";
+
 import "./CreateAccount.css";
 
 function CreateAccount() {
@@ -14,8 +18,14 @@ function CreateAccount() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Set after a successful signup → shows the "save your code" screen
+  const [recoveryCode, setRecoveryCode] = useState("");
+
   const passwordsMatch =
     password === confirmPassword;
+
+  // Mirrors the backend password rules (first unmet rule, or "")
+  const passwordHint = getPasswordHint(password);
 
   // ==========================================
   // PHONE VALIDATION
@@ -53,6 +63,10 @@ function CreateAccount() {
       return;
     }
 
+    if (passwordHint) {
+      return;
+    }
+
     if (!passwordsMatch) {
       return;
     }
@@ -86,11 +100,6 @@ function CreateAccount() {
 
       const data = await response.json();
 
-      console.log(
-        "Impressa registration response:",
-        data
-      );
-
       if (!response.ok) {
         alert(
           data.message ||
@@ -100,19 +109,21 @@ function CreateAccount() {
         return;
       }
 
-      console.log(
-        "Account created successfully 🎉"
-      );
-
       localStorage.removeItem("token");
       localStorage.removeItem("user");
+
+      if (data.recoveryCode) {
+        // Show the recovery code ONCE before sending the user to Sign In
+        setRecoveryCode(data.recoveryCode);
+        return;
+      }
 
       alert(
         data.message ||
           "Impressa account created successfully 🎉"
       );
 
-      navigate("/SignIn");
+      navigate("/signin");
 
     } catch (error) {
       console.error(
@@ -128,6 +139,65 @@ function CreateAccount() {
       setIsLoading(false);
     }
   };
+
+  // ==========================================
+  // SAVE YOUR RECOVERY CODE SCREEN
+  // ==========================================
+
+  if (recoveryCode) {
+    return (
+      <main className="create-account-page">
+
+        <div className="create-account-container">
+
+          <section className="create-account-brand">
+
+            <div className="create-account-logo">
+              impressa<span>.</span>
+            </div>
+
+            <p className="create-account-tagline">
+              Rise through impressions
+            </p>
+
+          </section>
+
+          <section className="create-account-card">
+
+            <div className="create-account-heading">
+
+              <span className="create-account-eyebrow">
+                ACCOUNT CREATED 🎉
+              </span>
+
+              <h1>
+                Save your recovery code
+              </h1>
+
+              <p>
+                If you ever forget your password, this code is how
+                you get back in.
+              </p>
+
+            </div>
+
+            <RecoveryCodeCard
+              code={recoveryCode}
+              actionLabel="Continue to Sign In"
+              onDone={() => navigate("/signin")}
+            />
+
+          </section>
+
+          <p className="create-account-footer">
+            © {new Date().getFullYear()} Impressa
+          </p>
+
+        </div>
+
+      </main>
+    );
+  }
 
   return (
     <main className="create-account-page">
@@ -243,7 +313,13 @@ function CreateAccount() {
                 Password
               </label>
 
-              <div className="create-account-input">
+              <div
+                className={`create-account-input ${
+                  password && passwordHint
+                    ? "field-error"
+                    : ""
+                }`}
+              >
 
                 <span className="create-account-icon">
                   •
@@ -282,6 +358,12 @@ function CreateAccount() {
                 </button>
 
               </div>
+
+              {password && passwordHint && (
+                <span className="field-error-text">
+                  {passwordHint}
+                </span>
+              )}
 
             </div>
 
@@ -357,6 +439,7 @@ function CreateAccount() {
                 !username.trim() ||
                 !isPhoneValid ||
                 !password ||
+                Boolean(passwordHint) ||
                 !confirmPassword ||
                 !passwordsMatch
               }

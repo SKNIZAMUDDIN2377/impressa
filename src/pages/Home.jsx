@@ -248,6 +248,7 @@ const formatPost = (post) => ({
   commentsCount: post.commentsCount || 0,
 
   impressions: post.impressionsCount || 0,
+    isOfficial: post.author?.isOfficial === true,
 
   ...(typeof post.impressed === "boolean"
     ? { impressed: post.impressed }

@@ -8,6 +8,12 @@ import {
   renderEditedBlob,
 } from "../utils/imageEditing";
 import {
+  buildVideoDelivery,
+  hasVideoEdit,
+  videoPreviewStyle,
+  waitForVideoReady,
+} from "../utils/videoEditing";
+import {
   createPostRequest,
   fetchUploadSignature,
   runPool,
@@ -106,6 +112,15 @@ const makeId = () =>
 const abortError = () =>
   Object.assign(new Error("Cancelled"), { name: "AbortError" });
 
+// Photos and videos can both be edited (animated GIFs cannot)
+const canEdit = (item) =>
+  Boolean(item) &&
+  (item.type === "video" ||
+    (item.type === "image" && !item.skipProcessing));
+
+const isEdited = (item) =>
+  item.type === "video" ? hasVideoEdit(item.edit) : Boolean(item.edit);
+
 function CreatePost() {
   const navigate = useNavigate();
 
@@ -121,7 +136,9 @@ function CreatePost() {
   // processed (cropped / compressed) images, keyed by media id
   const preparedRef = useRef(new Map());
 
-  // finished Cloudinary uploads, keyed by "id:version" (survives retries)
+  // finished Cloudinary uploads (survives retries).
+  // photos: "id:version"   videos: "id" (the original is uploaded once,
+  // edits are applied afterwards)
   const uploadedRef = useRef(new Map());
 
   const queueRef = useRef(Promise.resolve());
@@ -202,6 +219,8 @@ function CreatePost() {
 
   const prepare = useCallback(
     (item) => {
+      // videos are uploaded as they are; their edits are applied by
+      // Cloudinary after the upload
       if (item.type !== "image" || item.skipProcessing) {
         return Promise.resolve(null);
       }
@@ -358,9 +377,6 @@ function CreatePost() {
 
   /* ---------- editor ---------- */
 
-  const canEdit = (item) =>
-    item && item.type === "image" && !item.skipProcessing;
-
   const openEditor = (index) => {
     if (canEdit(media[index])) setEditingIndex(index);
   };
@@ -377,23 +393,32 @@ function CreatePost() {
 
     const version = item.version + 1;
 
-    const previewUrl = URL.createObjectURL(result.blob);
+    if (item.type === "image" && result) {
+      const previewUrl = URL.createObjectURL(result.blob);
 
-    // the edited image is already rendered: reuse it for the upload
-    preparedRef.current.set(item.id, {
-      version,
-      promise: Promise.resolve(result),
-    });
+      // the edited image is already rendered: reuse it for the upload
+      preparedRef.current.set(item.id, {
+        version,
+        promise: Promise.resolve(result),
+      });
 
-    setMedia((previous) =>
-      previous.map((entry) => {
-        if (entry.id !== item.id) return entry;
+      setMedia((previous) =>
+        previous.map((entry) => {
+          if (entry.id !== item.id) return entry;
 
-        if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl);
+          if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl);
 
-        return { ...entry, edit, version, previewUrl };
-      })
-    );
+          return { ...entry, edit, version, previewUrl };
+        })
+      );
+    } else {
+      // video: only the edit is stored; the file is uploaded untouched
+      setMedia((previous) =>
+        previous.map((entry) =>
+          entry.id === item.id ? { ...entry, edit, version } : entry
+        )
+      );
+    }
 
     setEditingIndex(null);
   };
@@ -526,7 +551,11 @@ function CreatePost() {
       if (controller.signal.aborted) throw abortError();
 
       const plans = snapshot.map((item, index) => {
-        const key = `${item.id}:${item.version}`;
+        // a video is uploaded once; changing its edit never re-uploads it
+        const key =
+          item.type === "video"
+            ? item.id
+            : `${item.id}:${item.version}`;
 
         const result = prepared[index];
 
@@ -602,14 +631,49 @@ function CreatePost() {
 
       await runPool(tasks, UPLOAD_CONCURRENCY);
 
-      const mediaPayload = plans.map((plan) =>
-        uploadedRef.current.get(plan.key)
+      // ----- apply video edits (Cloudinary builds the edited video) -----
+
+      const needsVideoWork = plans.some(
+        (plan) =>
+          plan.item.type === "video" && hasVideoEdit(plan.item.edit)
       );
 
-      if (mediaPayload.some((entry) => !entry)) {
-        throw new Error(
-          "Some media did not upload. Please try again."
-        );
+      if (needsVideoWork) {
+        setStage("processing");
+      }
+
+      const mediaPayload = [];
+
+      for (const plan of plans) {
+        const uploaded = uploadedRef.current.get(plan.key);
+
+        if (!uploaded) {
+          throw new Error(
+            "Some media did not upload. Please try again."
+          );
+        }
+
+        if (
+          plan.item.type === "video" &&
+          hasVideoEdit(plan.item.edit)
+        ) {
+          const delivery = buildVideoDelivery(
+            uploaded.url,
+            plan.item.edit,
+            uploaded
+          );
+
+          await waitForVideoReady(delivery.url, controller.signal);
+
+          mediaPayload.push({
+            url: delivery.url,
+            type: "video",
+            width: delivery.width,
+            height: delivery.height,
+          });
+        } else {
+          mediaPayload.push(uploaded);
+        }
       }
 
       // ----- publish -----
@@ -698,6 +762,8 @@ function CreatePost() {
       ? "Getting your media ready…"
       : stage === "uploading"
       ? `Uploading… ${Math.round(progress * 100)}%`
+      : stage === "processing"
+      ? "Applying your video edits…"
       : "Publishing your post…";
 
   return (
@@ -761,6 +827,8 @@ function CreatePost() {
                       className="carousel-media"
                       controls
                       playsInline
+                      muted={Boolean(current.edit?.muted)}
+                      style={videoPreviewStyle(current.edit)}
                     />
                   )
                 )}
@@ -768,6 +836,10 @@ function CreatePost() {
                 <div className="carousel-counter">
                   {activeIndex + 1} / {media.length}
                 </div>
+
+                {current && isEdited(current) && (
+                  <span className="cp-edited-tag">✦ Edited</span>
+                )}
 
                 {activeIndex > 0 && (
                   <button
@@ -794,7 +866,9 @@ function CreatePost() {
                 {canEdit(current) && (
                   <button
                     type="button"
-                    className="edit-main-button"
+                    className={`edit-main-button ${
+                      current.type === "video" ? "on-video" : ""
+                    }`}
                     onClick={() => openEditor(activeIndex)}
                   >
                     ✦ Edit
@@ -861,6 +935,7 @@ function CreatePost() {
                             muted
                             playsInline
                             preload="metadata"
+                            style={videoPreviewStyle(item.edit)}
                           />
 
                           <span className="video-badge">▶</span>

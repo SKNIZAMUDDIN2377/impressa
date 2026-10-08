@@ -176,6 +176,84 @@ function Help() {
               account-management options.
             </HelpAnswer>
 
+            <HelpAnswer>
+              Forgot your password? See the
+              Recovery Code section below.
+            </HelpAnswer>
+
+          </HelpItem>
+
+
+          <HelpItem
+            icon="🔑"
+            title="Recovery Code"
+            description="Your way back in if you forget your password."
+            section="recovery-code"
+            openSection={openSection}
+            toggleSection={toggleSection}
+          >
+
+            <HelpAnswer>
+              <strong>What is it?</strong> Your
+              recovery code is a private 16-character
+              code, like XXXX-XXXX-XXXX-XXXX, made
+              just for your account. It proves the
+              account is really yours.
+            </HelpAnswer>
+
+            <HelpAnswer>
+              <strong>Why do I need it?</strong>{" "}
+              Impressa doesn't send OTP messages in
+              V1, so your recovery code is the only
+              way to reset your password if you
+              forget it. Without it, there is no way
+              to get back into your account.
+            </HelpAnswer>
+
+            <HelpAnswer>
+              <strong>How do I use it?</strong> On
+              the Sign In page, tap Forgot password,
+              enter your username, then enter your
+              recovery code. After that you can
+              create a new password. Your old
+              password is never shown.
+            </HelpAnswer>
+
+            <HelpAnswer>
+              <strong>Keep it safe.</strong> You see
+              your code only once, when you create
+              your account, and we can't show it
+              again. Write it down or take a
+              screenshot and store it somewhere
+              private.
+            </HelpAnswer>
+
+            <HelpAnswer>
+              <strong>Never share it.</strong> Anyone
+              who has your username and recovery code
+              can reset your password. Impressa will
+              never ask you for it.
+            </HelpAnswer>
+
+            <HelpAnswer>
+              <strong>After you use it.</strong> Each
+              recovery code works once. When you
+              reset your password, you get a new
+              code. Save the new one, because the old
+              one stops working. You'll also be
+              signed out of your other devices.
+            </HelpAnswer>
+
+            <HelpAnswer>
+              <strong>Don't have a code yet?</strong>{" "}
+              If your account was created before
+              recovery codes existed, sign in and go
+              to Account Settings, then Account
+              recovery, to create one. You can
+              generate a new code there at any time.
+              The old code stops working when you do.
+            </HelpAnswer>
+
           </HelpItem>
 
 

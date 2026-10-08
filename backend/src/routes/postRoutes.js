@@ -5,6 +5,7 @@ const {
   getPosts,
   getPostById,
   deletePost,
+  updatePostCaption,
   getAuthorAvatar,
   getUploadSignature,
 } = require("../controllers/postController");
@@ -85,6 +86,8 @@ router.delete(
   deletePost
 );
 
+      // updatepost
+router.put("/:postId", authMiddleware, updatePostCaption);
 // ==========================================
 // GIVE IMPRESSION
 // ==========================================

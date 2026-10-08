@@ -744,6 +744,63 @@ const deletePost = async (req, res) => {
 };
 
 // ==========================================
+// EDIT POST CAPTION (owner only)
+// ==========================================
+
+const updatePostCaption = async (req, res) => {
+  try {
+    const { postId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(postId)) {
+      return res.status(404).json({
+        success: false,
+        message: "Post not found",
+      });
+    }
+
+    if (typeof req.body?.caption !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Caption must be text",
+      });
+    }
+
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: "Post not found",
+      });
+    }
+
+    if (String(post.author) !== String(req.user.userId)) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only edit your own posts",
+      });
+    }
+
+    post.caption = req.body.caption.trim().slice(0, 500);
+
+    await post.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Caption updated",
+      caption: post.caption,
+    });
+  } catch (error) {
+    console.error("Update caption error ❌", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error while updating caption",
+    });
+  }
+};
+
+// ==========================================
 // EXPORT
 // ==========================================
 
@@ -752,6 +809,7 @@ module.exports = {
   getPosts,
   getPostById,
   deletePost,
+  updatePostCaption,
   getAuthorAvatar,
   getUploadSignature,
 };

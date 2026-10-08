@@ -14,6 +14,7 @@ import Action from "./Action";
 import ConfirmDialog from "./ConfirmDialog";
 import ReportModal from "./ReportModal";
 import { blockUser } from "../utils/safetyApi";
+import { getCache, setCache } from "../utils/impressaCache";
 
 import "./Post.css";
 
@@ -32,6 +33,8 @@ const DEFAULT_AVATAR =
       <path d="M150 188c-68 0-122 42-122 95v17h244v-17c0-53-54-95-122-95z" fill="#C2C2C2"/>
     </svg>`
   );
+
+const CAPTION_MAX_LENGTH = 500;
 
 function normalizeUrl(url) {
   if (!url || typeof url !== "string") return url;
@@ -98,6 +101,110 @@ function getStoredUsername() {
     );
   } catch (error) {
     return "";
+  }
+}
+
+/* ---------- caption cache helpers ----------
+   After a caption is edited, the copies saved for instant loading
+   (Home feed + the profile posts page) are updated too, so an old
+   caption never flashes back when the page is opened again. */
+
+function getHomeFeedCacheKey() {
+  try {
+    const user = JSON.parse(localStorage.getItem("user") || "null");
+
+    const who = String(user?.username || user?.id || "me").toLowerCase();
+
+    return `home_feed_v2_${who}`;
+  } catch (error) {
+    return "home_feed_v2_me";
+  }
+}
+
+function patchCachedCaption(postId, caption) {
+  if (!postId) return;
+
+  // Home feed cache
+  try {
+    const feedKey = getHomeFeedCacheKey();
+
+    const feed = getCache(feedKey);
+
+    if (Array.isArray(feed) && feed.some((item) => item && item.id === postId)) {
+      setCache(
+        feedKey,
+        feed.map((item) =>
+          item && item.id === postId ? { ...item, caption } : item
+        )
+      );
+    }
+  } catch (error) {
+    // cache is optional
+  }
+
+  // Profile posts page cache
+  try {
+    const name = getStoredUsername().toLowerCase();
+
+    if (!name) return;
+
+    const key = `impressa_profile_posts_page_${name}`;
+
+    const raw = localStorage.getItem(key);
+
+    if (!raw) return;
+
+    const list = JSON.parse(raw);
+
+    if (Array.isArray(list)) {
+      localStorage.setItem(
+        key,
+        JSON.stringify(
+          list.map((item) =>
+            item && item.id === postId ? { ...item, caption } : item
+          )
+        )
+      );
+    }
+  } catch (error) {
+    // cache is optional
+  }
+}
+
+/* ---------- copy text (used when the native share sheet is missing) ---------- */
+
+async function copyToClipboard(text) {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (error) {
+    // fall through to the older method
+  }
+
+  try {
+    const helper = document.createElement("textarea");
+
+    helper.value = text;
+    helper.setAttribute("readonly", "");
+    helper.style.position = "fixed";
+    helper.style.top = "0";
+    helper.style.left = "-9999px";
+    helper.style.opacity = "0";
+
+    document.body.appendChild(helper);
+
+    helper.select();
+    helper.setSelectionRange(0, text.length);
+
+    const copied = document.execCommand("copy");
+
+    document.body.removeChild(helper);
+
+    return copied;
+  } catch (error) {
+    return false;
   }
 }
 
@@ -201,6 +308,7 @@ function getInitialRatio(firstItem) {
    - horizontal axis lock: vertical scrolling is never blocked
    - only the current slide and its neighbours are mounted
    - memoized: changing slides never re-renders the Post
+   - the current video autoplays while the media is on screen
 ========================================================= */
 
 const AXIS_LOCK_PX = 8;
@@ -214,12 +322,19 @@ const IMPRESSION_COOLDOWN_MS = 700;
 const VIDEO_CONTROLS_ZONE = 56;
 const SLIDE_TRANSITION = "transform 280ms cubic-bezier(0.22, 0.8, 0.3, 1)";
 
+// Autoplay: a video starts when this much of the media box is on screen
+// and stops again when it drops below the lower value.
+const AUTOPLAY_ON_RATIO = 0.6;
+const AUTOPLAY_OFF_RATIO = 0.35;
+
 const MediaCarousel = memo(function MediaCarousel({
   items,
   caption,
   impressionAnimation,
   priority,
   onDoubleImpress,
+  postId,
+  mutedWithMusic,
 }) {
   const count = items.length;
 
@@ -293,6 +408,154 @@ const MediaCarousel = memo(function MediaCarousel({
       }
     });
   }, [index]);
+
+  /* ---------- autoplay: play the current video while the media is on screen ---------- */
+
+  const hasItems = count > 0;
+
+  const postIdRef = useRef(postId);
+  const mutedWithMusicRef = useRef(mutedWithMusic);
+
+  postIdRef.current = postId;
+  mutedWithMusicRef.current = mutedWithMusic;
+
+  const [inView, setInView] = useState(false);
+
+  const [pageVisible, setPageVisible] = useState(
+    () => typeof document === "undefined" || !document.hidden
+  );
+
+  const autoplayActive = inView && pageVisible;
+
+  // Is the media box on screen?
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+
+    if (!wrapper || typeof IntersectionObserver === "undefined") {
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[entries.length - 1];
+
+        if (!entry) return;
+
+        if (
+          entry.isIntersecting &&
+          entry.intersectionRatio >= AUTOPLAY_ON_RATIO
+        ) {
+          setInView(true);
+        } else if (
+          !entry.isIntersecting ||
+          entry.intersectionRatio < AUTOPLAY_OFF_RATIO
+        ) {
+          setInView(false);
+        }
+      },
+      { threshold: [0, AUTOPLAY_OFF_RATIO, AUTOPLAY_ON_RATIO] }
+    );
+
+    observer.observe(wrapper);
+
+    return () => observer.disconnect();
+  }, [hasItems]);
+
+  // Browser tab hidden: stop. Tab visible again: autoplay can resume.
+  useEffect(() => {
+    const onVisibility = () => setPageVisible(!document.hidden);
+
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () =>
+      document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
+
+  // Another post's video started: this post's videos stop.
+  useEffect(() => {
+    const pauseOnOtherVideo = (event) => {
+      if (event.detail?.postId === postIdRef.current) return;
+
+      trackRef.current?.querySelectorAll("video").forEach((video) => {
+        if (!video.paused) video.pause();
+      });
+    };
+
+    window.addEventListener("impressa:video-playing", pauseOnOtherVideo);
+
+    return () =>
+      window.removeEventListener("impressa:video-playing", pauseOnOtherVideo);
+  }, []);
+
+  // Play the current slide's video while on screen, pause everything otherwise.
+  useEffect(() => {
+    const track = trackRef.current;
+
+    if (!track) return undefined;
+
+    if (!autoplayActive) {
+      track.querySelectorAll("video").forEach((video) => {
+        if (!video.paused) video.pause();
+      });
+
+      return undefined;
+    }
+
+    const video = track.querySelector(`[data-slide="${index}"] video`);
+
+    if (!video) return undefined;
+
+    let cancelled = false;
+
+    const announce = () => {
+      if (cancelled) return;
+
+      window.dispatchEvent(
+        new CustomEvent("impressa:video-playing", {
+          detail: { postId: postIdRef.current },
+        })
+      );
+
+      if (!video.muted) {
+        window.dispatchEvent(
+          new CustomEvent("impressa:stop-other-music", {
+            detail: { postId: postIdRef.current },
+          })
+        );
+      }
+    };
+
+    // First start of this video: if the post has music, the music is the sound.
+    if (!video.dataset.autoplayStarted) {
+      video.dataset.autoplayStarted = "1";
+
+      if (mutedWithMusicRef.current) video.muted = true;
+    }
+
+    const attempt = video.play();
+
+    if (attempt && typeof attempt.then === "function") {
+      attempt.then(announce).catch((error) => {
+        // The browser blocks sound until the user has tapped the page:
+        // fall back to a muted start (the video's own controls unmute it).
+        if (cancelled || error?.name !== "NotAllowedError") return;
+
+        video.muted = true;
+
+        const retry = video.play();
+
+        if (retry && typeof retry.then === "function") {
+          retry.then(announce).catch(() => {});
+        }
+      });
+    } else {
+      announce();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [autoplayActive, index]);
 
   /* ---------- navigation ---------- */
 
@@ -807,6 +1070,14 @@ function Post({ post, priority = false }) {
 
   const impressionPendingRef = useRef(false);
 
+  // ---------------- CAPTION (editable by the post owner) ----------------
+
+  const [caption, setCaption] = useState(post.caption || "");
+  const [editingCaption, setEditingCaption] = useState(false);
+  const [captionDraft, setCaptionDraft] = useState("");
+  const [savingCaption, setSavingCaption] = useState(false);
+  const [captionError, setCaptionError] = useState("");
+
   // ---------------- COMMENTS ----------------
 
   const [commentsOpen, setCommentsOpen] = useState(false);
@@ -847,6 +1118,10 @@ function Post({ post, priority = false }) {
   useEffect(() => {
     setCommentsCount(post.commentsCount ?? 0);
   }, [post.commentsCount]);
+
+  useEffect(() => {
+    setCaption(post.caption || "");
+  }, [post.caption]);
 
   /* ---------- close ⋮ menu when tapping outside ---------- */
 
@@ -1051,36 +1326,122 @@ function Post({ post, priority = false }) {
     giveImpressionRef.current();
   }, []);
 
-  /* ---------- share ---------- */
+  /* ---------- share ----------
+     1) native share sheet (phones)
+     2) otherwise copy the post link
+     A failure of the native sheet no longer ends silently: the link
+     is copied instead. Closing the sheet yourself does nothing. */
 
   async function sharePost() {
+    if (!post.id) return;
+
+    const shareUrl = `${window.location.origin}/post/${post.id}`;
+
     const shareData = {
       title: `Impressa • @${post.username}`,
       text:
-        post.caption ||
-        `Check out @${post.username}'s post on Impressa.`,
-      url: `${window.location.origin}/post/${post.id}`,
+        caption || `Check out @${post.username}'s post on Impressa.`,
+      url: shareUrl,
     };
 
-    try {
-      if (navigator.share) {
+    if (navigator.share) {
+      try {
         await navigator.share(shareData);
         return;
+      } catch (error) {
+        // the person closed the share sheet: nothing more to do
+        if (error?.name === "AbortError") return;
+
+        console.error("Native share failed, copying the link:", error);
+      }
+    }
+
+    const copied = await copyToClipboard(shareUrl);
+
+    if (copied) {
+      window.alert("Post link copied.");
+      return;
+    }
+
+    window.prompt("Copy this link to share:", shareUrl);
+  }
+
+  /* ---------- caption: edit ---------- */
+
+  function openEditCaption() {
+    setMenuOpen(false);
+    setCaptionDraft(caption);
+    setCaptionError("");
+    setEditingCaption(true);
+  }
+
+  function cancelEditCaption() {
+    if (savingCaption) return;
+
+    setEditingCaption(false);
+    setCaptionError("");
+  }
+
+  async function saveCaption() {
+    if (savingCaption) return;
+
+    const nextCaption = captionDraft.trim();
+
+    if (nextCaption === caption.trim()) {
+      setEditingCaption(false);
+      setCaptionError("");
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      setCaptionError("Please sign in again.");
+      return;
+    }
+
+    setSavingCaption(true);
+    setCaptionError("");
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/posts/${post.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ caption: nextCaption }),
+        }
+      );
+
+      let data = {};
+
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        data = {};
       }
 
-      const shareText = `${shareData.text}\n${shareData.url}`;
-
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(shareText);
-        window.alert("Share link copied.");
-        return;
+      if (!response.ok) {
+        throw new Error(data.message || "Unable to update caption.");
       }
 
-      window.prompt("Copy this link to share:", shareData.url);
+      const savedCaption =
+        typeof data.caption === "string" ? data.caption : nextCaption;
+
+      setCaption(savedCaption);
+
+      patchCachedCaption(post.id, savedCaption);
+
+      setEditingCaption(false);
     } catch (error) {
-      if (error?.name === "AbortError") return;
+      console.error("Update caption error:", error);
 
-      console.error("Share failed:", error);
+      setCaptionError(error.message || "Unable to update caption.");
+    } finally {
+      setSavingCaption(false);
     }
   }
 
@@ -1296,12 +1657,26 @@ function Post({ post, priority = false }) {
           />
 
           <span className="post-user-info">
-            <strong>{post.username}</strong>
+            <strong className="post-user-name">
+              <span className="post-user-name-text">{post.username}</span>
+
+              {/* Same verified tick the Search page uses (.official-badge).
+                  Only accounts the server marks as official get it. */}
+              {post.isOfficial === true && (
+                <i
+                  className="official-badge"
+                  title="Official Impressa account"
+                  role="img"
+                  aria-label="Official Impressa account"
+                />
+              )}
+            </strong>
+
             <span>{post.time}</span>
           </span>
         </button>
 
-        {!isOwnPost && post.id && (
+        {post.id && (
           <div className="post-menu-wrap" ref={menuRef}>
             <button
               type="button"
@@ -1315,13 +1690,21 @@ function Post({ post, priority = false }) {
 
             {menuOpen && (
               <div className="post-menu">
-                <button type="button" onClick={openReport}>
-                  🚩 Report Post
-                </button>
+                {isOwnPost ? (
+                  <button type="button" onClick={openEditCaption}>
+                    ✏️ Edit Caption
+                  </button>
+                ) : (
+                  <>
+                    <button type="button" onClick={openReport}>
+                      🚩 Report Post
+                    </button>
 
-                <button type="button" onClick={openBlockConfirm}>
-                  🚫 Block User
-                </button>
+                    <button type="button" onClick={openBlockConfirm}>
+                      🚫 Block User
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -1331,10 +1714,12 @@ function Post({ post, priority = false }) {
       {mediaItems.length > 0 && (
         <MediaCarousel
           items={mediaItems}
-          caption={post.caption}
+          caption={caption}
           impressionAnimation={impressionAnimation}
           priority={priority}
           onDoubleImpress={handleDoubleImpress}
+          postId={post.id}
+          mutedWithMusic={hasMusic}
         />
       )}
 
@@ -1361,11 +1746,59 @@ function Post({ post, priority = false }) {
         </div>
       )}
 
-      {post.caption && (
-        <div className="post-caption">
-          <strong>{post.username}</strong>
-          <span>{post.caption}</span>
+      {editingCaption ? (
+        <div className="post-caption-edit">
+          <textarea
+            value={captionDraft}
+            onChange={(event) => setCaptionDraft(event.target.value)}
+            maxLength={CAPTION_MAX_LENGTH}
+            rows={3}
+            autoFocus
+            disabled={savingCaption}
+            placeholder="Write a caption..."
+            aria-label="Edit caption"
+          />
+
+          {captionError && (
+            <p className="post-caption-error" role="alert">
+              {captionError}
+            </p>
+          )}
+
+          <div className="post-caption-actions">
+            <span className="post-caption-count">
+              {captionDraft.length}/{CAPTION_MAX_LENGTH}
+            </span>
+
+            <button
+              type="button"
+              className="post-caption-cancel"
+              onClick={cancelEditCaption}
+              disabled={savingCaption}
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              className="post-caption-save"
+              onClick={saveCaption}
+              disabled={
+                savingCaption ||
+                captionDraft.trim() === caption.trim()
+              }
+            >
+              {savingCaption ? "Saving..." : "Save"}
+            </button>
+          </div>
         </div>
+      ) : (
+        caption && (
+          <div className="post-caption">
+            <strong>{post.username}</strong>
+            <span>{caption}</span>
+          </div>
+        )
       )}
 
       {commentsCount > 0 && !commentsOpen && (

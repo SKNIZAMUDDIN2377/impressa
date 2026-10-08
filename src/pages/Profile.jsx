@@ -72,6 +72,49 @@ const getStoredUser = () => {
   }
 };
 
+// Keeps localStorage "user" in step with the server's copy of the
+// logged-in user, so other pages that read it (name, avatar, badge)
+// never show a stale profile picture. Only runs when the usernames
+// match, so it can never overwrite a different account.
+const syncStoredUser = (user) => {
+  if (!user) return;
+
+  try {
+    const raw = localStorage.getItem("user");
+
+    if (!raw) return;
+
+    const current = JSON.parse(raw);
+
+    if (!current) return;
+
+    if (
+      String(current.username || "").toLowerCase() !==
+      String(user.username || "").toLowerCase()
+    ) {
+      return;
+    }
+
+    const next = {
+      ...current,
+      id: user.id ?? current.id,
+      name: user.name ?? current.name,
+      username: user.username ?? current.username,
+      bio: user.bio ?? current.bio,
+      profilePicture: user.profilePicture ?? current.profilePicture,
+      badge: user.badge ?? current.badge,
+    };
+
+    const nextRaw = JSON.stringify(next);
+
+    if (nextRaw !== raw) {
+      localStorage.setItem("user", nextRaw);
+    }
+  } catch (error) {
+    // ignore
+  }
+};
+
 // ==========================================
 // SAFE PROFILE CACHE
 // - never throws (storage can be full or blocked)
@@ -86,6 +129,7 @@ const CACHE_MAX_ITEM_CHARS = 300000;
 
 const profileKey = (name) => `impressa_profile_${name}`;
 const postsKey = (name) => `impressa_profile_posts_${name}`;
+const postsPageKey = (name) => `impressa_profile_posts_page_${name}`;
 
 // One-time cleanup of the old, oversized cache entries that
 // were filling localStorage.
@@ -135,7 +179,20 @@ const removeProfileCache = (name) => {
   try {
     localStorage.removeItem(profileKey(key));
     localStorage.removeItem(postsKey(key));
-    localStorage.removeItem(`impressa_profile_posts_page_${key}`);
+    localStorage.removeItem(postsPageKey(key));
+  } catch (error) {
+    // ignore
+  }
+};
+
+// The "posts" page keeps its own cached copy of the posts. When the
+// profile picture changes that copy must go, or it keeps showing the
+// old picture.
+const removePostsPageCache = (name) => {
+  if (!name) return;
+
+  try {
+    localStorage.removeItem(postsPageKey(String(name).toLowerCase()));
   } catch (error) {
     // ignore
   }
@@ -222,6 +279,14 @@ const cacheProfile = (username, user) => {
 
   if (safeWrite(profileKey(key), user)) {
     touchCacheIndex(key);
+  } else {
+    // Could not store the fresh copy: never leave an older one behind,
+    // or it would bring back an old profile picture on the next visit.
+    try {
+      localStorage.removeItem(profileKey(key));
+    } catch (error) {
+      // ignore
+    }
   }
 };
 
@@ -456,6 +521,13 @@ function ProfileView({ routeUsername }) {
     ? viewedUsername.toLowerCase()
     : "";
 
+  // Stable identity of "what is being loaded". It does NOT change when
+  // the logged-in user renames themselves, so a rename never causes a
+  // needless refetch of profile / posts / i-Notes.
+  const profileRequestKey = isOwnProfile
+    ? "own"
+    : `user:${viewedUsername.toLowerCase()}`;
+
   const initialRef = useRef(null);
 
   if (initialRef.current === null) {
@@ -491,13 +563,31 @@ function ProfileView({ routeUsername }) {
 
   const [reloadTick, setReloadTick] = useState(0);
 
+  const [postsReloadTick, setPostsReloadTick] = useState(0);
+
+  const [notesReloadTick, setNotesReloadTick] = useState(0);
+
   const [slowLoad, setSlowLoad] = useState(false);
+
+  // Set when the server says this profile does not exist / is blocked,
+  // so a late posts response can never re-cache it.
+  const profileUnavailableRef = useRef(false);
 
   const [followed, setFollowed] = useState(
     () =>
       !isOwnProfile &&
       initialCache.profile?.isFollowing === true
   );
+
+  // Whose posts to load. For your own profile the server's username wins
+  // once known; otherwise the stored / route username is used straight
+  // away so posts load in parallel with the profile.
+  const postsName = String(
+    (isOwnProfile ? profileData?.username : "") ||
+      viewedUsername ||
+      profileData?.username ||
+      ""
+  ).toLowerCase();
 
   useEffect(() => {
     if (!profileLoading || profileData) {
@@ -511,7 +601,7 @@ function ProfileView({ routeUsername }) {
   }, [profileLoading, profileData]);
 
   // ----------------------------------------------------------
-  // LOAD PROFILE + POSTS (in parallel, cancellable)
+  // LOAD PROFILE (cancellable)
   // ----------------------------------------------------------
 
   useEffect(() => {
@@ -529,47 +619,11 @@ function ProfileView({ routeUsername }) {
       ? { Authorization: `Bearer ${token}` }
       : {};
 
-    const hadCachedProfile = !!getCachedProfile(cacheName);
+    const cachedBefore = getCachedProfile(cacheName);
 
-    let postsSeq = 0;
+    const hadCachedProfile = !!cachedBefore;
 
-    const loadPosts = async (name) => {
-      const seq = ++postsSeq;
-
-      setPostsError(false);
-
-      try {
-        const result = await getWithRetry(
-          `${API_BASE_URL}/api/profile/${encodeURIComponent(
-            name
-          )}/posts?compact=1`,
-          headers,
-          signal
-        );
-
-        if (signal.aborted || seq !== postsSeq) return;
-
-        if (result.ok) {
-          const fresh = (result.data.posts || []).map(compactPost);
-
-          setProfilePosts(fresh);
-          cachePosts(cacheName, fresh);
-        } else if (result.status === 404) {
-          setProfilePosts([]);
-        } else {
-          setPostsError(true);
-        }
-      } catch (error) {
-        if (error.code === "aborted" || seq !== postsSeq) return;
-
-        console.error("Profile posts fetch error:", error);
-        setPostsError(true);
-      } finally {
-        if (!signal.aborted && seq === postsSeq) {
-          setPostsLoading(false);
-        }
-      }
-    };
+    profileUnavailableRef.current = false;
 
     const checkFollowStatusFallback = async () => {
       if (!token) return;
@@ -596,15 +650,6 @@ function ProfileView({ routeUsername }) {
       setProfileError("");
       setProfileErrorKind("");
 
-      // Start posts right away when the username is already known
-      const guessName = isOwnProfile
-        ? loggedInUsername
-        : viewedUsername;
-
-      if (guessName) {
-        loadPosts(guessName);
-      }
-
       try {
         const profileUrl = isOwnProfile
           ? `${API_BASE_URL}/api/profile/me`
@@ -630,30 +675,34 @@ function ProfileView({ routeUsername }) {
           throw loadError;
         }
 
-        const user = result.data.user;
+        const user = result.data?.user;
+
+        if (!user) {
+          throw new Error("Failed to load profile");
+        }
+
+        // Picture changed since the last cached copy: the posts page's
+        // own cache would still show the old one, so drop it.
+        if (
+          cachedBefore &&
+          (cachedBefore.profilePicture || "") !==
+            (user.profilePicture || "")
+        ) {
+          removePostsPageCache(cacheName);
+        }
 
         setProfileData(user);
         cacheProfile(cacheName, user);
 
-        if (!isOwnProfile) {
-          if (typeof user.isFollowing === "boolean") {
-            setFollowed(user.isFollowing);
-          } else {
-            checkFollowStatusFallback();
-          }
+        if (isOwnProfile) {
+          syncStoredUser(user);
+        } else if (typeof user.isFollowing === "boolean") {
+          setFollowed(user.isFollowing);
+        } else {
+          checkFollowStatusFallback();
         }
 
         setProfileLoading(false);
-
-        const actualName = user.username || guessName;
-
-        if (
-          actualName &&
-          (!guessName ||
-            actualName.toLowerCase() !== guessName.toLowerCase())
-        ) {
-          loadPosts(actualName);
-        }
       } catch (error) {
         if (error.code === "aborted" || signal.aborted) return;
 
@@ -661,7 +710,7 @@ function ProfileView({ routeUsername }) {
 
         if (error.status === 404) {
           // Deleted, not found, or blocked: never show a stale cached copy
-          postsSeq += 1;
+          profileUnavailableRef.current = true;
 
           removeProfileCache(cacheName);
 
@@ -671,7 +720,12 @@ function ProfileView({ routeUsername }) {
           setProfileError("This profile isn't available.");
           setProfileErrorKind("none");
         } else if (error.status === 401) {
+          // The token is no longer valid: clear it so sign-in starts clean
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+
           setProfileData(null);
+          setPostsLoading(false);
           setProfileError(
             "Your session has expired. Please sign in again."
           );
@@ -697,12 +751,138 @@ function ProfileView({ routeUsername }) {
     run();
 
     return () => controller.abort();
-  }, [
-    viewedUsername,
-    isOwnProfile,
-    loggedInUsername,
-    reloadTick,
-  ]);
+  }, [profileRequestKey, reloadTick]);
+
+  // ----------------------------------------------------------
+  // LOAD POSTS (parallel with the profile, own retry)
+  // ----------------------------------------------------------
+
+  useEffect(() => {
+    if (!postsName) return undefined;
+
+    const token = localStorage.getItem("token");
+
+    if (isOwnProfile && !token) return undefined;
+
+    const controller = new AbortController();
+    const { signal } = controller;
+
+    const headers = token
+      ? { Authorization: `Bearer ${token}` }
+      : {};
+
+    const loadPosts = async () => {
+      setPostsError(false);
+
+      try {
+        const result = await getWithRetry(
+          `${API_BASE_URL}/api/profile/${encodeURIComponent(
+            postsName
+          )}/posts?compact=1`,
+          headers,
+          signal
+        );
+
+        if (signal.aborted || profileUnavailableRef.current) return;
+
+        if (result.ok) {
+          const fresh = (result.data.posts || []).map(compactPost);
+
+          setProfilePosts(fresh);
+          cachePosts(postsName, fresh);
+        } else if (result.status === 404) {
+          setProfilePosts([]);
+        } else {
+          setPostsError(true);
+        }
+      } catch (error) {
+        if (error.code === "aborted" || signal.aborted) return;
+
+        console.error("Profile posts fetch error:", error);
+        setPostsError(true);
+      } finally {
+        if (!signal.aborted) {
+          setPostsLoading(false);
+        }
+      }
+    };
+
+    loadPosts();
+
+    return () => controller.abort();
+  }, [postsName, postsReloadTick]);
+
+  // ----------------------------------------------------------
+  // LOAD i-NOTES
+  // Starts as soon as the page opens (in parallel with the profile
+  // and posts) instead of waiting for the i-Notes tab to be tapped.
+  // One request per profile; no request when the tab is never needed
+  // again because the result is kept in state.
+  // ----------------------------------------------------------
+
+  // "loading" | "ready" | "error"
+  const [notes, setNotes] = useState([]);
+
+  const [notesStatus, setNotesStatus] = useState("loading");
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      setNotes([]);
+      setNotesStatus("ready");
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const { signal } = controller;
+
+    const loadNotes = async () => {
+      setNotesStatus("loading");
+
+      try {
+        const notesUrl = isOwnProfile
+          ? `${API_BASE_URL}/api/notes`
+          : `${API_BASE_URL}/api/notes/user/${encodeURIComponent(
+              viewedUsername
+            )}`;
+
+        const result = await getWithRetry(
+          notesUrl,
+          { Authorization: `Bearer ${token}` },
+          signal
+        );
+
+        if (signal.aborted) return;
+
+        if (result.ok) {
+          setNotes(
+            (result.data.notes || []).map((note) => ({
+              id: note._id,
+              text: note.text,
+            }))
+          );
+
+          setNotesStatus("ready");
+        } else if (result.status === 404) {
+          setNotes([]);
+          setNotesStatus("ready");
+        } else {
+          setNotesStatus("error");
+        }
+      } catch (error) {
+        if (error.code === "aborted" || signal.aborted) return;
+
+        console.error("Load i-Notes error:", error);
+
+        setNotesStatus("error");
+      }
+    };
+
+    loadNotes();
+
+    return () => controller.abort();
+  }, [profileRequestKey, notesReloadTick]);
 
   const retryProfile = () => {
     setProfileLoading(true);
@@ -711,10 +891,17 @@ function ProfileView({ routeUsername }) {
     setReloadTick((tick) => tick + 1);
   };
 
+  // Retries only the posts (the profile is not requested again)
   const reloadPosts = () => {
     setPostsLoading(true);
     setPostsError(false);
-    setReloadTick((tick) => tick + 1);
+    setPostsReloadTick((tick) => tick + 1);
+  };
+
+  // Retries only the i-Notes
+  const reloadNotes = () => {
+    setNotesStatus("loading");
+    setNotesReloadTick((tick) => tick + 1);
   };
 
 
@@ -742,6 +929,16 @@ function ProfileView({ routeUsername }) {
         badge: "Impression Starter",
         isOfficial: false,
       };
+
+  // Shown values always come straight from the loaded profile
+  // (no separate copies that could get out of sync).
+  const name = selectedUser.name;
+
+  const username = selectedUser.username;
+
+  const bio = selectedUser.bio;
+
+  const profilePic = selectedUser.profilePic;
 
 
   /*
@@ -812,6 +1009,8 @@ function ProfileView({ routeUsername }) {
 
   const connectionsSeqRef = useRef(0);
 
+  const followBusyRef = useRef(false);
+
 
   /*
   ============================================================
@@ -847,79 +1046,16 @@ function ProfileView({ routeUsername }) {
 
   /*
   ============================================================
-  i-NOTES
-  Loaded only when the i-Notes tab is opened.
+  i-NOTES (composer state; the list itself is loaded above)
   */
-
-  const [notes, setNotes] = useState([]);
 
   const [noteText, setNoteText] = useState("");
 
-  const [notesLoading, setNotesLoading] = useState(false);
+  const [notePosting, setNotePosting] = useState(false);
 
-  const notesLoadedRef = useRef(false);
+  const notePostingRef = useRef(false);
 
   const pendingNoteDeletesRef = useRef(new Set());
-
-  useEffect(() => {
-    if (activeTab !== "notes" || notesLoadedRef.current) {
-      return undefined;
-    }
-
-    const token = localStorage.getItem("token");
-
-    if (!token) return undefined;
-
-    const controller = new AbortController();
-
-    const loadNotes = async () => {
-      setNotesLoading(true);
-
-      try {
-        const notesUrl = isOwnProfile
-          ? `${API_BASE_URL}/api/notes`
-          : `${API_BASE_URL}/api/notes/user/${encodeURIComponent(
-              viewedUsername
-            )}`;
-
-        const result = await fetchJson(notesUrl, {
-          headers: { Authorization: `Bearer ${token}` },
-          signal: controller.signal,
-          timeoutMs: 20000,
-        });
-
-        if (controller.signal.aborted) return;
-
-        if (!result.ok) {
-          throw new Error(
-            result.data.message || "Unable to load i-Notes."
-          );
-        }
-
-        setNotes(
-          (result.data.notes || []).map((note) => ({
-            id: note._id,
-            text: note.text,
-          }))
-        );
-
-        notesLoadedRef.current = true;
-      } catch (error) {
-        if (error.code === "aborted") return;
-
-        console.error("Load i-Notes error:", error);
-        setNotes([]);
-      } finally {
-        if (!controller.signal.aborted) {
-          setNotesLoading(false);
-        }
-      }
-    };
-
-    loadNotes();
-
-    return () => controller.abort();
-  }, [activeTab, isOwnProfile, viewedUsername]);
 
 
   /*
@@ -929,36 +1065,18 @@ function ProfileView({ routeUsername }) {
 
   const [editOpen, setEditOpen] = useState(false);
 
-  const [name, setName] = useState(selectedUser.name);
-
-  const [username, setUsername] = useState(selectedUser.username);
-
-  const [bio, setBio] = useState(selectedUser.bio);
-
-  const [profilePic, setProfilePic] = useState(selectedUser.profilePic);
-
   const [tempName, setTempName] = useState(selectedUser.name);
 
   const [tempUsername, setTempUsername] = useState(selectedUser.username);
 
   const [tempBio, setTempBio] = useState(selectedUser.bio);
 
-
-  /*
-  ============================================================
-  SYNC PROFILE DATA
-  */
-
-  useEffect(() => {
-    if (!profileData) return;
-
-    setName(profileData.name || "");
-    setUsername(profileData.username || "");
-    setBio(profileData.bio || "");
-    setProfilePic(
-      profileData.profilePicture || DEFAULT_PROFILE_PIC
-    );
-  }, [profileData]);
+  // Picture chosen inside the edit sheet. It only replaces the real
+  // profile picture after "Save Changes", so closing the sheet never
+  // leaves an unsaved picture showing on the profile.
+  const [tempProfilePic, setTempProfilePic] = useState(
+    selectedUser.profilePic
+  );
 
 
   /*
@@ -1155,6 +1273,13 @@ if (badges >= 15) {
     [profilePosts]
   );
 
+  // While posts are loading (or failed) and nothing is known yet,
+  // show a dash instead of a misleading 0.
+  const postsCountLabel =
+    posts.length === 0 && (postsLoading || postsError)
+      ? "–"
+      : posts.length;
+
 
   /*
   ============================================================
@@ -1162,6 +1287,8 @@ if (badges >= 15) {
   MAXIMUM = 10 NOTES
   */
   const addNote = async () => {
+    if (notePostingRef.current) return;
+
     const text = noteText.trim();
 
     if (!text) return;
@@ -1177,6 +1304,9 @@ if (badges >= 15) {
       alert("You can have a maximum of 10 i-Notes.");
       return;
     }
+
+    notePostingRef.current = true;
+    setNotePosting(true);
 
     try {
       const token = localStorage.getItem("token");
@@ -1211,6 +1341,9 @@ if (badges >= 15) {
     } catch (error) {
       console.error("Create i-Note error:", error);
       alert("Unable to connect to Impressa server.");
+    } finally {
+      notePostingRef.current = false;
+      setNotePosting(false);
     }
   };
 
@@ -1307,12 +1440,16 @@ if (badges >= 15) {
 
     setProfilePosts(updatedPosts);
 
-    cachePosts(cacheName, updatedPosts);
+    cachePosts(postsName, updatedPosts);
+
+    // The posts page keeps its own copy: drop it so the deleted post
+    // cannot show up there.
+    removePostsPageCache(postsName);
 
     const rollback = () => {
       setProfilePosts(previousPosts);
 
-      cachePosts(cacheName, previousPosts);
+      cachePosts(postsName, previousPosts);
     };
 
     try {
@@ -1383,6 +1520,7 @@ if (badges >= 15) {
     setTempName(name);
     setTempUsername(username);
     setTempBio(bio);
+    setTempProfilePic(profilePic);
     setEditOpen(true);
     setMenuOpen(false);
   };
@@ -1420,6 +1558,8 @@ if (badges >= 15) {
         return;
       }
 
+      const previousUsername = selectedUser.username;
+
       const response = await fetch(`${API_BASE_URL}/api/profile/me`, {
         method: "PUT",
         headers: {
@@ -1431,7 +1571,7 @@ if (badges >= 15) {
           username: updatedUsername,
           bio: updatedBio,
           profilePicture:
-            profilePic === DEFAULT_PROFILE_PIC ? "" : profilePic,
+            tempProfilePic === DEFAULT_PROFILE_PIC ? "" : tempProfilePic,
         }),
       });
 
@@ -1441,18 +1581,6 @@ if (badges >= 15) {
         alert(data.message || "Unable to update profile.");
         return;
       }
-
-      setProfileData(data.user);
-
-      setName(data.user.name);
-
-      setUsername(data.user.username);
-
-      setBio(data.user.bio || "");
-
-      setProfilePic(
-        data.user.profilePicture || DEFAULT_PROFILE_PIC
-      );
 
       try {
         const currentStoredUser = JSON.parse(
@@ -1477,9 +1605,35 @@ if (badges >= 15) {
         console.error("Stored user update error:", storageError);
       }
 
+      // Old username: forget everything cached under it
+      if (
+        previousUsername &&
+        previousUsername.toLowerCase() !==
+          String(data.user.username || "").toLowerCase()
+      ) {
+        removeProfileCache(previousUsername);
+      }
+
+      // New picture / details: the posts page must not reuse its old copy
+      removePostsPageCache(data.user.username);
+
       cacheProfile(data.user.username, data.user);
 
+      setProfileData(data.user);
+
       setEditOpen(false);
+
+      // Own profile opened as /profile/<old-username>: follow the rename
+      if (
+        routeUsername &&
+        routeUsername.toLowerCase() !==
+          String(data.user.username || "").toLowerCase()
+      ) {
+        navigate(
+          `/profile/${encodeURIComponent(data.user.username)}`,
+          { replace: true }
+        );
+      }
 
       alert("Profile updated successfully 🎉");
 
@@ -1701,7 +1855,7 @@ if (badges >= 15) {
         CROP_OUTPUT_SIZE
       );
 
-      setProfilePic(canvas.toDataURL("image/jpeg", 0.88));
+      setTempProfilePic(canvas.toDataURL("image/jpeg", 0.88));
 
       URL.revokeObjectURL(cropImage);
 
@@ -1782,6 +1936,12 @@ if (badges >= 15) {
     navigate("/help");
   };
 
+  // V2 placeholder page (no paid features in V1)
+  const openCustomize = () => {
+    setMenuOpen(false);
+    navigate("/customize");
+  };
+
   const handleLogout = () => {
     setMenuOpen(false);
     localStorage.removeItem("token");
@@ -1849,6 +2009,11 @@ if (badges >= 15) {
   ============================================================
   */
   const handleFollow = async () => {
+    // Ignore taps while a follow / unfollow request is still running
+    if (followBusyRef.current) return;
+
+    followBusyRef.current = true;
+
     const oldFollowed = followed;
 
     try {
@@ -1952,6 +2117,8 @@ if (badges >= 15) {
       });
 
       alert("Unable to connect to Impressa server.");
+    } finally {
+      followBusyRef.current = false;
     }
   };
 
@@ -2240,6 +2407,30 @@ if (badges >= 15) {
           aria-label="Go back"
         >
           ←
+        </button>
+
+        {/* Impressa Customize (V2 placeholder page) */}
+        <button
+          type="button"
+          className="menu-button customize-button"
+          onClick={openCustomize}
+          aria-label="Impressa Customize"
+          title="Impressa Customize"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="22"
+            height="22"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z" />
+            <path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15z" />
+          </svg>
         </button>
 
         <button
@@ -2573,7 +2764,7 @@ if (badges >= 15) {
       <div className="profile-stats">
 
         <div className="stat">
-          <strong>{posts.length}</strong>
+          <strong>{postsCountLabel}</strong>
           <span>Posts</span>
         </div>
 
@@ -2835,9 +3026,13 @@ if (badges >= 15) {
 
                   <button
                     onClick={addNote}
-                    disabled={notes.length >= 10}
+                    disabled={
+                      notesStatus === "loading" ||
+                      notePosting ||
+                      notes.length >= 10
+                    }
                   >
-                    Post i-Note
+                    {notePosting ? "Posting..." : "Post i-Note"}
                   </button>
 
                 </div>
@@ -2846,7 +3041,42 @@ if (badges >= 15) {
 
             )}
 
-            {notes.length === 0 ? (
+            {notesStatus === "loading" && notes.length === 0 ? (
+
+              <div
+                className="notes-skeleton"
+                aria-busy="true"
+                aria-label="Loading i-Notes"
+              >
+
+                <div className="note-skeleton" />
+
+                <div className="note-skeleton" />
+
+              </div>
+
+            ) : notesStatus === "error" && notes.length === 0 ? (
+
+              <div className="empty-content">
+
+                <div>⚠</div>
+
+                <h3>Couldn't load i-Notes</h3>
+
+                <p>Check your connection and try again.</p>
+
+                <button
+                  type="button"
+                  className="edit-profile-btn"
+                  style={{ marginTop: "16px" }}
+                  onClick={reloadNotes}
+                >
+                  Try again
+                </button>
+
+              </div>
+
+            ) : notes.length === 0 ? (
 
               <div className="empty-content">
 
@@ -3032,7 +3262,7 @@ if (badges >= 15) {
             <div className="edit-profile-photo">
 
               <img
-                src={profilePic}
+                src={tempProfilePic}
                 alt="Current profile"
               />
 

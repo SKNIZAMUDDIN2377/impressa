@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { getStoredTheme } from "../utils/theme";
 import "./Impressions.css";
 
 // ==========================================
@@ -127,6 +129,13 @@ const matchesFilter = (n, filter) => {
 // PAGE
 // ==========================================
 function Impression() {
+  const navigate = useNavigate();
+
+  // Theme is read once; the page sets its own colours in both themes
+  const isDark = useMemo(() => getStoredTheme() === "dark", []);
+
+  const pageClass = `imp-page ${isDark ? "theme-dark" : ""}`;
+
   const cached = readCache();
 
   const [notifications, setNotifications] = useState(cached?.notifications || []);
@@ -138,50 +147,65 @@ function Impression() {
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
   // ------------------------------------------
-  // LOAD
+  // LOAD (profile + notifications in parallel)
   // ------------------------------------------
   useEffect(() => {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      navigate("/signin", { replace: true });
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const { signal } = controller;
+
+    const headers = { Authorization: `Bearer ${token}` };
+
     const load = async () => {
       try {
-        const token = localStorage.getItem("token");
+        const [profileRes, notifRes] = await Promise.all([
+          fetch(`${API_URL}/api/profile/me`, { headers, signal }),
+          fetch(`${API_URL}/api/notifications`, { headers, signal }),
+        ]);
 
-        if (!token) {
-          window.location.href = "/signin";
-          return;
-        }
+        const [profileData, notifData] = await Promise.all([
+          profileRes.json(),
+          notifRes.json(),
+        ]);
 
-        const headers = { Authorization: `Bearer ${token}` };
-
-        const profileRes = await fetch(`${API_URL}/api/profile/me`, { headers });
-        const profileData = await profileRes.json();
+        if (signal.aborted) return;
 
         if (!profileRes.ok) {
           throw new Error(profileData.message || "Unable to load profile");
         }
 
-        const nextProfile = profileData.user || profileData.profile || profileData;
-        setProfile(nextProfile);
-
-        const notifRes = await fetch(`${API_URL}/api/notifications`, { headers });
-        const notifData = await notifRes.json();
-
         if (!notifRes.ok) {
           throw new Error(notifData.message || "Unable to load notifications");
         }
 
+        const nextProfile = profileData.user || profileData.profile || profileData;
         const formatted = (notifData.notifications || []).map(formatNotification);
+
+        setProfile(nextProfile);
         setNotifications(formatted);
         setError("");
         writeCache({ notifications: formatted, profile: nextProfile });
       } catch (err) {
+        if (err.name === "AbortError" || signal.aborted) return;
+
         console.error("Impressions page loading error ❌", err);
         setError(err.message || "Something went wrong");
       } finally {
-        setLoading(false);
+        if (!signal.aborted) {
+          setLoading(false);
+        }
       }
     };
 
     load();
+
+    return () => controller.abort();
   }, [API_URL]);
 
   // ------------------------------------------
@@ -272,7 +296,7 @@ function Impression() {
     markRead(n.id);
 
     if (n.username) {
-      window.location.href = profilePath(n.username);
+      navigate(profilePath(n.username));
     }
   };
 
@@ -288,9 +312,9 @@ function Impression() {
   // ------------------------------------------
   if (loading) {
     return (
-      <main className="imp-page">
+      <main className={pageClass}>
         <header className="imp-header">
-          <h1>Activity</h1>
+          <h1>i-signals</h1>
         </header>
         <div className="imp-skeleton imp-skeleton-stats" />
         {[0, 1, 2, 3].map((k) => (
@@ -304,7 +328,7 @@ function Impression() {
   // PAGE
   // ------------------------------------------
   return (
-    <main className="imp-page">
+    <main className={pageClass}>
       <header className="imp-header">
         <div>
           <h1>i-signals</h1>
@@ -426,7 +450,13 @@ function Impression() {
                   >
                     <div className="imp-avatar-wrap">
                       {n.image ? (
-                        <img className="imp-avatar" src={n.image} alt="" />
+                        <img
+                          className="imp-avatar"
+                          src={n.image}
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                        />
                       ) : (
                         <div className="imp-avatar imp-avatar-fallback">
                           {n.username ? n.username.charAt(0).toUpperCase() : getIcon(n.type)}
@@ -445,7 +475,13 @@ function Impression() {
                     </div>
 
                     {n.postImage && (
-                      <img className="imp-thumb" src={n.postImage} alt="" />
+                      <img
+                        className="imp-thumb"
+                        src={n.postImage}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                      />
                     )}
 
                     {!n.read && <span className="imp-dot" aria-label="Unread" />}

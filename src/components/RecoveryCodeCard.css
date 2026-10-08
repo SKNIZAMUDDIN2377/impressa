@@ -1,0 +1,192 @@
+/* =========================================================
+   IMPRESSA — RECOVERY CODE CARD
+   Shared by Create Account, Forgot Password, Account Settings
+========================================================= */
+
+.rc-card {
+  width: 100%;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 14px;
+
+  box-sizing: border-box;
+}
+
+.rc-code {
+  width: 100%;
+
+  box-sizing: border-box;
+
+  padding: 18px 10px;
+
+  border: 1px dashed rgba(255, 106, 0, 0.5);
+  border-radius: 14px;
+
+  background: #fff6ef;
+
+  color: #ff6a00;
+
+  text-align: center;
+
+  font-family:
+    "SFMono-Regular",
+    Menlo,
+    Consolas,
+    "Liberation Mono",
+    monospace;
+
+  font-size: 19px;
+  font-weight: 800;
+
+  letter-spacing: 1.5px;
+
+  user-select: all;
+
+  word-break: break-all;
+}
+
+.rc-copy {
+  align-self: center;
+
+  padding: 8px 18px;
+
+  border: 1px solid #ffd2b3;
+  border-radius: 999px;
+
+  background: #ffffff;
+
+  color: #ff6a00;
+
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 800;
+
+  cursor: pointer;
+}
+
+.rc-notes {
+  margin: 0;
+  padding: 0 0 0 16px;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 7px;
+
+  color: #6f6f6f;
+
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.rc-notes strong {
+  color: #171717;
+}
+
+.rc-confirm {
+  display: flex;
+  align-items: center;
+
+  gap: 9px;
+
+  color: #373737;
+
+  font-size: 12px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.rc-confirm input {
+  width: 18px;
+  height: 18px;
+
+  accent-color: #ff6a00;
+
+  flex: 0 0 18px;
+}
+
+/* ---------- Buttons (also used in Account Settings) ---------- */
+
+.rc-primary-btn {
+  width: 100%;
+  height: 50px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 12px;
+
+  border: 0;
+  border-radius: 14px;
+
+  background: linear-gradient(135deg, #ff6500, #ff7b20);
+
+  color: #ffffff;
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+
+  cursor: pointer;
+
+  box-shadow: 0 9px 22px rgba(255, 106, 0, 0.18);
+}
+
+.rc-primary-btn:disabled {
+  opacity: 0.45;
+
+  cursor: not-allowed;
+
+  box-shadow: none;
+}
+
+.rc-ghost-btn {
+  width: 100%;
+  height: 46px;
+
+  border: 1px solid #e6e6e6;
+  border-radius: 14px;
+
+  background: #ffffff;
+
+  color: #555555;
+
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.rc-settings-form {
+  display: flex;
+  flex-direction: column;
+
+  gap: 12px;
+
+  margin-top: 12px;
+}
+
+.rc-settings-note {
+  margin: 0;
+
+  color: #858585;
+
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.rc-settings-actions {
+  display: flex;
+  flex-direction: column;
+
+  gap: 8px;
+}
+
+.rc-settings-start {
+  margin-top: 12px;
+}

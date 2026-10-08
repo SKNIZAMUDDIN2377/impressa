@@ -1,5 +1,6 @@
 const User = require("../models/User");
 const Post = require("../models/Post");
+const { getFeedAvatarUrl } = require("./postController");
 const {
   getBlockedUserIds,
   isBlockedBetween,
@@ -302,7 +303,7 @@ const getUserPosts = async (req, res) => {
     const user = await User.findOne({
       username: username.toLowerCase(),
     })
-      .select("_id")
+      .select("_id name username profilePicture badge isOfficial")
       .lean();
 
     if (!user) {
@@ -333,6 +334,17 @@ const getUserPosts = async (req, res) => {
 
     const found = await query.lean();
 
+    // Every post here belongs to `user`, so the author is known
+    // exactly: no populate, no guessing, no cross-user mix-ups.
+    const author = {
+      _id: user._id,
+      name: user.name,
+      username: user.username,
+      badge: user.badge,
+      isOfficial: user.isOfficial,
+      profilePicture: getFeedAvatarUrl(user),
+    };
+
     const posts = compact
       ? found.map((post) => ({
           _id: post._id,
@@ -342,7 +354,7 @@ const getUserPosts = async (req, res) => {
               ? [post.media[0]]
               : [],
         }))
-      : found;
+      : found.map((post) => ({ ...post, author }));
 
     res.status(200).json({
       success: true,

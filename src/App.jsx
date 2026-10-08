@@ -12,6 +12,7 @@ import Pulse from "./pages/Pulse";
 
 import SignIn from "./pages/SignIn";
 import CreateAccount from "./pages/CreateAccount";
+import ForgotPassword from "./pages/ForgotPassword";
 
 import AccountSettings from "./pages/AccountSettings";
 import Privacy from "./pages/Privacy";
@@ -24,6 +25,8 @@ import BlockedAccounts from "./pages/BlockedAccounts";
 import CommunityGuidelines from "./pages/CommunityGuidelines";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import AccountDeletionInfo from "./pages/AccountDeletionInfo";
+import Customize from "./pages/Customize";
+
 
 import "./styles/safety.css";
 import "./styles/dark.css";
@@ -69,6 +72,11 @@ function App() {
           element={<CreateAccount />}
         />
 
+        <Route
+          path="/forgot-password"
+          element={<ForgotPassword />}
+        />
+
 
         {/* ==========================================
             PUBLIC PAGES (no login needed)
@@ -86,7 +94,7 @@ function App() {
           element={<AccountDeletionInfo />}
         />
 
-                <Route
+        <Route
           path="/community-guidelines"
           element={<CommunityGuidelines />}
         />
@@ -231,6 +239,10 @@ function App() {
                     path="/edit-profile"
                     element={<EditProfile />}
                   />
+
+                  {/* CUSTOMIZE */}
+
+                  <Route path="/customize" element={<Customize />} />
 
                 </Routes>
 

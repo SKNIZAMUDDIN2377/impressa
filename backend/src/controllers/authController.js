@@ -895,7 +895,7 @@ const deleteAccount = async (req, res) => {
     const userId = user._id;
 
     // Find the user's posts
-    const userPosts = await Post.find({ author: userId }).select("_id media");
+   const userPosts = await Post.find({ author: userId }).select("_id media music");
     const userPostIds = userPosts.map((post) => post._id);
 
     // Posts owned by OTHER people that this user commented on.
@@ -924,8 +924,18 @@ const deleteAccount = async (req, res) => {
     await Post.deleteMany({ author: userId });
 
     // Remove the user's photos/videos from Cloudinary (best-effort)
-    await deleteCloudinaryMedia(
-      userPosts.flatMap((post) => post.media || [])
+       await deleteCloudinaryMedia(
+      userPosts.flatMap((post) => {
+        const items = [...(post.media || [])];
+
+        // the user's own audio (Cloudinary stores audio as "video").
+        // Only files in our post folder: older shared library tracks stay.
+        if (post.music?.audioUrl?.includes("/impressa/posts/")) {
+          items.push({ url: post.music.audioUrl, type: "video" });
+        }
+
+        return items;
+      })
     );
 
     await Pulse.deleteMany({ user: userId });

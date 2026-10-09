@@ -4,7 +4,17 @@ import "../styles/safety.css";
 
 const CONTACT_EMAIL = "contactimpressahelp@gmail.com";
 
-const LAST_UPDATED = "30 September 2026";
+const LAST_UPDATED = "10 October 2026";
+
+// The short version, shown at the top of the page
+const KEY_POINTS = [
+  "We collect your name, username, phone number, bio, profile picture and the content you post.",
+  "Your phone number and password are never shown to other users, and your password is stored only in hashed form.",
+  "All Impressa accounts are public in this version, so your profile and posts can be seen by other users.",
+  "We do not collect your precise location or contacts, we do not sell your information, and we do not use advertising or analytics trackers.",
+  "Audio you add to a post comes from your own device. Only add audio you created or have the right to use.",
+  "You can delete any post, or your whole account, from inside the app.",
+];
 
 const SECTIONS = [
   {
@@ -18,7 +28,7 @@ const SECTIONS = [
   {
     title: "2. Content you create",
     items: [
-      "Posts: photos, videos, captions and the music you choose to attach.",
+      "Posts: photos, videos, captions and, if you choose, audio that you add from your own device. When you add audio, you confirm that you created it or have the right to use it.",
       "Comments and impressions you give to posts.",
       "i-Notes you publish on your profile.",
       "Pulse photos, which expire automatically after 24 hours.",
@@ -36,7 +46,7 @@ const SECTIONS = [
   {
     title: "4. Information stored on your device",
     paragraphs: [
-      "Impressa stores a sign-in token (valid for 7 days), the accounts you added to Account Center on this device, cached profile, feed and search data so the app loads faster, and your theme preference. This stays on your device. Some of it is removed when you log out or delete your account, and you can clear the rest from your device settings.",
+      "The Impressa website and Android app store a sign-in token (valid for 7 days), the accounts you added to Account Center on this device, cached profile, feed and search data so the app loads faster, and your theme preference. This stays on your device. Some of it is removed when you log out or delete your account, and you can clear the rest from your device settings.",
     ],
   },
   {
@@ -50,21 +60,21 @@ const SECTIONS = [
     items: [
       "To create and run your account and show your profile, posts and activity.",
       "To deliver in-app notifications.",
-      "To keep Impressa safe: handling blocks and reports, enforcing the Community Guidelines and preventing abuse.",
+      "To keep Impressa safe: handling blocks and reports, enforcing the Community Guidelines, removing content that infringes copyright and preventing abuse.",
       "To respond to support requests.",
     ],
   },
   {
     title: "7. What other people can see",
     paragraphs: [
-      "All Impressa accounts are public in this version. Other users can see your name, username, bio, profile picture, follower and following counts, impressions, badge, posts, comments and i-Notes. Your Pulse is visible temporarily while it is active.",
+      "All Impressa accounts are public in this version. Other users can see your name, username, bio, profile picture, follower and following counts, impressions, badge, posts (including any audio you attach), comments and i-Notes. Your Pulse is visible temporarily while it is active.",
       "Your phone number and password are never shown to other users. People you have blocked, and people who have blocked you, cannot find or interact with your account.",
     ],
   },
   {
     title: "8. Service providers",
     paragraphs: [
-      "We use trusted providers to run Impressa: MongoDB Atlas stores our database, Cloudinary stores and delivers post photos and videos, and cloud hosting runs our servers. Music previews attached to posts are streamed from a third-party music service. These providers process data only to provide their service to us.",
+      "We use trusted providers to run Impressa: MongoDB Atlas stores our database, Cloudinary stores and delivers post photos, videos and audio, and cloud hosting runs our servers. These providers process data only to provide their service to us.",
       "We do not sell your personal information and we do not share it for advertising. We may disclose information if required by law or to protect the safety of users.",
     ],
   },
@@ -79,7 +89,7 @@ const SECTIONS = [
     title: "10. Retention and deletion",
     paragraphs: [
       "We keep your information while your account exists. You can delete individual posts from your profile at any time.",
-      "To delete your account, go to Profile, open the menu, choose Account Settings and then Delete account. This permanently deletes your profile, posts and their photos and videos, comments, impressions, Pulses, i-Notes, notifications, blocks and follow relationships. Reports about abuse are kept as described above. Backup copies may remain for a limited time before they are overwritten.",
+      "To delete your account, go to Profile, open the menu, choose Account Settings and then Delete account. This permanently deletes your profile, posts and the media attached to them, comments, impressions, Pulses, i-Notes, notifications, blocks and follow relationships. Reports about abuse are kept as described above. Backup copies may remain for a limited time before they are overwritten.",
     ],
     link: { to: "/delete-account-info", label: "How to delete your account" },
   },
@@ -101,7 +111,7 @@ const SECTIONS = [
       "Edit your profile details from your profile page.",
       "Change privacy and notification settings in Privacy and Notifications.",
       "Block or report accounts and posts from their menus.",
-      "Delete your account from Account Settings.",
+      "Delete your posts or your account from inside the app.",
     ],
   },
   {
@@ -145,6 +155,16 @@ function PrivacyPolicy() {
         used and the choices you have. By creating an account you agree to
         it.
       </p>
+
+      <div className="safety-rule">
+        <h3>The short version</h3>
+
+        <ul>
+          {KEY_POINTS.map((point) => (
+            <li key={point}>{point}</li>
+          ))}
+        </ul>
+      </div>
 
       {SECTIONS.map((section) => (
         <div className="safety-rule" key={section.title}>

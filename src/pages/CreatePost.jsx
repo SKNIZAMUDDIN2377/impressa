@@ -28,45 +28,10 @@ const MAX_MEDIA = 10;
 const MAX_VIDEO_MB = 100;
 const UPLOAD_CONCURRENCY = 3;
 
-const musicLibrary = [
-  {
-    id: 1,
-    title: "Golden Hour",
-    artist: "Impressa Sounds",
-    duration: "0:24",
-    audioUrl:
-      "https://res.cloudinary.com/xlf4ww86/video/upload/v1788812409/sound1.mp3",
-  },
-  {
-    id: 2,
-    title: "New Beginning",
-    artist: "Impressa Sounds",
-    duration: "0:21",
-    audioUrl:
-      "https://res.cloudinary.com/xlf4ww86/video/upload/v1788812410/sound2.mp3",
-  },
-  {
-    id: 3,
-    title: "Dream Motion",
-    artist: "Impressa Sounds",
-    duration: "0:27",
-    audioUrl: "",
-  },
-  {
-    id: 4,
-    title: "City Lights",
-    artist: "Impressa Sounds",
-    duration: "0:25",
-    audioUrl: "",
-  },
-  {
-    id: 5,
-    title: "Free Spirit",
-    artist: "Impressa Sounds",
-    duration: "0:23",
-    audioUrl: "",
-  },
-];
+// Audio the user adds from their own phone
+const MAX_AUDIO_MB = 10;
+const MAX_AUDIO_SECONDS = 60;
+const AUDIO_EXTENSIONS = ["mp3", "m4a", "aac", "wav", "ogg"];
 
 const moods = [
   { id: "energetic", emoji: "🔥", name: "Energetic" },
@@ -125,6 +90,7 @@ function CreatePost() {
   const navigate = useNavigate();
 
   const fileInputRef = useRef(null);
+  const audioInputRef = useRef(null);
   const audioRef = useRef(null);
 
   const [media, setMedia] = useState([]);
@@ -138,7 +104,7 @@ function CreatePost() {
 
   // finished Cloudinary uploads (survives retries).
   // photos: "id:version"   videos: "id" (the original is uploaded once,
-  // edits are applied afterwards)
+  // edits are applied afterwards)   audio: "audio:id"
   const uploadedRef = useRef(new Map());
 
   const queueRef = useRef(Promise.resolve());
@@ -151,10 +117,15 @@ function CreatePost() {
 
   const [editingIndex, setEditingIndex] = useState(null);
 
-  const [showMusicLibrary, setShowMusicLibrary] = useState(false);
-  const [musicSearch, setMusicSearch] = useState("");
+  // the user's own audio (chosen from their phone)
   const [selectedMusic, setSelectedMusic] = useState(null);
-  const [playingMusicId, setPlayingMusicId] = useState(null);
+  const [musicPlaying, setMusicPlaying] = useState(false);
+  const [audioRights, setAudioRights] = useState(false);
+  const [audioNotice, setAudioNotice] = useState("");
+
+  const musicRef = useRef(null);
+
+  musicRef.current = selectedMusic;
 
   const [selectedMood, setSelectedMood] = useState(null);
 
@@ -423,67 +394,120 @@ function CreatePost() {
     setEditingIndex(null);
   };
 
-  /* ---------- music ---------- */
+  /* ---------- the user's own audio ---------- */
 
-  const filteredMusic = musicLibrary.filter((track) => {
-    const search = musicSearch.toLowerCase().trim();
+  const openAudioPicker = () => {
+    audioInputRef.current?.click();
+  };
 
-    return (
-      track.title.toLowerCase().includes(search) ||
-      track.artist.toLowerCase().includes(search)
-    );
-  });
+  const handleAudioFile = (event) => {
+    const file = event.target.files?.[0];
 
-  const selectMusic = (track) => {
-    setSelectedMusic(track);
-    setShowMusicLibrary(false);
-    setPlayingMusicId(null);
+    event.target.value = "";
 
-    if (audioRef.current) {
-      audioRef.current.pause();
+    if (!file) return;
+
+    setAudioNotice("");
+
+    const extension = file.name.split(".").pop().toLowerCase();
+
+    const looksLikeAudio =
+      (file.type || "").startsWith("audio/") ||
+      AUDIO_EXTENSIONS.includes(extension);
+
+    if (!looksLikeAudio) {
+      setAudioNotice(
+        "Please choose an audio file (mp3, m4a, aac, wav or ogg)."
+      );
+      return;
     }
+
+    if (file.size > MAX_AUDIO_MB * 1024 * 1024) {
+      setAudioNotice(`Audio must be smaller than ${MAX_AUDIO_MB} MB.`);
+      return;
+    }
+
+    const url = URL.createObjectURL(file);
+
+    const probe = new Audio();
+
+    probe.preload = "metadata";
+
+    probe.onloadedmetadata = () => {
+      if (!(probe.duration <= MAX_AUDIO_SECONDS + 0.5)) {
+        URL.revokeObjectURL(url);
+
+        setAudioNotice(
+          `Audio can be up to ${MAX_AUDIO_SECONDS} seconds long.`
+        );
+
+        return;
+      }
+
+      audioRef.current?.pause();
+
+      setMusicPlaying(false);
+      setAudioRights(false);
+
+      if (musicRef.current?.url) {
+        URL.revokeObjectURL(musicRef.current.url);
+      }
+
+      setSelectedMusic({
+        id: makeId(),
+        file,
+        url,
+        title: file.name.replace(/\.[^.]+$/, "").slice(0, 60),
+        duration: Math.round(probe.duration),
+      });
+    };
+
+    probe.onerror = () => {
+      URL.revokeObjectURL(url);
+
+      setAudioNotice("This audio file can't be played. Try another one.");
+    };
+
+    probe.src = url;
+  };
+
+  const updateMusicTitle = (value) => {
+    setSelectedMusic((previous) =>
+      previous ? { ...previous, title: value.slice(0, 60) } : previous
+    );
+  };
+
+  const toggleMusicPreview = () => {
+    const audio = audioRef.current;
+
+    if (!audio || !selectedMusic) return;
+
+    if (musicPlaying) {
+      audio.pause();
+      setMusicPlaying(false);
+      return;
+    }
+
+    audio.src = selectedMusic.url;
+    audio.currentTime = 0;
+
+    audio
+      .play()
+      .then(() => setMusicPlaying(true))
+      .catch(() => setMusicPlaying(false));
   };
 
   const removeMusic = () => {
+    audioRef.current?.pause();
+
+    if (musicRef.current?.url) {
+      URL.revokeObjectURL(musicRef.current.url);
+    }
+
     setSelectedMusic(null);
-    setPlayingMusicId(null);
-
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
-  };
-
-  const toggleMusicPreview = (track) => {
-    if (!track.audioUrl) {
-      setPlayingMusicId((currentId) =>
-        currentId === track.id ? null : track.id
-      );
-
-      return;
-    }
-
-    if (!audioRef.current) {
-      return;
-    }
-
-    if (playingMusicId === track.id) {
-      audioRef.current.pause();
-      setPlayingMusicId(null);
-
-      return;
-    }
-
-    audioRef.current.src = track.audioUrl;
-    audioRef.current.currentTime = 0;
-
-    audioRef.current
-      .play()
-      .then(() => {
-        setPlayingMusicId(track.id);
-      })
-      .catch(() => {
-        setPlayingMusicId(null);
-      });
+    setMusicPlaying(false);
+    setAudioRights(false);
+    setAudioNotice("");
   };
 
   /* ---------- clear ---------- */
@@ -499,17 +523,18 @@ function CreatePost() {
     setNotice("");
     setActiveIndex(0);
     setEditingIndex(null);
-    setSelectedMusic(null);
-    setShowMusicLibrary(false);
-    setMusicSearch("");
-    setPlayingMusicId(null);
+    removeMusic();
     setSelectedMood(null);
   };
 
   /* ---------- post ---------- */
 
   const handlePost = async () => {
-    if (mediaRef.current.length === 0 || isPostingRef.current) {
+    if (
+      mediaRef.current.length === 0 ||
+      isPostingRef.current ||
+      (musicRef.current && !audioRights)
+    ) {
       return;
     }
 
@@ -521,6 +546,8 @@ function CreatePost() {
     }
 
     const snapshot = mediaRef.current;
+
+    const musicSnapshot = musicRef.current;
 
     const controller = new AbortController();
 
@@ -631,6 +658,37 @@ function CreatePost() {
 
       await runPool(tasks, UPLOAD_CONCURRENCY);
 
+      // ----- the user's own audio -----
+      // (Cloudinary stores audio files under the "video" resource type)
+
+      let musicPayload;
+
+      if (musicSnapshot) {
+        const audioKey = `audio:${musicSnapshot.id}`;
+
+        let audioDone = uploadedRef.current.get(audioKey);
+
+        if (!audioDone) {
+          const uploadedAudio = await uploadWithRetry({
+            file: musicSnapshot.file,
+            filename: musicSnapshot.file.name,
+            resourceType: "video",
+            signature,
+            signal: controller.signal,
+          });
+
+          audioDone = { url: uploadedAudio.url };
+
+          uploadedRef.current.set(audioKey, audioDone);
+        }
+
+        musicPayload = {
+          title: musicSnapshot.title.trim() || "Original audio",
+          artist: "Original audio",
+          audioUrl: audioDone.url,
+        };
+      }
+
       // ----- apply video edits (Cloudinary builds the edited video) -----
 
       const needsVideoWork = plans.some(
@@ -684,14 +742,7 @@ function CreatePost() {
         token,
         media: mediaPayload,
         caption: caption.trim(),
-        music: selectedMusic
-          ? {
-              id: selectedMusic.id,
-              title: selectedMusic.title,
-              artist: selectedMusic.artist,
-              audioUrl: selectedMusic.audioUrl || "",
-            }
-          : undefined,
+        music: musicPayload,
         signal: controller.signal,
       });
 
@@ -706,7 +757,7 @@ function CreatePost() {
       setCaption("");
       setNotice("");
       setActiveIndex(0);
-      setSelectedMusic(null);
+      removeMusic();
       setSelectedMood(null);
       setEditingIndex(null);
       setIsPosting(false);
@@ -752,6 +803,10 @@ function CreatePost() {
       abortRef.current?.abort();
 
       mediaRef.current.forEach(revokeItem);
+
+      if (musicRef.current?.url) {
+        URL.revokeObjectURL(musicRef.current.url);
+      }
     };
   }, []);
 
@@ -1025,17 +1080,20 @@ function CreatePost() {
             <div>
               <div className="music-title-row">
                 <span className="music-symbol">♪</span>
-                <h3>Add Music</h3>
+                <h3>Add Audio</h3>
               </div>
 
-              <p>Add one song to your entire post</p>
+              <p>
+                Add your own audio to this post (up to {MAX_AUDIO_SECONDS}{" "}
+                seconds)
+              </p>
             </div>
 
             {selectedMusic && (
               <button
                 type="button"
                 className="change-music-btn"
-                onClick={() => setShowMusicLibrary(true)}
+                onClick={openAudioPicker}
               >
                 Change
               </button>
@@ -1043,47 +1101,73 @@ function CreatePost() {
           </div>
 
           {selectedMusic ? (
-            <div className="selected-music-card">
-              <div className="music-cover">♪</div>
+            <>
+              <div className="selected-music-card">
+                <div className="music-cover">♪</div>
 
-              <div className="selected-music-info">
-                <strong>{selectedMusic.title}</strong>
-                <span>{selectedMusic.artist}</span>
+                <div className="selected-music-info">
+                  <input
+                    className="audio-title-input"
+                    value={selectedMusic.title}
+                    onChange={(event) =>
+                      updateMusicTitle(event.target.value)
+                    }
+                    maxLength={60}
+                    aria-label="Audio title"
+                  />
+
+                  <span>{selectedMusic.duration}s · your audio</span>
+                </div>
+
+                <button
+                  type="button"
+                  className="music-play-btn"
+                  onClick={toggleMusicPreview}
+                  aria-label={musicPlaying ? "Pause audio" : "Play audio"}
+                >
+                  {musicPlaying ? "Ⅱ" : "▶"}
+                </button>
+
+                <button
+                  type="button"
+                  className="remove-music-btn"
+                  onClick={removeMusic}
+                  aria-label="Remove audio"
+                >
+                  ×
+                </button>
               </div>
 
-              <button
-                type="button"
-                className="music-play-btn"
-                onClick={() => toggleMusicPreview(selectedMusic)}
-              >
-                {playingMusicId === selectedMusic.id ? "Ⅱ" : "▶"}
-              </button>
+              <label className="audio-rights">
+                <input
+                  type="checkbox"
+                  checked={audioRights}
+                  onChange={(event) => setAudioRights(event.target.checked)}
+                />
 
-              <button
-                type="button"
-                className="remove-music-btn"
-                onClick={removeMusic}
-                aria-label="Remove music"
-              >
-                ×
-              </button>
-            </div>
+                <span>
+                  I created this audio or have the right to use it.
+                </span>
+              </label>
+            </>
           ) : (
             <button
               type="button"
               className="add-music-card"
-              onClick={() => setShowMusicLibrary(true)}
+              onClick={openAudioPicker}
             >
               <div className="music-add-icon">♪</div>
 
               <div>
-                <strong>Choose a song</strong>
-                <span>From the Impressa music library</span>
+                <strong>Choose audio from your phone</strong>
+                <span>MP3, M4A or AAC · up to {MAX_AUDIO_MB} MB</span>
               </div>
 
               <span className="music-arrow">›</span>
             </button>
           )}
+
+          {audioNotice && <div className="cp-notice">{audioNotice}</div>}
         </section>
 
         <section className="mood-section">
@@ -1152,94 +1236,17 @@ function CreatePost() {
           <button
             type="button"
             className="post-btn"
-            disabled={media.length === 0 || isPosting}
+            disabled={
+              media.length === 0 ||
+              isPosting ||
+              Boolean(selectedMusic && !audioRights)
+            }
             onClick={handlePost}
           >
             {isPosting ? "Posting..." : "Post on Impressa"}
           </button>
         </div>
       </section>
-
-      {showMusicLibrary && (
-        <div className="music-overlay">
-          <div className="music-panel">
-            <div className="music-panel-header">
-              <div>
-                <span>IMPRESSA</span>
-                <h2>Music Library</h2>
-              </div>
-
-              <button
-                type="button"
-                className="close-music"
-                onClick={() => setShowMusicLibrary(false)}
-                aria-label="Close music library"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="music-search">
-              <span>⌕</span>
-
-              <input
-                type="text"
-                value={musicSearch}
-                onChange={(event) => setMusicSearch(event.target.value)}
-                placeholder="Search songs or artists..."
-              />
-            </div>
-
-            <div className="music-library-list">
-              {filteredMusic.length > 0 ? (
-                filteredMusic.map((track) => (
-                  <div
-                    className={`music-track ${
-                      selectedMusic?.id === track.id ? "selected" : ""
-                    }`}
-                    key={track.id}
-                  >
-                    <div className="track-cover">♪</div>
-
-                    <div className="track-details">
-                      <strong>{track.title}</strong>
-                      <span>{track.artist}</span>
-                    </div>
-
-                    <span className="track-duration">{track.duration}</span>
-
-                    <button
-                      type="button"
-                      className="track-play"
-                      onClick={() => toggleMusicPreview(track)}
-                    >
-                      {playingMusicId === track.id ? "Ⅱ" : "▶"}
-                    </button>
-
-                    <button
-                      type="button"
-                      className="select-track"
-                      onClick={() => selectMusic(track)}
-                    >
-                      {selectedMusic?.id === track.id ? "✓" : "Add"}
-                    </button>
-                  </div>
-                ))
-              ) : (
-                <div className="no-music">
-                  <span>♪</span>
-                  <p>No songs found</p>
-                </div>
-              )}
-            </div>
-
-            <p className="music-library-note">
-              Music available in Impressa will be properly licensed for use
-              on the platform.
-            </p>
-          </div>
-        </div>
-      )}
 
       {editingIndex !== null && media[editingIndex] && (
         <PostEditor
@@ -1334,7 +1341,16 @@ function CreatePost() {
         style={{ display: "none" }}
       />
 
-      <audio ref={audioRef} onEnded={() => setPlayingMusicId(null)} />
+      <input
+        ref={audioInputRef}
+        type="file"
+        accept="audio/*"
+        onChange={handleAudioFile}
+        aria-label="Choose an audio file"
+        style={{ display: "none" }}
+      />
+
+      <audio ref={audioRef} onEnded={() => setMusicPlaying(false)} />
     </main>
   );
 }

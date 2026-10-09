@@ -123,6 +123,182 @@
   line-height: 1.5;
 }
 
+
+/* =========================================================
+   THEME PREVIEWS (locked)
+========================================================= */
+
+.customize-previews {
+  padding: 4px 16px 22px;
+}
+
+.customize-section-head {
+  margin: 0 2px 12px;
+}
+
+.customize-section-head h2 {
+  margin: 0 0 3px;
+  color: var(--cz-ink);
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+
+.customize-section-head p {
+  margin: 0;
+  color: var(--cz-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.customize-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.customize-theme {
+  min-width: 0;
+  padding: 8px 8px 12px;
+  box-sizing: border-box;
+  background: var(--cz-card);
+  border: 1px solid var(--cz-line);
+  border-radius: 20px;
+  cursor: default;
+}
+
+/* ----- the little profile picture ----- */
+
+.customize-preview {
+  position: relative;
+  height: 138px;
+  padding: 14px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  box-sizing: border-box;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--pv-bg);
+}
+
+.pv-avatar {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--pv-accent);
+  box-shadow: 0 0 0 3px var(--pv-panel);
+}
+
+.pv-name {
+  width: 46px;
+  height: 7px;
+  margin-top: 2px;
+  border-radius: 99px;
+  background: var(--pv-ink);
+  opacity: 0.85;
+}
+
+.pv-handle {
+  width: 30px;
+  height: 5px;
+  border-radius: 99px;
+  background: var(--pv-accent);
+}
+
+.pv-stats {
+  width: 84%;
+  height: 20px;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  border-radius: 8px;
+  background: var(--pv-panel);
+}
+
+.pv-stats i {
+  width: 14px;
+  height: 5px;
+  border-radius: 99px;
+  background: var(--pv-ink);
+  opacity: 0.4;
+}
+
+.pv-star {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--pv-panel);
+  color: var(--pv-accent);
+  font-size: 11px;
+  line-height: 1;
+}
+
+/* ----- the lock ----- */
+
+.pv-veil {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 10, 12, 0.34);
+}
+
+.pv-lock {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: rgba(20, 20, 22, 0.78);
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+}
+
+/* ----- name + tag ----- */
+
+.customize-theme-info {
+  margin-top: 10px;
+  padding: 0 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.customize-theme-info h3 {
+  margin: 0;
+  color: var(--cz-ink);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+}
+
+.customize-theme-tag {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--cz-tag-bg);
+  box-shadow: inset 0 0 0 1.5px var(--cz-tag-line);
+  color: var(--cz-orange);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+
+/* =========================================================
+   V2 LIST
+========================================================= */
+
 .customize-list {
   padding: 0 16px 60px;
   display: flex;
@@ -170,4 +346,24 @@
   color: var(--cz-orange);
   font-size: 12px;
   font-weight: 850;
+}
+
+
+/* =========================================================
+   SMALL PHONES
+========================================================= */
+
+@media (max-width: 340px) {
+
+  .customize-grid {
+    gap: 9px;
+  }
+
+  .customize-preview {
+    height: 124px;
+  }
+
+  .customize-hero h1 {
+    font-size: 23px;
+  }
 }

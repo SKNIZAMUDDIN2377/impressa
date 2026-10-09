@@ -1335,7 +1335,10 @@ function Post({ post, priority = false }) {
   async function sharePost() {
     if (!post.id) return;
 
-    const shareUrl = `${window.location.origin}/post/${post.id}`;
+   const publicOrigin =
+  import.meta.env.VITE_PUBLIC_URL || window.location.origin;
+
+const shareUrl = `${publicOrigin.replace(/\/$/, "")}/post/${post.id}`;
 
     const shareData = {
       title: `Impressa • @${post.username}`,

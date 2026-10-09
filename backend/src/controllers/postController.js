@@ -73,6 +73,21 @@ const getCloudinaryPublicId = (url) => {
 // CREATE-POST HELPERS
 // ==========================================
 
+// Audio must live on OUR Cloudinary account, inside our post folder.
+// (Cloudinary stores audio files under the "video" resource type.)
+const isOwnAudioUrl = (url) => {
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+
+  return (
+    Boolean(cloudName) &&
+    typeof url === "string" &&
+    url.startsWith(
+      `https://res.cloudinary.com/${cloudName}/video/upload/`
+    ) &&
+    url.includes(`/${UPLOAD_FOLDER}/`)
+  );
+};
+
 // Music arrives as a JSON string (multipart) or an object (JSON body)
 const parseMusic = (raw) => {
   if (raw === undefined || raw === null || raw === "") {
@@ -93,6 +108,13 @@ const parseMusic = (raw) => {
     return { music: null };
   }
 
+  const audioUrl = String(value.audioUrl || "").slice(0, 500);
+
+  // Only audio uploaded to our own Cloudinary folder is accepted
+  if (!isOwnAudioUrl(audioUrl)) {
+    return { error: true };
+  }
+
   const idNumber = Number(value.id);
 
   return {
@@ -100,7 +122,7 @@ const parseMusic = (raw) => {
       id: Number.isFinite(idNumber) ? idNumber : null,
       title: String(value.title || "").slice(0, 120),
       artist: String(value.artist || "").slice(0, 120),
-      audioUrl: String(value.audioUrl || "").slice(0, 500),
+      audioUrl,
     },
   };
 };
@@ -341,7 +363,7 @@ const createPost = async (req, res) => {
     if (parsedMusic.error) {
       return res.status(400).json({
         success: false,
-        message: "Invalid music data",
+        message: "Invalid audio. Please choose your audio file again.",
       });
     }
 
@@ -424,7 +446,8 @@ const createPost = async (req, res) => {
 
       sharesCount: 0,
     });
-        onPostCreated(req.user.userId);
+
+    onPostCreated(req.user.userId);
 
     // ==========================================
     // GET POST WITH AUTHOR INFORMATION
@@ -715,19 +738,29 @@ const deletePost = async (req, res) => {
 
     await post.deleteOne();
 
-    // Best-effort cleanup of the media stored on Cloudinary.
+    // Best-effort cleanup of the media (and audio) stored on Cloudinary.
     // A failure here never blocks the deletion itself.
-    await Promise.allSettled(
-      (post.media || []).map((item) => {
-        const publicId = getCloudinaryPublicId(item.url);
+    const cleanupJobs = (post.media || []).map((item) => {
+      const publicId = getCloudinaryPublicId(item.url);
 
-        if (!publicId) return Promise.resolve();
+      if (!publicId) return Promise.resolve();
 
-        return cloudinary.uploader.destroy(publicId, {
-          resource_type: item.type === "video" ? "video" : "image",
-        });
-      })
-    );
+      return cloudinary.uploader.destroy(publicId, {
+        resource_type: item.type === "video" ? "video" : "image",
+      });
+    });
+
+    const audioPublicId = getCloudinaryPublicId(post.music?.audioUrl);
+
+    if (audioPublicId) {
+      cleanupJobs.push(
+        cloudinary.uploader.destroy(audioPublicId, {
+          resource_type: "video",
+        })
+      );
+    }
+
+    await Promise.allSettled(cleanupJobs);
 
     res.status(200).json({
       success: true,
